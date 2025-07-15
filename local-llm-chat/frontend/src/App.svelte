@@ -18,12 +18,9 @@
   }
 </script>
 
-<main>
-  <div class="settings-container" class:open={showSettings}>
-    <Settings />
-  </div>
+<main class:settings-open={showSettings}>
   <ChatSessions />
-  <div class="chat-container" class:settings-open={showSettings}>
+  <div class="chat-container">
     <div class="header">
       <i class="fas fa-cog" on:click={() => showSettings = !showSettings}></i>
     </div>
@@ -40,6 +37,9 @@
       <button on:click={sendMessage}>Send</button>
     </div>
   </div>
+  <div class="settings-container">
+    <Settings />
+  </div>
 </main>
 
 <style>
@@ -48,19 +48,14 @@
     background-color: var(--color-canvas-default);
     color: var(--color-fg-default);
     overflow: hidden;
+    height: 100vh;
   }
 
   .chat-container {
+    flex: 1;
     display: flex;
     flex-direction: column;
     height: 100vh;
-    width: calc(100vw - (100vw / 8));
-    transition: width 0.3s ease-in-out;
-    position: relative;
-  }
-
-  .chat-container.settings-open {
-    width: calc(100vw - (100vw / 8) * 2);
   }
 
   .message-list {
@@ -134,19 +129,15 @@
   }
 
   .settings-container {
-    position: fixed;
-    top: 0;
-    right: 0;
-    width: calc(100vw / 8);
-    height: 100%;
-    transform: translateX(100%);
-    transition: transform 0.3s ease-in-out;
-    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
-    z-index: 1;
+    width: 0;
+    transition: width 0.3s ease-in-out;
+    background-color: var(--color-canvas-inset);
+    height: 100vh;
+    overflow: hidden;
   }
 
-  .settings-container.open {
-    transform: translateX(0);
+  main.settings-open .settings-container {
+    width: calc(100vw / 8);
   }
 
 </style>
