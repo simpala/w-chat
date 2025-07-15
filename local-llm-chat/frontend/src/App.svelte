@@ -22,10 +22,8 @@
   <div class="settings-container" class:open={showSettings}>
     <Settings />
   </div>
-  <div class="chat-sessions-container" class:settings-open={showSettings}>
-    <ChatSessions />
-  </div>
-  <div class="chat-container">
+  <ChatSessions />
+  <div class="chat-container" class:settings-open={showSettings}>
     <div class="header">
       <i class="fas fa-cog" on:click={() => showSettings = !showSettings}></i>
     </div>
@@ -56,6 +54,11 @@
     flex-direction: column;
     height: 100vh;
     width: calc(100vw - (100vw / 8));
+    transition: width 0.3s ease-in-out;
+  }
+
+  .chat-container.settings-open {
+    width: calc(100vw - (100vw / 8) * 2);
   }
 
   .message-list {
@@ -130,12 +133,12 @@
   .settings-container {
     position: fixed;
     top: 0;
-    left: 0;
+    right: 0;
     width: calc(100vw / 8);
     height: 100%;
-    transform: translateX(-100%);
+    transform: translateX(100%);
     transition: transform 0.3s ease-in-out;
-    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
     z-index: 1;
   }
 
@@ -143,12 +146,4 @@
     transform: translateX(0);
   }
 
-  .chat-sessions-container {
-    width: calc(100vw / 8);
-    transition: width 0.3s ease-in-out;
-  }
-
-  .chat-sessions-container.settings-open {
-    width: 0;
-  }
 </style>
