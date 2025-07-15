@@ -22,7 +22,9 @@
   <div class="settings-container" class:open={showSettings}>
     <Settings />
   </div>
-  <ChatSessions />
+  <div class="chat-sessions-container" class:settings-open={showSettings}>
+    <ChatSessions />
+  </div>
   <div class="chat-container">
     <div class="header">
       <i class="fas fa-cog" on:click={() => showSettings = !showSettings}></i>
@@ -45,6 +47,8 @@
 <style>
   main {
     display: flex;
+    background-color: var(--color-canvas-default);
+    color: var(--color-fg-default);
   }
 
   .chat-container {
@@ -70,36 +74,38 @@
   }
 
   .message.user {
-    background-color: #007bff;
-    color: white;
+    background-color: var(--color-accent-emphasis);
+    color: var(--color-fg-default);
     align-self: flex-end;
   }
 
   .message.bot {
-    background-color: #f0f0f0;
-    color: black;
+    background-color: var(--color-neutral-subtle);
+    color: var(--color-fg-default);
     align-self: flex-start;
   }
 
   .input-area {
     display: flex;
     padding: 1rem;
-    border-top: 1px solid #ccc;
+    border-top: 1px solid var(--color-border-default);
   }
 
   .input-area input {
     flex: 1;
     padding: 0.5rem;
-    border: 1px solid #ccc;
+    border: 1px solid var(--color-border-default);
     border-radius: 0.5rem;
+    background-color: var(--color-canvas-inset);
+    color: var(--color-fg-default);
   }
 
   .input-area button {
     margin-left: 1rem;
     padding: 0.5rem 1rem;
     border: none;
-    background-color: #007bff;
-    color: white;
+    background-color: var(--color-accent-emphasis);
+    color: var(--color-fg-default);
     border-radius: 0.5rem;
     cursor: pointer;
   }
@@ -108,7 +114,7 @@
     display: flex;
     justify-content: flex-end;
     padding: 0.5rem;
-    border-bottom: 1px solid #ccc;
+    border-bottom: 1px solid var(--color-border-default);
   }
 
   .fa-cog {
@@ -135,5 +141,14 @@
 
   .settings-container.open {
     transform: translateX(0);
+  }
+
+  .chat-sessions-container {
+    width: calc(100vw / 8);
+    transition: width 0.3s ease-in-out;
+  }
+
+  .chat-sessions-container.settings-open {
+    width: 0;
   }
 </style>

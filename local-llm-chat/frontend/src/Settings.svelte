@@ -7,7 +7,8 @@
   .settings-pane {
     width: 100%;
     height: 100%;
-    background-color: #f0f0f0;
+    background-color: var(--color-canvas-inset);
+    color: var(--color-fg-default);
     padding: 1rem;
   }
 </style>
