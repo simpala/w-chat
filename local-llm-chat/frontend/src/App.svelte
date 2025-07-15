@@ -1,4 +1,8 @@
 <script>
+  import Settings from './Settings.svelte';
+  import ChatSessions from './ChatSessions.svelte';
+  let showSettings = false;
+
   let messages = [
     {id: 1, text: 'Hello!', sender: 'bot'},
     {id: 2, text: 'Hi there!', sender: 'user'},
@@ -15,7 +19,12 @@
 </script>
 
 <main>
+  <Settings class:open={showSettings} />
+  <ChatSessions />
   <div class="chat-container">
+    <div class="header">
+      <i class="fas fa-cog" on:click={() => showSettings = !showSettings}></i>
+    </div>
     <div class="message-list">
       {#each messages as message (message.id)}
         <div class="message" class:user={message.sender === 'user'} class:bot={message.sender === 'bot'}>
@@ -24,6 +33,7 @@
       {/each}
     </div>
     <div class="input-area">
+      <i class="fas fa-paperclip"></i>
       <input type="text" bind:value={newMessage} on:keydown={(e) => e.key === 'Enter' && sendMessage()}/>
       <button on:click={sendMessage}>Send</button>
     </div>
@@ -31,11 +41,15 @@
 </main>
 
 <style>
+  main {
+    display: flex;
+  }
+
   .chat-container {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    width: 100vw;
+    width: calc(100vw - (100vw / 8));
   }
 
   .message-list {
@@ -86,5 +100,22 @@
     color: white;
     border-radius: 0.5rem;
     cursor: pointer;
+  }
+
+  .header {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0.5rem;
+    border-bottom: 1px solid #ccc;
+  }
+
+  .fa-cog {
+    cursor: pointer;
+  }
+
+  .fa-paperclip {
+    cursor: pointer;
+    margin-right: 1rem;
+    align-self: center;
   }
 </style>
