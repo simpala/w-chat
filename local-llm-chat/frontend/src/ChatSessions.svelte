@@ -11,9 +11,10 @@
   .chat-sessions-pane {
     width: calc(100vw / 8);
     height: 100vh;
-    background-color: #f0f0f0;
+    background-color: #333;
+    color: white;
     padding: 1rem;
-    border-right: 1px solid #ccc;
+    border-right: 1px solid #444;
   }
 
   ul {
@@ -24,9 +25,10 @@
   li {
     padding: 0.5rem;
     cursor: pointer;
+    border-bottom: 1px solid #444;
   }
 
   li:hover {
-    background-color: #e0e0e0;
+    background-color: #444;
   }
 </style>
