@@ -1,55 +1,52 @@
 <script>
   import { onMount } from 'svelte';
+  import Select from 'svelte-select';
   import { GetModels, LoadConfig, SaveConfig } from '../wailsjs/go/main/App';
 
   let llamaCppDir = '';
   let modelsDir = '';
-  let selectedModel = '';
+  let selectedModel = null;
   let models = [];
-  let filteredModels = [];
-  let modelSearch = '';
 
   onMount(async () => {
     const config = await LoadConfig();
     llamaCppDir = config.llama_cpp_dir || '';
     modelsDir = config.models_dir || '';
-    selectedModel = config.selected_model || '';
+    if (config.selected_model) {
+      selectedModel = {
+        value: config.selected_model,
+        label: config.selected_model.split('/').pop(),
+      };
+    }
     await loadModels();
   });
 
   async function loadModels() {
     if (modelsDir) {
       try {
-        models = await GetModels();
-        filterModels();
+        const modelPaths = await GetModels();
+        models = modelPaths.map((path) => ({
+          value: path,
+          label: path.split('/').pop(),
+        }));
       } catch (error) {
         console.error('Error loading models:', error);
       }
     }
   }
 
-  function filterModels() {
-    if (modelSearch) {
-      filteredModels = models.filter((model) =>
-        model.toLowerCase().includes(modelSearch.toLowerCase())
-      );
-    } else {
-      filteredModels = [];
+  async function handleModelSelect(event) {
+    if (event.detail) {
+      selectedModel = event.detail;
+      await saveSettings();
     }
-  }
-
-  function selectModel(model) {
-    selectedModel = model;
-    modelSearch = '';
-    filterModels();
-    saveSettings();
   }
 
   async function saveSettings() {
     const config = {
       llama_cpp_dir: llamaCppDir,
       models_dir: modelsDir,
-      selected_model: selectedModel,
+      selected_model: selectedModel ? selectedModel.value : '',
     };
     await SaveConfig(config);
   }
@@ -92,23 +89,21 @@
   </div>
   <div class="setting">
     <label for="model-select">Select Model</label>
-    <input
+    <Select
       id="model-select"
-      type="text"
-      bind:value={modelSearch}
-      on:input={filterModels}
-      placeholder="Search for a model..."
+      items={models}
+      bind:value={selectedModel}
+      on:select={handleModelSelect}
+      --sv-input-bg="var(--color-canvas-inset)"
+      --sv-input-border="1px solid var(--color-border-default)"
+      --sv-input-color="var(--color-fg-default)"
+      --sv-item-bg="var(--color-canvas-inset)"
+      --sv-item-color="var(--color-fg-default)"
+      --sv-item-hover-bg="var(--color-neutral-subtle)"
+      --sv-item-hover-color="var(--color-fg-default)"
+      --sv-list-bg="var(--color-canvas-inset)"
+      --sv-list-border="1px solid var(--color-border-default)"
     />
-    {#if filteredModels.length > 0}
-      <ul class="model-dropdown">
-        {#each filteredModels as model}
-          <li on:click={() => selectModel(model)}>{model}</li>
-        {/each}
-      </ul>
-    {/if}
-    {#if selectedModel}
-      <p>Selected: {selectedModel}</p>
-    {/if}
   </div>
 </div>
 
