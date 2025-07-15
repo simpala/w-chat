@@ -93,7 +93,7 @@
   }
 
   .message.user {
-    background-color: var(--color-accent-emphasis);
+    background-color: var(--color-scale-gray-5);
     color: var(--color-fg-default);
     align-self: flex-end;
   }
@@ -137,6 +137,11 @@
   }
 
   .fa-cog {
+    cursor: pointer;
+    margin: 0.5rem;
+  }
+
+  .fa-font {
     cursor: pointer;
     margin: 0.5rem;
   }
