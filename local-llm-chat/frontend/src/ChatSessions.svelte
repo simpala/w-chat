@@ -34,7 +34,7 @@
     {#each sessions as session (session.id)}
       <li>
         <span>{session.name}</span>
-        <i class="fas fa-trash" on:click={() => deleteSession(session.id)}></i>
+        <i class="fas fa-trash" on:click={() => deleteSession(session.id)} on:keydown={() => deleteSession(session.id)} role="button" tabindex="0"></i>
       </li>
     {/each}
   </ul>

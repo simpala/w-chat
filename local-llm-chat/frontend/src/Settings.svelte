@@ -120,22 +120,4 @@
     margin-bottom: 1rem;
   }
 
-  .model-dropdown {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    border: 1px solid var(--color-border-default);
-    border-radius: 0.5rem;
-    max-height: 200px;
-    overflow-y: auto;
-  }
-
-  .model-dropdown li {
-    padding: 0.5rem;
-    cursor: pointer;
-  }
-
-  .model-dropdown li:hover {
-    background-color: var(--color-neutral-subtle);
-  }
 </style>
