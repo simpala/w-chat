@@ -95,7 +95,7 @@
   .message.user {
     background-color: var(--color-scale-gray-5);
     color: var(--color-fg-default);
-    align-self: flex-end;
+    align-self: flex-start;
   }
 
   .message.bot {

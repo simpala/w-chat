@@ -1,6 +1,19 @@
+<script>
+  function changeTheme(event) {
+    document.documentElement.setAttribute('data-theme', event.target.value);
+  }
+</script>
+
 <div class="settings-pane">
   <h2>Settings</h2>
-  <p>Some settings will go here.</p>
+  <div class="setting">
+    <label for="theme-select">Theme</label>
+    <select id="theme-select" on:change={changeTheme}>
+      <option value="github-dark">GitHub Dark</option>
+      <option value="light">Light</option>
+      <option value="dracula">Dracula</option>
+    </select>
+  </div>
 </div>
 
 <style>
