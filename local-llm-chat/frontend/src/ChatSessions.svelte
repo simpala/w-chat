@@ -4,11 +4,14 @@
     {id: 2, name: 'Session 2'},
     {id: 3, name: 'Session 3'},
   ];
+  let showNewSessionInput = false;
+  let newSessionName = '';
 
-  function newSession() {
-    const name = prompt('Enter a name for the new session:');
-    if (name) {
-      sessions = [...sessions, {id: Date.now(), name}];
+  function createNewSession() {
+    if (newSessionName) {
+      sessions = [...sessions, {id: Date.now(), name: newSessionName}];
+      newSessionName = '';
+      showNewSessionInput = false;
     }
   }
 
@@ -19,9 +22,14 @@
 
 <div class="chat-sessions-pane">
   <div class="header">
-    <h2>Chat Sessions</h2>
-    <button on:click={newSession}>New Chat</button>
+    <button on:click={() => showNewSessionInput = !showNewSessionInput}>New Chat</button>
   </div>
+  {#if showNewSessionInput}
+    <div class="new-session-input">
+      <input type="text" bind:value={newSessionName} placeholder="Enter session name" on:keydown={(e) => e.key === 'Enter' && createNewSession()}/>
+      <button on:click={createNewSession}>Create</button>
+    </div>
+  {/if}
   <ul>
     {#each sessions as session (session.id)}
       <li>
@@ -59,7 +67,7 @@
 
   .header {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
     margin-bottom: 1rem;
   }
@@ -80,6 +88,30 @@
   }
 
   .fa-trash {
+    cursor: pointer;
+  }
+
+  .new-session-input {
+    display: flex;
+    margin-bottom: 1rem;
+  }
+
+  .new-session-input input {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.5rem;
+    background-color: var(--color-canvas-inset);
+    color: var(--color-fg-default);
+  }
+
+  .new-session-input button {
+    margin-left: 1rem;
+    padding: 0.5rem 1rem;
+    border: none;
+    background-color: var(--color-accent-emphasis);
+    color: var(--color-fg-default);
+    border-radius: 0.5rem;
     cursor: pointer;
   }
 </style>
