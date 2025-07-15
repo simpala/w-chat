@@ -47,6 +47,7 @@
     display: flex;
     background-color: var(--color-canvas-default);
     color: var(--color-fg-default);
+    overflow: hidden;
   }
 
   .chat-container {
@@ -55,6 +56,7 @@
     height: 100vh;
     width: calc(100vw - (100vw / 8));
     transition: width 0.3s ease-in-out;
+    position: relative;
   }
 
   .chat-container.settings-open {
@@ -122,6 +124,7 @@
 
   .fa-cog {
     cursor: pointer;
+    margin: 0.5rem;
   }
 
   .fa-paperclip {
