@@ -1,7 +1,9 @@
 <script>
   import Settings from './Settings.svelte';
   import ChatSessions from './ChatSessions.svelte';
+  import Artifacts from './Artifacts.svelte';
   let showSettings = false;
+  let showArtifacts = false;
 
   let messages = [
     {id: 1, text: 'Hello!', sender: 'bot'},
@@ -18,10 +20,11 @@
   }
 </script>
 
-<main class:settings-open={showSettings}>
+<main class:settings-open={showSettings} class:artifacts-open={showArtifacts}>
   <ChatSessions />
   <div class="chat-container">
     <div class="header">
+      <i class="fas fa-font" on:click={() => showArtifacts = !showArtifacts}></i>
       <i class="fas fa-cog" on:click={() => showSettings = !showSettings}></i>
     </div>
     <div class="message-list">
@@ -36,6 +39,9 @@
       <input type="text" bind:value={newMessage} on:keydown={(e) => e.key === 'Enter' && sendMessage()}/>
       <button on:click={sendMessage}>Send</button>
     </div>
+  </div>
+  <div class="artifacts-container">
+    <Artifacts />
   </div>
   <div class="settings-container">
     <Settings />
@@ -56,6 +62,19 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
+    transition: width 0.3s ease-in-out;
+  }
+
+  main.settings-open .chat-container {
+    width: calc(100vw - (100vw / 6) * 2);
+  }
+
+  main.artifacts-open .chat-container {
+    width: calc(100vw - (100vw / 3) - (100vw/6));
+  }
+
+  main.settings-open.artifacts-open .chat-container {
+    width: calc(100vw - (100vw / 3) - (100vw/6) * 2);
   }
 
   .message-list {
@@ -137,7 +156,18 @@
   }
 
   main.settings-open .settings-container {
-    width: calc(100vw / 8);
+    width: calc(100vw / 6);
   }
 
+  .artifacts-container {
+    width: 0;
+    transition: width 0.3s ease-in-out;
+    background-color: var(--color-canvas-inset);
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  main.artifacts-open .artifacts-container {
+    width: calc(100vw / 3);
+  }
 </style>

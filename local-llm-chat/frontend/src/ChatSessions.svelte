@@ -9,7 +9,7 @@
 
 <style>
   .chat-sessions-pane {
-    width: calc(100vw / 8);
+    width: calc(100vw / 6);
     height: 100vh;
     background-color: var(--color-canvas-inset);
     color: var(--color-fg-default);
