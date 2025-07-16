@@ -10,13 +10,15 @@
 
   onMount(async () => {
     const config = await LoadConfig();
-    llamaCppDir = config.llama_cpp_dir || '';
-    modelsDir = config.models_dir || '';
-    if (config.selected_model) {
-      selectedModel = {
-        value: config.selected_model,
-        label: config.selected_model.split('/').pop(),
-      };
+    if (config) {
+      llamaCppDir = config.llama_cpp_dir || '';
+      modelsDir = config.models_dir || '';
+      if (config.selected_model) {
+        selectedModel = {
+          value: config.selected_model,
+          label: config.selected_model.split('/').pop(),
+        };
+      }
     }
     await loadModels();
   });

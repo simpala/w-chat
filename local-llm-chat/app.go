@@ -84,7 +84,8 @@ func (a *App) SaveConfig() error {
 // GetModels returns a list of .GGUF models in the models directory
 func (a *App) GetModels() ([]string, error) {
 	var models []string
-	err := filepath.Walk(a.config.ModelsDir, func(path string, info os.FileInfo, err error) error {
+	modelsDir := strings.Trim(a.config.ModelsDir, "\"")
+	err := filepath.Walk(modelsDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
