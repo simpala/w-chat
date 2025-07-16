@@ -85,3 +85,9 @@ func (d *Database) GetChatSessions() ([]ChatSession, error) {
 	}
 	return sessions, nil
 }
+
+// DeleteChatSession deletes a chat session
+func (d *Database) DeleteChatSession(id int64) error {
+	_, err := d.db.Exec("DELETE FROM chat_sessions WHERE id = ?", id)
+	return err
+}

@@ -71,6 +71,11 @@ func (a *App) LoadChatSessions() ([]ChatSession, error) {
 	return a.db.GetChatSessions()
 }
 
+// DeleteChatSession deletes a chat session
+func (a *App) DeleteChatSession(id int64) error {
+	return a.db.DeleteChatSession(id)
+}
+
 // SaveSettings saves the configuration to a JSON file
 func (a *App) SaveSettings(settings string) error {
 	var config Config

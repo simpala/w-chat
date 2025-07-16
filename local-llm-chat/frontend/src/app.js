@@ -7,7 +7,7 @@ import {
     fuse
 } from './modules/settings.js';
 import { launchLLM } from './modules/llm.js';
-import { NewChat, LoadChatSessions } from '../wailsjs/go/main/App';
+import { NewChat, LoadChatSessions, DeleteChatSession } from '../wailsjs/go/main/App';
 
 document.addEventListener('DOMContentLoaded', () => {
     const newChatButton = document.getElementById('newChatButton');
@@ -20,6 +20,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const sessionButton = document.createElement('button');
                 sessionButton.textContent = session.name;
                 sessionButton.dataset.sessionId = session.id;
+                sessionButton.addEventListener('click', (e) => {
+                    if (e.ctrlKey) {
+                        const sessionId = parseInt(sessionButton.dataset.sessionId);
+                        DeleteChatSession(sessionId).then(() => {
+                            loadSessions();
+                        });
+                    }
+                });
                 chatSessionList.appendChild(sessionButton);
             });
         });
