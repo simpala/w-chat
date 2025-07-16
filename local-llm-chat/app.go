@@ -14,6 +14,7 @@ import (
 type App struct {
 	ctx    context.Context
 	config Config
+	db     *Database
 	llmCmd *exec.Cmd // Add this line to store the LLM command
 }
 
@@ -33,6 +34,17 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	db, err := NewDatabase("chat.db")
+	if err != nil {
+		fmt.Println("Error opening database:", err)
+		return
+	}
+	a.db = db
+	err = a.db.Initialize()
+	if err != nil {
+		fmt.Println("Error initializing database:", err)
+		return
+	}
 	settings, err := a.LoadSettings()
 	if err != nil {
 		// Log the error or handle it appropriately
@@ -47,6 +59,11 @@ func (a *App) startup(ctx context.Context) {
 		config.ModelArgs = make(map[string]string)
 	}
 	a.config = config
+}
+
+// NewChat creates a new chat session
+func (a *App) NewChat() (int64, error) {
+	return a.db.NewChatSession()
 }
 
 // SaveSettings saves the configuration to a JSON file

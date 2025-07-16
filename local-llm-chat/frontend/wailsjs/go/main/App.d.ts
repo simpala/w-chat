@@ -7,6 +7,8 @@ export function LaunchLLM(arg1:string):Promise<string>;
 
 export function LoadSettings():Promise<string>;
 
+export function NewChat():Promise<number>;
+
 export function SaveSettings(arg1:string):Promise<void>;
 
 export function ShutdownLLM():Promise<void>;
