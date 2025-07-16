@@ -43,6 +43,8 @@ const uploadArtifactButton = document.getElementById('uploadArtifactButton');
 // New elements for sidebar toggle
 const settingsToggleButton = document.getElementById('settingsToggleButton');
 const rightSidebar = document.querySelector('.sidebar-container.right');
+const artifactsPanel = document.getElementById('artifactsPanel');
+const toggleArtifactsPanelButton = document.getElementById('toggleArtifactsPanel');
 
 let isGenerating = false;
 let isNamingSession = false; // New state variable
@@ -369,6 +371,27 @@ if (settingsToggleButton && rightSidebar) {
     });
 }
 
+if (toggleArtifactsPanelButton && artifactsPanel) {
+    toggleArtifactsPanelButton.addEventListener('click', () => {
+        artifactsPanel.classList.toggle('collapsed');
+        if (artifactsPanel.classList.contains('collapsed')) {
+            toggleArtifactsPanelButton.textContent = '«'; // Open symbol
+            toggleArtifactsPanelButton.title = 'Show Artifacts';
+        } else {
+            toggleArtifactsPanelButton.textContent = '»'; // Close symbol
+            toggleArtifactsPanelButton.title = 'Hide Artifacts';
+        }
+    });
+    // Set initial state of the button text based on if panel starts collapsed (optional)
+    if (artifactsPanel.classList.contains('collapsed')) {
+        toggleArtifactsPanelButton.textContent = '«';
+        toggleArtifactsPanelButton.title = 'Show Artifacts';
+    } else {
+        toggleArtifactsPanelButton.textContent = '»';
+        toggleArtifactsPanelButton.title = 'Hide Artifacts';
+    }
+}
+
 
 function showNotification(message) {
     const notification = document.createElement('div');
@@ -561,10 +584,12 @@ async function populateConfig() {
         if (config.modelFolder) {
             modelPathInput.value = config.modelFolder;
         }
-        if (config.selectedChatModel && config.chatModelArgs) {
+        if (config.selectedChatModel) {
+            chatModelSelectInput.value = config.selectedChatModel;
+        }
+        if (config.chatModelArgs) {
             const chatModelName = config.selectedChatModel.split(/[\\/]/).pop().replace('.gguf', '');
             chatModelArgs.value = config.chatModelArgs[chatModelName] || '';
-            chatModelSelect.value = config.selectedChatModel;
         }
         if (config.selectedSpeculativeMainModel) {
             speculativeMainModelSelect.value = config.selectedSpeculativeMainModel;
@@ -829,14 +854,12 @@ modelPathInput.addEventListener('input', async () => {
             const data = await response.json();
             let selectedSpeculativeMainModel = speculativeMainModelSelect.value;
             let selectedSpeculativeDraftModel = speculativeDraftModelSelect.value;
-            let selectedAgentModel = agentModelSelect.value;
             if (data.modelFiles) {
                 fuse = new Fuse(data.modelFiles, {});
                 updateModelList(data.modelFiles);
                 updateSelectOptions(embeddingModelSelect, data.modelFiles, embeddingModelSelect.value);
                 updateSelectOptions(speculativeMainModelSelect, data.modelFiles, selectedSpeculativeMainModel);
                 updateSelectOptions(speculativeDraftModelSelect, data.modelFiles, selectedSpeculativeDraftModel);
-                updateSelectOptions(agentModelSelect, data.modelFiles, selectedAgentModel);
             }
         } else {
             const errorText = await response.text();
