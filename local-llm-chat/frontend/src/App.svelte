@@ -62,19 +62,18 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
-    transition: width 0.3s ease-in-out;
   }
 
   main.settings-open .chat-container {
-    width: calc(100vw - (100vw / 6) * 2);
+    width: calc(100% - 33.33%);
   }
 
   main.artifacts-open .chat-container {
-    width: calc(100vw - (100vw / 3) - (100vw/6));
+    width: calc(100% - 33.33% - 16.66%);
   }
 
   main.settings-open.artifacts-open .chat-container {
-    width: calc(100vw - (100vw / 3) - (100vw/6) * 2);
+    width: calc(100% - 33.33% - 16.66% * 2);
   }
 
   .message-list {
@@ -154,25 +153,23 @@
 
   .settings-container {
     width: 0;
-    transition: width 0.3s ease-in-out;
     background-color: var(--color-canvas-inset);
     height: 100vh;
     overflow: hidden;
   }
 
   main.settings-open .settings-container {
-    width: calc(100vw / 6);
+    width: 16.66%;
   }
 
   .artifacts-container {
     width: 0;
-    transition: width 0.3s ease-in-out;
     background-color: var(--color-canvas-inset);
     height: 100vh;
     overflow: hidden;
   }
 
   main.artifacts-open .artifacts-container {
-    width: calc(100vw / 3);
+    width: 33.33%;
   }
 </style>

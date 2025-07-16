@@ -66,7 +66,7 @@
   <h2>Settings</h2>
   <div class="setting">
     <label for="theme-select">Theme</label>
-    <select id="theme-select" on:change={changeTheme}>
+    <select id="theme-select" class="themed-select" on:change={changeTheme}>
       <option value="github-dark">GitHub Dark</option>
       <option value="light">Light</option>
       <option value="dracula">Dracula</option>
@@ -142,5 +142,14 @@
     --sv-clear-hover-color: var(--color-fg-default);
     --sv-indicator-color: var(--color-fg-muted);
     --sv-indicator-hover-color: var(--color-fg-default);
+  }
+
+  .themed-select {
+    width: 100%;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    background-color: var(--color-canvas-inset);
+    color: var(--color-fg-default);
+    border: 1px solid var(--color-border-default);
   }
 </style>
