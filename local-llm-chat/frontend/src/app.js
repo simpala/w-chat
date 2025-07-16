@@ -7,7 +7,7 @@ import {
     fuse
 } from './modules/settings.js';
 import { launchLLM } from './modules/llm.js';
-import { NewChat } from '../../wailsjs/go/main/App';
+import { NewChat } from '../wailsjs/go/main/App';
 
 document.addEventListener('DOMContentLoaded', () => {
     const newChatButton = document.getElementById('newChatButton');
