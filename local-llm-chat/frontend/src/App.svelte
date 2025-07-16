@@ -24,8 +24,8 @@
   <ChatSessions />
   <div class="chat-container">
     <div class="header">
-      <i class="fas fa-font" on:click={() => showArtifacts = !showArtifacts}></i>
-      <i class="fas fa-cog" on:click={() => showSettings = !showSettings}></i>
+      <i class="fas fa-font" on:click={() => showArtifacts = !showArtifacts} on:keydown={() => showArtifacts = !showArtifacts} role="button" tabindex="0"></i>
+      <i class="fas fa-cog" on:click={() => showSettings = !showSettings} on:keydown={() => showSettings = !showSettings} role="button" tabindex="0"></i>
     </div>
     <div class="message-list">
       {#each messages as message (message.id)}
