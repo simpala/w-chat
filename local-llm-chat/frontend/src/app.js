@@ -7,20 +7,31 @@ import {
     fuse
 } from './modules/settings.js';
 import { launchLLM } from './modules/llm.js';
-import { NewChat } from '../wailsjs/go/main/App';
+import { NewChat, LoadChatSessions } from '../wailsjs/go/main/App';
 
 document.addEventListener('DOMContentLoaded', () => {
     const newChatButton = document.getElementById('newChatButton');
     const chatSessionList = document.getElementById('chatSessionList');
 
+    function loadSessions() {
+        LoadChatSessions().then(sessions => {
+            chatSessionList.innerHTML = '';
+            sessions.forEach(session => {
+                const sessionButton = document.createElement('button');
+                sessionButton.textContent = session.name;
+                sessionButton.dataset.sessionId = session.id;
+                chatSessionList.appendChild(sessionButton);
+            });
+        });
+    }
+
     newChatButton.addEventListener('click', () => {
-        NewChat().then(sessionId => {
-            const sessionButton = document.createElement('button');
-            sessionButton.textContent = `Chat ${sessionId}`;
-            sessionButton.dataset.sessionId = sessionId;
-            chatSessionList.appendChild(sessionButton);
+        NewChat().then(() => {
+            loadSessions();
         });
     });
+
+    loadSessions();
     const settingsToggleButton = document.getElementById('settingsToggleButton');
     const rightSidebar = document.querySelector('.sidebar-container.right');
     const artifactsPanel = document.getElementById('artifactsPanel');

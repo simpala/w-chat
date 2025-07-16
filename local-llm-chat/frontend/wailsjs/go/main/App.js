@@ -10,6 +10,10 @@ export function LaunchLLM(arg1) {
   return window['go']['main']['App']['LaunchLLM'](arg1);
 }
 
+export function LoadChatSessions() {
+  return window['go']['main']['App']['LoadChatSessions']();
+}
+
 export function LoadSettings() {
   return window['go']['main']['App']['LoadSettings']();
 }

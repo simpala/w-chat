@@ -66,6 +66,11 @@ func (a *App) NewChat() (int64, error) {
 	return a.db.NewChatSession()
 }
 
+// LoadChatSessions loads all chat sessions
+func (a *App) LoadChatSessions() ([]ChatSession, error) {
+	return a.db.GetChatSessions()
+}
+
 // SaveSettings saves the configuration to a JSON file
 func (a *App) SaveSettings(settings string) error {
 	var config Config

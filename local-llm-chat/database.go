@@ -48,6 +48,13 @@ func (d *Database) Initialize() error {
 	return err
 }
 
+// ChatSession struct
+type ChatSession struct {
+	ID        int64  `json:"id"`
+	Name      string `json:"name"`
+	CreatedAt string `json:"created_at"`
+}
+
 // NewChatSession creates a new chat session
 func (d *Database) NewChatSession() (int64, error) {
 	name := fmt.Sprintf("Chat %s", time.Now().Format("2006-01-02 15:04:05"))
@@ -56,4 +63,25 @@ func (d *Database) NewChatSession() (int64, error) {
 		return 0, err
 	}
 	return res.LastInsertId()
+}
+
+// GetChatSessions retrieves all chat sessions
+func (d *Database) GetChatSessions() ([]ChatSession, error) {
+	rows, err := d.db.Query("SELECT id, name, created_at FROM chat_sessions")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sessions []ChatSession
+	for rows.Next() {
+		var session ChatSession
+		var createdAt time.Time
+		if err := rows.Scan(&session.ID, &session.Name, &createdAt); err != nil {
+			return nil, err
+		}
+		session.CreatedAt = createdAt.Format(time.RFC3339)
+		sessions = append(sessions, session)
+	}
+	return sessions, nil
 }
