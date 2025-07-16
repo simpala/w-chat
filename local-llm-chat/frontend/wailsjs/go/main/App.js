@@ -6,14 +6,18 @@ export function GetModels() {
   return window['go']['main']['App']['GetModels']();
 }
 
-export function Greet(arg1) {
-  return window['go']['main']['App']['Greet'](arg1);
+export function LaunchLLM(arg1) {
+  return window['go']['main']['App']['LaunchLLM'](arg1);
 }
 
-export function LoadConfig() {
-  return window['go']['main']['App']['LoadConfig']();
+export function LoadSettings() {
+  return window['go']['main']['App']['LoadSettings']();
 }
 
-export function SaveConfig(arg1) {
-  return window['go']['main']['App']['SaveConfig'](arg1);
+export function SaveSettings(arg1) {
+  return window['go']['main']['App']['SaveSettings'](arg1);
+}
+
+export function ShutdownLLM() {
+  return window['go']['main']['App']['ShutdownLLM']();
 }
