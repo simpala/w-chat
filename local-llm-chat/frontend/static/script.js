@@ -6,9 +6,7 @@ const launchLLMButton = document.getElementById('launchLLMButton');
 const launchEmbedButton = document.getElementById('launchEmbedButton');
 const llamaPathInput = document.getElementById('llamaPathInput');
 const modelPathInput = document.getElementById('modelPathInput');
-const chatModelSelectInput = document.getElementById('chatModelSelectInput');
-const chatModelSelectList = document.getElementById('chatModelSelectList');
-let fuse;
+const chatModelSelect = document.getElementById('chatModelSelect');
 const chatModelArgs = document.getElementById('chatModelArgs');
 const embeddingModelSelect = document.getElementById('embeddingModelSelect');
 const embeddingModelArgs = document.getElementById('embeddingModelArgs');
@@ -43,8 +41,6 @@ const uploadArtifactButton = document.getElementById('uploadArtifactButton');
 // New elements for sidebar toggle
 const settingsToggleButton = document.getElementById('settingsToggleButton');
 const rightSidebar = document.querySelector('.sidebar-container.right');
-const artifactsPanel = document.getElementById('artifactsPanel');
-const toggleArtifactsPanelButton = document.getElementById('toggleArtifactsPanel');
 
 let isGenerating = false;
 let isNamingSession = false; // New state variable
@@ -367,29 +363,9 @@ commandsButton.addEventListener('click', () => {
 
 if (settingsToggleButton && rightSidebar) {
     settingsToggleButton.addEventListener('click', () => {
+        console.log("Settings toggle button clicked");
         rightSidebar.classList.toggle('sidebar-hidden');
     });
-}
-
-if (toggleArtifactsPanelButton && artifactsPanel) {
-    toggleArtifactsPanelButton.addEventListener('click', () => {
-        artifactsPanel.classList.toggle('collapsed');
-        if (artifactsPanel.classList.contains('collapsed')) {
-            toggleArtifactsPanelButton.textContent = '«'; // Open symbol
-            toggleArtifactsPanelButton.title = 'Show Artifacts';
-        } else {
-            toggleArtifactsPanelButton.textContent = '»'; // Close symbol
-            toggleArtifactsPanelButton.title = 'Hide Artifacts';
-        }
-    });
-    // Set initial state of the button text based on if panel starts collapsed (optional)
-    if (artifactsPanel.classList.contains('collapsed')) {
-        toggleArtifactsPanelButton.textContent = '«';
-        toggleArtifactsPanelButton.title = 'Show Artifacts';
-    } else {
-        toggleArtifactsPanelButton.textContent = '»';
-        toggleArtifactsPanelButton.title = 'Hide Artifacts';
-    }
 }
 
 
@@ -584,12 +560,10 @@ async function populateConfig() {
         if (config.modelFolder) {
             modelPathInput.value = config.modelFolder;
         }
-        if (config.selectedChatModel) {
-            chatModelSelectInput.value = config.selectedChatModel;
-        }
-        if (config.chatModelArgs) {
+        if (config.selectedChatModel && config.chatModelArgs) {
             const chatModelName = config.selectedChatModel.split(/[\\/]/).pop().replace('.gguf', '');
             chatModelArgs.value = config.chatModelArgs[chatModelName] || '';
+            chatModelSelect.value = config.selectedChatModel;
         }
         if (config.selectedSpeculativeMainModel) {
             speculativeMainModelSelect.value = config.selectedSpeculativeMainModel;
@@ -854,12 +828,13 @@ modelPathInput.addEventListener('input', async () => {
             const data = await response.json();
             let selectedSpeculativeMainModel = speculativeMainModelSelect.value;
             let selectedSpeculativeDraftModel = speculativeDraftModelSelect.value;
+            let selectedAgentModel = agentModelSelect.value;
             if (data.modelFiles) {
-                fuse = new Fuse(data.modelFiles, {});
-                updateModelList(data.modelFiles);
+                updateSelectOptions(chatModelSelect, data.modelFiles, chatModelSelect.value);
                 updateSelectOptions(embeddingModelSelect, data.modelFiles, embeddingModelSelect.value);
                 updateSelectOptions(speculativeMainModelSelect, data.modelFiles, selectedSpeculativeMainModel);
                 updateSelectOptions(speculativeDraftModelSelect, data.modelFiles, selectedSpeculativeDraftModel);
+                updateSelectOptions(agentModelSelect, data.modelFiles, selectedAgentModel);
             }
         } else {
             const errorText = await response.text();
@@ -871,34 +846,12 @@ modelPathInput.addEventListener('input', async () => {
     }
 });
 
-chatModelSelectInput.addEventListener('input', () => {
-    const searchTerm = chatModelSelectInput.value;
-    if (searchTerm === '') {
-        updateModelList(fuse.getIndex().docs);
-    } else {
-        const results = fuse.search(searchTerm);
-        updateModelList(results.map(result => result.item));
-    }
-    chatModelSelectList.classList.remove('select-hide');
+chatModelSelect.addEventListener('change', async () => {
+    const selectedModel = chatModelSelect.value;
+    const modelArgs = await fetchModelArgs(selectedModel);
+    chatModelArgs.value = modelArgs || '';
+    saveConfig({ selectedChatModel: selectedModel, chatModelArgs: { [selectedModel.split(/[\\/]/).pop().replace('.gguf', '')]: chatModelArgs.value } });
 });
-
-chatModelSelectInput.addEventListener('click', () => {
-    chatModelSelectList.classList.toggle('select-hide');
-});
-
-function updateModelList(models) {
-    chatModelSelectList.innerHTML = '';
-    models.forEach(model => {
-        const div = document.createElement('div');
-        div.textContent = model;
-        div.addEventListener('click', () => {
-            chatModelSelectInput.value = model;
-            chatModelSelectList.classList.add('select-hide');
-            saveConfig({ selectedChatModel: model });
-        });
-        chatModelSelectList.appendChild(div);
-    });
-}
 
 async function fetchModelArgs(modelName) {
     try {
@@ -1127,6 +1080,7 @@ const toggleArtifactsPanelButton = document.getElementById('toggleArtifactsPanel
 // Toggle Artifacts Panel
 if (toggleArtifactsPanelButton && artifactsPanel) {
     toggleArtifactsPanelButton.addEventListener('click', () => {
+        console.log("Artifacts toggle button clicked");
         artifactsPanel.classList.toggle('collapsed');
         if (artifactsPanel.classList.contains('collapsed')) {
             toggleArtifactsPanelButton.textContent = '«'; // Open symbol
@@ -1730,3 +1684,5 @@ async function pollForNewArtifacts() {
 }
 
 // --- END ARTIFACT PANEL CODE ---
+
+[end of local-llm-chat/frontend/static/script.js]
