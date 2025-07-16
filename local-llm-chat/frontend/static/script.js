@@ -1684,4 +1684,24 @@ async function pollForNewArtifacts() {
 
 // --- END ARTIFACT PANEL CODE ---
 
-[end of local-llm-chat/frontend/static/script.js]
+// Toggle Artifacts Panel
+if (toggleArtifactsPanelButton && artifactsPanel) {
+    toggleArtifactsPanelButton.addEventListener('click', () => {
+        artifactsPanel.classList.toggle('collapsed');
+        if (artifactsPanel.classList.contains('collapsed')) {
+            toggleArtifactsPanelButton.textContent = '«'; // Open symbol
+            toggleArtifactsPanelButton.title = 'Show Artifacts';
+        } else {
+            toggleArtifactsPanelButton.textContent = '»'; // Close symbol
+            toggleArtifactsPanelButton.title = 'Hide Artifacts';
+        }
+    });
+    // Set initial state of the button text based on if panel starts collapsed (optional)
+    if (artifactsPanel.classList.contains('collapsed')) {
+        toggleArtifactsPanelButton.textContent = '«';
+        toggleArtifactsPanelButton.title = 'Show Artifacts';
+    } else {
+        toggleArtifactsPanelButton.textContent = '»';
+        toggleArtifactsPanelButton.title = 'Hide Artifacts';
+    }
+}
