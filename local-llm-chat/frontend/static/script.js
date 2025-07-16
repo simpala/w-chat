@@ -363,7 +363,6 @@ commandsButton.addEventListener('click', () => {
 
 if (settingsToggleButton && rightSidebar) {
     settingsToggleButton.addEventListener('click', () => {
-        console.log("Settings toggle button clicked");
         rightSidebar.classList.toggle('sidebar-hidden');
     });
 }
