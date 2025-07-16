@@ -24,11 +24,14 @@
   async function loadModels() {
     if (modelsDir) {
       try {
+        console.log('Loading models from:', modelsDir);
         const modelPaths = await GetModels();
+        console.log('Loaded model paths:', modelPaths);
         models = modelPaths.map((path) => ({
           value: path,
           label: path.split('/').pop(),
         }));
+        console.log('Formatted models:', models);
       } catch (error) {
         console.error('Error loading models:', error);
       }
@@ -118,6 +121,15 @@
 
   .setting {
     margin-bottom: 1rem;
+  }
+
+  input[type="text"] {
+    background-color: var(--color-canvas-inset);
+    color: var(--color-fg-default);
+    border: 1px solid var(--color-border-default);
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+    width: 100%;
   }
 
 </style>
