@@ -6,7 +6,9 @@ const launchLLMButton = document.getElementById('launchLLMButton');
 const launchEmbedButton = document.getElementById('launchEmbedButton');
 const llamaPathInput = document.getElementById('llamaPathInput');
 const modelPathInput = document.getElementById('modelPathInput');
-const chatModelSelect = document.getElementById('chatModelSelect');
+const chatModelSelectInput = document.getElementById('chatModelSelectInput');
+const chatModelSelectList = document.getElementById('chatModelSelectList');
+let fuse;
 const chatModelArgs = document.getElementById('chatModelArgs');
 const embeddingModelSelect = document.getElementById('embeddingModelSelect');
 const embeddingModelArgs = document.getElementById('embeddingModelArgs');
@@ -829,7 +831,8 @@ modelPathInput.addEventListener('input', async () => {
             let selectedSpeculativeDraftModel = speculativeDraftModelSelect.value;
             let selectedAgentModel = agentModelSelect.value;
             if (data.modelFiles) {
-                updateSelectOptions(chatModelSelect, data.modelFiles, chatModelSelect.value);
+                fuse = new Fuse(data.modelFiles, {});
+                updateModelList(data.modelFiles);
                 updateSelectOptions(embeddingModelSelect, data.modelFiles, embeddingModelSelect.value);
                 updateSelectOptions(speculativeMainModelSelect, data.modelFiles, selectedSpeculativeMainModel);
                 updateSelectOptions(speculativeDraftModelSelect, data.modelFiles, selectedSpeculativeDraftModel);
@@ -845,12 +848,34 @@ modelPathInput.addEventListener('input', async () => {
     }
 });
 
-chatModelSelect.addEventListener('change', async () => {
-    const selectedModel = chatModelSelect.value;
-    const modelArgs = await fetchModelArgs(selectedModel);
-    chatModelArgs.value = modelArgs || '';
-    saveConfig({ selectedChatModel: selectedModel, chatModelArgs: { [selectedModel.split(/[\\/]/).pop().replace('.gguf', '')]: chatModelArgs.value } });
+chatModelSelectInput.addEventListener('input', () => {
+    const searchTerm = chatModelSelectInput.value;
+    if (searchTerm === '') {
+        updateModelList(fuse.getIndex().docs);
+    } else {
+        const results = fuse.search(searchTerm);
+        updateModelList(results.map(result => result.item));
+    }
+    chatModelSelectList.classList.remove('select-hide');
 });
+
+chatModelSelectInput.addEventListener('click', () => {
+    chatModelSelectList.classList.toggle('select-hide');
+});
+
+function updateModelList(models) {
+    chatModelSelectList.innerHTML = '';
+    models.forEach(model => {
+        const div = document.createElement('div');
+        div.textContent = model;
+        div.addEventListener('click', () => {
+            chatModelSelectInput.value = model;
+            chatModelSelectList.classList.add('select-hide');
+            saveConfig({ selectedChatModel: model });
+        });
+        chatModelSelectList.appendChild(div);
+    });
+}
 
 async function fetchModelArgs(modelName) {
     try {

@@ -8,6 +8,7 @@
     <link href="/static/styles.css" rel="stylesheet"/>
     <script src="/static/marked.min.js"></script>
     <script src="/static/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.min.js"></script>
 </head>
 <body>
 <div class="settings-toggle-container">
@@ -49,36 +50,14 @@
         </div>
     </div>
     <div class="sidebar-container right sidebar-hidden">
-        <input id="llamaPathInput" placeholder="Llama Server Path" type="text"/>
+            <input type="text" id="llamaPathInput" placeholder="Llama.cpp directory">
         <input id="modelPathInput" placeholder="Model Folder Path" type="text"/>
-        <select id="chatModelSelect"></select>
+        <div class="custom-select">
+            <input type="text" id="chatModelSelectInput" placeholder="Select Model...">
+            <div id="chatModelSelectList" class="select-items select-hide"></div>
+        </div>
         <textarea id="chatModelArgs" placeholder="Chat Model Arguments..."></textarea>
         <button id="launchLLMButton">Launch LLM Model</button>
-        <div class="slider-container">
-            <label for="chunkSizeSlider">Chunk Size</label>
-            <input id="chunkSizeSlider" min="32" max="1024" type="range" value="128">
-        </div>
-        <div class="flex-align-center">
-            <label for="streamingEnabled">Enable Streaming:</label>
-            <input id="streamingEnabled" type="checkbox"/>
-        </div>
-        <div class="flex-align-center">
-            <label for="speculativeEnabled">Enable Speculative Decoding:</label>
-            <input id="speculativeEnabled" type="checkbox"/>
-        </div>
-        <div class="flex-align-center">
-            <label for="usePreprocessor">Enable Preprocessor:</label>
-            <input id="usePreprocessor" type="checkbox"/>
-        </div>
-        <div class="flex-align-center">
-            <label for="dedicatedAgentEnabled">Enable Dedicated Agent:</label>
-            <input id="dedicatedAgentEnabled" type="checkbox"/>
-        </div>
-        <div class="agent-element">
-            <select id="agentModelSelect"></select>
-            <textarea id="agentModelArgs" placeholder="Agent Model Arguments..."></textarea>
-            <button id="launchAgentButton">Launch Agent Model</button>
-        </div>
         <div class="speculative-element">
             <div class="margin-bottom">
                 <label for="speculativeMainModelSelect">-m:</label>
@@ -90,18 +69,6 @@
             </div>
             <textarea id="speculativeModelArgs" placeholder="Speculative Model Arguments..."></textarea>
             <button id="launchSpeculativeButton">Launch Speculative Model</button>
-        </div>
-        <div class="rag-controls">
-            <div class="flex-align-center">
-                <label for="ragEnabled">Enable RAG:</label>
-                <input id="ragEnabled" type="checkbox"/>
-            </div>
-            <div class="rag-element">
-                <select id="embeddingModelSelect"></select>
-                <textarea id="embeddingModelArgs" placeholder="Embedding Model Arguments..."></textarea>
-                <button id="launchEmbedButton">Launch Embedding Model</button>
-                <p class="italic-small">RAG is enabled, application will use data in /data/data.txt</p>
-            </div>
         </div>
     </div>
 </div>

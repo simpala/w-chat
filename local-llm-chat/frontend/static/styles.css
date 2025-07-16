@@ -203,6 +203,38 @@ body {
     background-color: #5a5a5a;
 }
 
+.custom-select {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+}
+
+.select-items {
+    position: absolute;
+    background-color: #333;
+    border: 1px solid #444;
+    z-index: 99;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.select-hide {
+    display: none;
+}
+
+.select-items div {
+    color: #d4d4d4;
+    padding: 10px;
+    cursor: pointer;
+}
+
+.select-items div:hover {
+    background-color: #4a4a4a;
+}
+
 /* Style for the session list container */
 #chatSessionList {
     margin-bottom: 10px;
