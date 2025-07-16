@@ -4,11 +4,7 @@
     <meta charset="UTF-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title>Local LLM Chat</title>
-    <link href="/static/styles/github-dark.min.css" rel="stylesheet"/>
     <link href="/static/styles.css" rel="stylesheet"/>
-    <script src="/static/marked.min.js"></script>
-    <script src="/static/highlight.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/fuse.js/dist/fuse.min.js"></script>
 </head>
 <body>
 <div class="settings-toggle-container">
@@ -50,7 +46,7 @@
         </div>
     </div>
     <div class="sidebar-container right sidebar-hidden">
-            <input type="text" id="llamaPathInput" placeholder="Llama.cpp directory">
+        <input id="llamaPathInput" placeholder="Llama.cpp directory" type="text">
         <input id="modelPathInput" placeholder="Model Folder Path" type="text"/>
         <div class="custom-select">
             <input type="text" id="chatModelSelectInput" placeholder="Select Model...">
