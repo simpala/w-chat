@@ -110,6 +110,10 @@
       --sv-list-bg="var(--color-canvas-inset)"
       --sv-list-border="1px solid var(--color-border-default)"
       --sv-placeholder-color="var(--color-fg-subtle)"
+      --sv-clear-color="var(--color-fg-muted)"
+      --sv-clear-hover-color="var(--color-fg-default)"
+      --sv-indicator-color="var(--color-fg-muted)"
+      --sv-indicator-hover-color="var(--color-fg-default)"
     />
   </div>
 </div>
