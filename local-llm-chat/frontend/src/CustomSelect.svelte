@@ -34,16 +34,20 @@
       filteredItems = fuse.search(searchTerm).map((result) => result.item);
     }
   }
+
+  function handleFocus() {
+    open = true;
+  }
 </script>
 
-<div class="custom-select" on:blur={() => open = false}>
+<div class="custom-select" tabindex="0" on:blur={() => open = false}>
   <div class="selected-item" on:click={() => open = !open} on:keydown={() => {}}>
     {value ? value.label : 'Select...'}
     <i class="fas fa-chevron-down"></i>
   </div>
   {#if open}
     <div class="items">
-      <input type="text" bind:value={searchTerm} on:input={handleInput} on:focus={() => open = true} on:click|stopPropagation={() => {}} placeholder="Search..." />
+      <input type="text" bind:value={searchTerm} on:input={handleInput} on:focus={handleFocus} placeholder="Search..." />
       {#each filteredItems as item (item.value)}
         <div class="item" on:click={() => select(item)} on:keydown={() => {}}>
           {item.label}
