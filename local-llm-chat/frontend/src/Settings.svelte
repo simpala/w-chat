@@ -64,60 +64,45 @@
 
 <div class="settings-pane">
   <h2>Settings</h2>
-  <div class="setting">
-    <label for="theme-select">Theme</label>
-    <select id="theme-select" class="themed-select" on:change={changeTheme}>
-      <option value="github-dark">GitHub Dark</option>
-      <option value="light">Light</option>
-      <option value="dracula">Dracula</option>
-    </select>
-  </div>
-  <div class="setting">
-    <label for="llama-cpp-dir">Llama.cpp Directory</label>
-    <input
-      id="llama-cpp-dir"
-      type="text"
-      bind:value={llamaCppDir}
-      on:blur={saveSettings}
-    />
-  </div>
-  <div class="setting">
-    <label for="models-dir">Models Directory</label>
-    <input
-      id="models-dir"
-      type="text"
-      bind:value={modelsDir}
-      on:blur={() => {
-        saveSettings();
-        loadModels();
-      }}
-    />
-  </div>
-  <div class="setting">
-    <label for="model-select">Select Model</label>
-    <Select
-      class="themed"
-      id="model-select"
-      items={models}
-      bind:value={selectedModel}
-      on:select={handleModelSelect}
-    />
-  </div>
+  <label for="theme-select">Theme</label>
+  <select id="theme-select" class="themed-select" on:change={changeTheme}>
+    <option value="github-dark">GitHub Dark</option>
+    <option value="light">Light</option>
+    <option value="dracula">Dracula</option>
+  </select>
+  <label for="llama-cpp-dir">Llama.cpp Directory</label>
+  <input
+    id="llama-cpp-dir"
+    type="text"
+    bind:value={llamaCppDir}
+    on:blur={saveSettings}
+  />
+  <label for="models-dir">Models Directory</label>
+  <input
+    id="models-dir"
+    type="text"
+    bind:value={modelsDir}
+    on:blur={() => {
+      saveSettings();
+      loadModels();
+    }}
+  />
+  <label for="model-select">Select Model</label>
+  <Select
+    class="themed"
+    id="model-select"
+    items={models}
+    bind:value={selectedModel}
+    on:select={handleModelSelect}
+  />
 </div>
 
 <style>
   .settings-pane {
-    width: 100%;
-    height: 100%;
-    background-color: var(--color-canvas-inset);
-    color: var(--color-fg-default);
-    padding: 1rem;
-    max-width: 100%;
-    overflow-wrap: break-word;
-  }
-
-  .setting {
-    margin-bottom: 1rem;
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    grid-gap: 1rem;
+    align-items: center;
   }
 
   input[type="text"] {
@@ -127,6 +112,7 @@
     border-radius: 0.5rem;
     padding: 0.5rem;
     width: 100%;
+    overflow-wrap: break-word;
   }
 
   .themed-select {
@@ -136,6 +122,7 @@
     background-color: var(--color-canvas-inset);
     color: var(--color-fg-default);
     border: 1px solid var(--color-border-default);
+    overflow-wrap: break-word;
   }
 
   :global(.themed) {
