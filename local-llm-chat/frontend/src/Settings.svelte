@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import CustomSelect from './CustomSelect.svelte';
+  import Select from 'svelte-select';
   import { GetModels, LoadConfig, SaveConfig } from '../wailsjs/go/main/App';
 
   let llamaCppDir = '';
@@ -47,12 +47,6 @@
     }
   }
 
-  function handleThemeSelect(event) {
-    if (event.detail) {
-      document.documentElement.setAttribute('data-theme', event.detail.value);
-    }
-  }
-
   async function saveSettings() {
     const config = {
       llama_cpp_dir: llamaCppDir,
@@ -62,21 +56,21 @@
     console.log('Saving config:', config);
     await SaveConfig(config);
   }
+
+  function changeTheme(event) {
+    document.documentElement.setAttribute('data-theme', event.target.value);
+  }
 </script>
 
 <div class="settings-pane">
   <h2>Settings</h2>
   <div class="setting">
     <label for="theme-select">Theme</label>
-    <CustomSelect
-      id="theme-select"
-      items={[
-        { value: 'github-dark', label: 'GitHub Dark' },
-        { value: 'light', label: 'Light' },
-        { value: 'dracula', label: 'Dracula' },
-      ]}
-      on:select={handleThemeSelect}
-    />
+    <select id="theme-select" class="themed-select" on:change={changeTheme}>
+      <option value="github-dark">GitHub Dark</option>
+      <option value="light">Light</option>
+      <option value="dracula">Dracula</option>
+    </select>
   </div>
   <div class="setting">
     <label for="llama-cpp-dir">Llama.cpp Directory</label>
@@ -101,7 +95,8 @@
   </div>
   <div class="setting">
     <label for="model-select">Select Model</label>
-    <CustomSelect
+    <Select
+      class="themed"
       id="model-select"
       items={models}
       bind:value={selectedModel}
@@ -132,7 +127,15 @@
     border-radius: 0.5rem;
     padding: 0.5rem;
     width: 100%;
-    box-sizing: border-box;
+  }
+
+  .themed-select {
+    width: 100%;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    background-color: var(--color-canvas-inset);
+    color: var(--color-fg-default);
+    border: 1px solid var(--color-border-default);
   }
 
   :global(.themed) {
