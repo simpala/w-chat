@@ -96,24 +96,11 @@
   <div class="setting">
     <label for="model-select">Select Model</label>
     <Select
+      class="themed"
       id="model-select"
       items={models}
       bind:value={selectedModel}
       on:select={handleModelSelect}
-      --sv-input-bg="var(--color-canvas-inset)"
-      --sv-input-border="1px solid var(--color-border-default)"
-      --sv-input-color="var(--color-fg-default)"
-      --sv-item-bg="var(--color-canvas-inset)"
-      --sv-item-color="var(--color-fg-default)"
-      --sv-item-hover-bg="var(--color-neutral-subtle)"
-      --sv-item-hover-color="var(--color-fg-default)"
-      --sv-list-bg="var(--color-canvas-inset)"
-      --sv-list-border="1px solid var(--color-border-default)"
-      --sv-placeholder-color="var(--color-fg-subtle)"
-      --sv-clear-color="var(--color-fg-muted)"
-      --sv-clear-hover-color="var(--color-fg-default)"
-      --sv-indicator-color="var(--color-fg-muted)"
-      --sv-indicator-hover-color="var(--color-fg-default)"
     />
   </div>
 </div>
@@ -140,4 +127,20 @@
     width: 100%;
   }
 
+  :global(.themed) {
+    --sv-input-bg: var(--color-canvas-inset);
+    --sv-input-border: 1px solid var(--color-border-default);
+    --sv-input-color: var(--color-fg-default);
+    --sv-item-bg: var(--color-canvas-inset);
+    --sv-item-color: var(--color-fg-default);
+    --sv-item-hover-bg: var(--color-neutral-subtle);
+    --sv-item-hover-color: var(--color-fg-default);
+    --sv-list-bg: var(--color-canvas-inset);
+    --sv-list-border: 1px solid var(--color-border-default);
+    --sv-placeholder-color: var(--color-fg-subtle);
+    --sv-clear-color: var(--color-fg-muted);
+    --sv-clear-hover-color: var(--color-fg-default);
+    --sv-indicator-color: var(--color-fg-muted);
+    --sv-indicator-hover-color: var(--color-fg-default);
+  }
 </style>

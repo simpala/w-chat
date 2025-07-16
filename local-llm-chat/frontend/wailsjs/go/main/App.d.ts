@@ -6,6 +6,6 @@ export function GetModels():Promise<Array<string>>;
 
 export function Greet(arg1:string):Promise<string>;
 
-export function LoadConfig():Promise<void>;
+export function LoadConfig():Promise<main.Config>;
 
 export function SaveConfig(arg1:main.Config):Promise<void>;

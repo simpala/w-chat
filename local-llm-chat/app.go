@@ -30,10 +30,13 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	err := a.LoadConfig()
+	config, err := a.LoadConfig()
 	if err != nil {
 		// Log the error or handle it appropriately
 		fmt.Println("Error loading config:", err)
+	}
+	if config != nil {
+		a.config = *config
 	}
 }
 
@@ -43,25 +46,29 @@ func (a *App) Greet(name string) string {
 }
 
 // LoadConfig loads the configuration from a JSON file
-func (a *App) LoadConfig() error {
+func (a *App) LoadConfig() (*Config, error) {
 	file, err := os.Open("config.json")
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Create a default config if the file doesn't exist
 			a.config = Config{}
-			return a.SaveConfig(a.config)
+			err := a.SaveConfig(a.config)
+			if err != nil {
+				return nil, err
+			}
+			return &a.config, nil
 		}
-		return err
+		return nil, err
 	}
 	defer file.Close()
 
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&a.config)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &a.config, nil
 }
 
 // SaveConfig saves the configuration to a JSON file
