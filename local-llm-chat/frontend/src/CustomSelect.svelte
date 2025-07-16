@@ -36,14 +36,14 @@
   }
 </script>
 
-<div class="custom-select">
+<div class="custom-select" on:blur={() => open = false}>
   <div class="selected-item" on:click={() => open = !open} on:keydown={() => {}}>
     {value ? value.label : 'Select...'}
     <i class="fas fa-chevron-down"></i>
   </div>
   {#if open}
     <div class="items">
-      <input type="text" bind:value={searchTerm} on:input={handleInput} placeholder="Search..." />
+      <input type="text" bind:value={searchTerm} on:input={handleInput} on:focus={() => open = true} on:click|stopPropagation={() => {}} placeholder="Search..." />
       {#each filteredItems as item (item.value)}
         <div class="item" on:click={() => select(item)} on:keydown={() => {}}>
           {item.label}
@@ -100,5 +100,6 @@
     border-bottom: 1px solid var(--color-border-default);
     background-color: var(--color-canvas-inset);
     color: var(--color-fg-default);
+    box-sizing: border-box;
   }
 </style>

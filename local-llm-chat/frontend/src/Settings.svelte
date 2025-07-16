@@ -118,6 +118,8 @@
     color: var(--color-fg-default);
     padding: 1rem;
     word-wrap: break-word;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   .setting {
