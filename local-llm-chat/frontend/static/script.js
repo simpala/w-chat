@@ -1660,7 +1660,7 @@ async function pollForNewArtifacts() {
         if (!selectedSessionButton) return; // No active session
         const sessionId = selectedSessionButton.dataset.sessionId;
 
-        for (const name of artifactNames) {
+        for (const name in artifactNames) {
             if (!existingArtifacts.has(name)) {
                 const ext = name.split('.').pop().toLowerCase();
                 let type = 'file';
