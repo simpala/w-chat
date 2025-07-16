@@ -1,27 +1,50 @@
 <script>
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
+  import Fuse from 'fuse.js';
 
   export let items = [];
   export let value = null;
 
   let open = false;
+  let searchTerm = '';
+  let filteredItems = [];
+  let fuse;
+
   const dispatch = createEventDispatcher();
+
+  onMount(() => {
+    fuse = new Fuse(items, {
+      keys: ['label'],
+      includeScore: true,
+    });
+    filteredItems = items;
+  });
 
   function select(item) {
     value = item;
     open = false;
     dispatch('select', item);
   }
+
+  function handleInput(e) {
+    searchTerm = e.target.value;
+    if (searchTerm === '') {
+      filteredItems = items;
+    } else {
+      filteredItems = fuse.search(searchTerm).map((result) => result.item);
+    }
+  }
 </script>
 
-<div class="custom-select" on:click={() => open = !open} on:keydown={() => {}}>
-  <div class="selected-item">
+<div class="custom-select">
+  <div class="selected-item" on:click={() => open = !open} on:keydown={() => {}}>
     {value ? value.label : 'Select...'}
     <i class="fas fa-chevron-down"></i>
   </div>
   {#if open}
     <div class="items">
-      {#each items as item (item.value)}
+      <input type="text" bind:value={searchTerm} on:input={handleInput} placeholder="Search..." />
+      {#each filteredItems as item (item.value)}
         <div class="item" on:click={() => select(item)} on:keydown={() => {}}>
           {item.label}
         </div>
@@ -68,5 +91,14 @@
 
   .item:hover {
     background-color: var(--color-neutral-subtle);
+  }
+
+  input[type="text"] {
+    width: 100%;
+    padding: 0.5rem;
+    border: none;
+    border-bottom: 1px solid var(--color-border-default);
+    background-color: var(--color-canvas-inset);
+    color: var(--color-fg-default);
   }
 </style>

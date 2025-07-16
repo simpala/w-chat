@@ -117,6 +117,7 @@
     background-color: var(--color-canvas-inset);
     color: var(--color-fg-default);
     padding: 1rem;
+    word-wrap: break-word;
   }
 
   .setting {
