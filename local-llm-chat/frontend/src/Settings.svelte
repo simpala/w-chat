@@ -53,6 +53,7 @@
       models_dir: modelsDir,
       selected_model: selectedModel ? selectedModel.value : '',
     };
+    console.log('Saving config:', config);
     await SaveConfig(config);
   }
 

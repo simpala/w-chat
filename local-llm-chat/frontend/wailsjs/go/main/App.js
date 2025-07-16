@@ -14,6 +14,6 @@ export function LoadConfig() {
   return window['go']['main']['App']['LoadConfig']();
 }
 
-export function SaveConfig() {
-  return window['go']['main']['App']['SaveConfig']();
+export function SaveConfig(arg1) {
+  return window['go']['main']['App']['SaveConfig'](arg1);
 }

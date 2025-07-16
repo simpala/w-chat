@@ -49,7 +49,7 @@ func (a *App) LoadConfig() error {
 		if os.IsNotExist(err) {
 			// Create a default config if the file doesn't exist
 			a.config = Config{}
-			return a.SaveConfig()
+			return a.SaveConfig(a.config)
 		}
 		return err
 	}
@@ -65,7 +65,8 @@ func (a *App) LoadConfig() error {
 }
 
 // SaveConfig saves the configuration to a JSON file
-func (a *App) SaveConfig() error {
+func (a *App) SaveConfig(config Config) error {
+	a.config = config
 	file, err := os.Create("config.json")
 	if err != nil {
 		return err
