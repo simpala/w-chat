@@ -109,6 +109,7 @@
       --sv-item-hover-color="var(--color-fg-default)"
       --sv-list-bg="var(--color-canvas-inset)"
       --sv-list-border="1px solid var(--color-border-default)"
+      --sv-placeholder-color="var(--color-fg-subtle)"
     />
   </div>
 </div>
