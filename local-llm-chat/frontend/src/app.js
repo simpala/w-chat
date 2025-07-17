@@ -125,26 +125,42 @@ document.addEventListener('DOMContentLoaded', () => {
                     sessionButton.dataset.sessionId = session.id;
                     sessionButton.addEventListener('click', (e) => {
                         e.preventDefault();
+                        const sessionId = parseInt(sessionButton.dataset.sessionId);
                         if (e.ctrlKey) {
-                            const sessionId = parseInt(sessionButton.dataset.sessionId);
                             DeleteChatSession(sessionId).then(() => {
+                                if (currentSessionId === sessionId) {
+                                    currentSessionId = null;
+                                    messages = [];
+                                    renderMessages();
+                                }
                                 loadSessions();
                             });
                         } else {
-                            currentSessionId = parseInt(sessionButton.dataset.sessionId);
-                            console.log("Loading history for session:", currentSessionId);
-                            LoadChatHistory(currentSessionId).then(history => {
-                                console.log("History loaded:", history);
-                                messages = history.map(m => ({ role: m.Role, content: m.Content }));
-                                renderMessages();
-                            }).catch(error => {
-                                console.error("Error loading chat history:", error);
-                            });
+                            switchSession(sessionId);
                         }
                     });
                     chatSessionList.appendChild(sessionButton);
                 });
             }
+        });
+    }
+
+    function switchSession(sessionId) {
+        if (isStreaming) {
+            console.log("Cannot switch session while streaming.");
+            return;
+        }
+        currentSessionId = sessionId;
+        console.log("Loading history for session:", currentSessionId);
+        LoadChatHistory(currentSessionId).then(history => {
+            console.log("History loaded:", history);
+            messages = history.map(m => ({
+                role: m.Role,
+                content: m.Content
+            }));
+            renderMessages();
+        }).catch(error => {
+            console.error("Error loading chat history:", error);
         });
     }
 
@@ -191,7 +207,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     stopButton.addEventListener('click', (e) => {
         e.preventDefault();
-        StopStream();
+        if (currentSessionId) {
+            StopStream(currentSessionId);
+        }
     });
 
     newChatButton.addEventListener('click', (e) => {
