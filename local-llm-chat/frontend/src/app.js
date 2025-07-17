@@ -150,6 +150,10 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log("Cannot switch session while streaming.");
             return;
         }
+        if (currentSessionId === sessionId) {
+            console.log("Session already active.");
+            return;
+        }
         currentSessionId = sessionId;
         console.log("Loading history for session:", currentSessionId);
         LoadChatHistory(currentSessionId).then(history => {
@@ -159,8 +163,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 content: m.Content
             }));
             renderMessages();
+            updateActiveSessionButton();
         }).catch(error => {
             console.error("Error loading chat history:", error);
+        });
+    }
+
+    function updateActiveSessionButton() {
+        const sessionButtons = document.querySelectorAll('#chatSessionList button');
+        sessionButtons.forEach(button => {
+            if (parseInt(button.dataset.sessionId) === currentSessionId) {
+                button.classList.add('active');
+            } else {
+                button.classList.remove('active');
+            }
         });
     }
 
@@ -215,9 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
     newChatButton.addEventListener('click', (e) => {
         e.preventDefault();
         NewChat().then((newId) => {
-            currentSessionId = newId;
-            messages = [];
-            renderMessages();
+            switchSession(newId);
             loadSessions();
         }).catch(error => {
             console.error("Error creating new chat:", error);
