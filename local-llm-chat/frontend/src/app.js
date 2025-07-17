@@ -131,6 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const offStream = EventsOn("chat-stream", function(data) {
             if (data === null) {
+                isStreaming = false;
                 sendButton.style.display = 'block';
                 stopButton.style.display = 'none';
                 offStream();
@@ -138,7 +139,36 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             assistantResponse += data;
             messages[messages.length - 1].content = assistantResponse;
-            renderMessages();
+
+            const lastMessageBubble = chatWindow.lastChild;
+            lastMessageBubble.innerHTML = '';
+
+            const parsedParts = parseStreamedContent(assistantResponse);
+            parsedParts.forEach(part => {
+                const partContainer = document.createElement('div');
+
+                if (part.type === 'thought') {
+                    const detailsElement = document.createElement('details');
+                    detailsElement.classList.add('thought-block');
+                    const summaryElement = document.createElement('summary');
+                    summaryElement.classList.add('thought-summary');
+                    summaryElement.innerHTML = '<span class="inline-block mr-2">💡</span>Thinking Process';
+                    const contentElement = document.createElement('p');
+                    contentElement.classList.add('thought-content');
+                    contentElement.textContent = part.content;
+                    detailsElement.appendChild(summaryElement);
+                    detailsElement.appendChild(contentElement);
+                    partContainer.appendChild(detailsElement);
+                } else {
+                    const markdownDiv = document.createElement('div');
+                    markdownDiv.classList.add('markdown-content');
+                    markdownDiv.innerHTML = marked.parse(part.content);
+                    partContainer.appendChild(markdownDiv);
+                }
+                lastMessageBubble.appendChild(partContainer);
+            });
+
+            scrollToBottom();
         });
 
         sendMessage(currentSessionId, messageContent).catch(error => {
