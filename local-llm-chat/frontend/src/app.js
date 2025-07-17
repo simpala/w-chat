@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const stopButton = document.getElementById('stopButton');
     const chatWindow = document.querySelector('.messages-container');
 
-    let currentSessionId = null;
+    let currentSessionId = localStorage.getItem('currentSessionId') || null;
     let messages = [];
     let isStreaming = false;
 
@@ -125,25 +125,64 @@ document.addEventListener('DOMContentLoaded', () => {
                     sessionButton.dataset.sessionId = session.id;
                     sessionButton.addEventListener('click', (e) => {
                         e.preventDefault();
+                        const sessionId = parseInt(sessionButton.dataset.sessionId);
                         if (e.ctrlKey) {
-                            const sessionId = parseInt(sessionButton.dataset.sessionId);
                             DeleteChatSession(sessionId).then(() => {
+                                if (currentSessionId === sessionId) {
+                                    currentSessionId = null;
+                                    messages = [];
+                                    renderMessages();
+                                }
                                 loadSessions();
                             });
                         } else {
-                            currentSessionId = parseInt(sessionButton.dataset.sessionId);
-                            console.log("Loading history for session:", currentSessionId);
-                            LoadChatHistory(currentSessionId).then(history => {
-                                console.log("History loaded:", history);
-                                messages = history.map(m => ({ role: m.Role, content: m.Content }));
-                                renderMessages();
-                            }).catch(error => {
-                                console.error("Error loading chat history:", error);
-                            });
+                            switchSession(sessionId);
                         }
                     });
                     chatSessionList.appendChild(sessionButton);
                 });
+            }
+        });
+    }
+
+    function switchSession(sessionId) {
+        if (isStreaming) {
+            console.log("Cannot switch session while streaming.");
+            return;
+        }
+        if (currentSessionId === sessionId) {
+            console.log("Session already active.");
+            return;
+        }
+        currentSessionId = sessionId;
+        localStorage.setItem('currentSessionId', currentSessionId);
+        console.log("Switching to session:", currentSessionId);
+        LoadChatHistory(currentSessionId).then(history => {
+            console.log("Received history from backend:", history);
+            if (history) {
+                messages = history.map(m => ({
+                    role: m.Role,
+                    content: m.Content
+                }));
+                console.log("Mapped messages:", messages);
+            } else {
+                messages = [];
+                console.log("History is null or undefined, clearing messages.");
+            }
+        }).catch(error => {
+            console.error("Error loading chat history:", error);
+        });
+        renderMessages();
+        updateActiveSessionButton();
+    }
+
+    function updateActiveSessionButton() {
+        const sessionButtons = document.querySelectorAll('#chatSessionList button');
+        sessionButtons.forEach(button => {
+            if (parseInt(button.dataset.sessionId) === currentSessionId) {
+                button.classList.add('active');
+            } else {
+                button.classList.remove('active');
             }
         });
     }
@@ -191,15 +230,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     stopButton.addEventListener('click', (e) => {
         e.preventDefault();
-        StopStream();
+        if (currentSessionId) {
+            StopStream(currentSessionId);
+        }
     });
 
     newChatButton.addEventListener('click', (e) => {
         e.preventDefault();
         NewChat().then((newId) => {
-            currentSessionId = newId;
-            messages = [];
-            renderMessages();
+            switchSession(newId);
             loadSessions();
         }).catch(error => {
             console.error("Error creating new chat:", error);
@@ -252,6 +291,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial setup
     loadSessions();
+    if (currentSessionId) {
+        switchSession(parseInt(currentSessionId));
+    }
     const settingsToggleButton = document.getElementById('settingsToggleButton');
     const rightSidebar = document.querySelector('.sidebar-container.right');
     const artifactsPanel = document.getElementById('artifactsPanel');

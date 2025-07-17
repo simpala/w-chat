@@ -22,9 +22,8 @@ type App struct {
 	config        Config
 	db            *Database
 	llmCmd        *exec.Cmd
-	conversations map[int64][]ChatMessage
+	conversations map[int64]*Conversation
 	mu            sync.Mutex
-	httpResp      *http.Response
 }
 
 // Config struct
@@ -35,10 +34,17 @@ type Config struct {
 	ModelArgs     map[string]string `json:"model_args"`
 }
 
+// Conversation struct to hold the state of a single chat session
+type Conversation struct {
+	messages []ChatMessage
+	httpResp *http.Response
+	mu       sync.Mutex
+}
+
 // NewApp creates a new App application struct
 func NewApp() *App {
 	return &App{
-		conversations: make(map[int64][]ChatMessage),
+		conversations: make(map[int64]*Conversation),
 	}
 }
 
@@ -79,7 +85,9 @@ func (a *App) NewChat() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	a.conversations[id] = []ChatMessage{}
+	a.conversations[id] = &Conversation{
+		messages: make([]ChatMessage, 0),
+	}
 	return id, nil
 }
 
@@ -219,28 +227,54 @@ type ChatCompletionRequest struct {
 func (a *App) LoadChatHistory(sessionId int64) ([]ChatMessage, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	runtime.LogInfof(a.ctx, "Loading chat history for session %d", sessionId)
+
 	history, err := a.db.GetChatMessages(sessionId)
 	if err != nil {
+		runtime.LogErrorf(a.ctx, "Error getting chat messages from db: %s", err.Error())
 		return nil, err
 	}
-	a.conversations[sessionId] = history
+	runtime.LogInfof(a.ctx, "Loaded %d messages from db for session %d", len(history), sessionId)
+
+	conv, ok := a.conversations[sessionId]
+	if !ok {
+		conv = &Conversation{
+			messages: make([]ChatMessage, 0),
+		}
+		a.conversations[sessionId] = conv
+	}
+	conv.mu.Lock()
+	conv.messages = history
+	conv.mu.Unlock()
+	runtime.LogInfof(a.ctx, "Updated conversation in memory for session %d", sessionId)
+
+	if history == nil {
+		return []ChatMessage{}, nil
+	}
+
 	return history, nil
 }
 
 // HandleChat is the main entry point for handling a user's message.
 func (a *App) HandleChat(sessionId int64, message string) {
-	a.mu.Lock()
-	userMessage := ChatMessage{Role: "user", Content: message}
-	a.conversations[sessionId] = append(a.conversations[sessionId], userMessage)
-	if err := a.db.SaveChatMessage(sessionId, "user", message); err != nil {
-		runtime.LogErrorf(a.ctx, "Error saving user message: %s", err.Error())
-		a.mu.Unlock()
+	conv, ok := a.getConversation(sessionId)
+	if !ok {
+		runtime.LogErrorf(a.ctx, "Conversation with ID %d not found.", sessionId)
 		return
 	}
-	conversation := a.conversations[sessionId]
-	a.mu.Unlock()
+	conv.mu.Lock()
 
-	reqBody := ChatCompletionRequest{Messages: conversation, Stream: true}
+	userMessage := ChatMessage{Role: "user", Content: message}
+	conv.messages = append(conv.messages, userMessage)
+	if err := a.db.SaveChatMessage(sessionId, "user", message); err != nil {
+		runtime.LogErrorf(a.ctx, "Error saving user message: %s", err.Error())
+		conv.mu.Unlock()
+		return
+	}
+
+	reqBody := ChatCompletionRequest{Messages: conv.messages, Stream: true}
+	conv.mu.Unlock()
+
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
 		runtime.LogErrorf(a.ctx, "Error marshalling request body: %s", err.Error())
@@ -252,9 +286,9 @@ func (a *App) HandleChat(sessionId int64, message string) {
 		runtime.LogErrorf(a.ctx, "Error making POST request to LLM: %s", err.Error())
 		return
 	}
-	a.mu.Lock()
-	a.httpResp = resp
-	a.mu.Unlock()
+	conv.mu.Lock()
+	conv.httpResp = resp
+	conv.mu.Unlock()
 
 	go a.streamHandler(sessionId, resp)
 }
@@ -305,12 +339,17 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 		runtime.LogErrorf(a.ctx, "Error reading stream for session %d: %s", sessionID, err)
 	}
 
-	a.mu.Lock()
-	defer a.mu.Unlock()
+	conv, ok := a.getConversation(sessionID)
+	if !ok {
+		runtime.LogErrorf(a.ctx, "Conversation with ID %d not found.", sessionID)
+		return
+	}
+	conv.mu.Lock()
+	defer conv.mu.Unlock()
 	re := regexp.MustCompile(`<think>([\s\S]*?)<\/think>`)
 	cleanResponse := re.ReplaceAllString(fullResponse.String(), "")
 	assistantMessage := ChatMessage{Role: "assistant", Content: cleanResponse}
-	a.conversations[sessionID] = append(a.conversations[sessionID], assistantMessage)
+	conv.messages = append(conv.messages, assistantMessage)
 	if err := a.db.SaveChatMessage(sessionID, "assistant", cleanResponse); err != nil {
 		runtime.LogErrorf(a.ctx, "Error saving assistant message: %s", err.Error())
 	}
@@ -319,10 +358,22 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 }
 
 // StopStream stops the current chat stream.
-func (a *App) StopStream() {
+func (a *App) StopStream(sessionID int64) {
+	conv, ok := a.getConversation(sessionID)
+	if !ok {
+		runtime.LogErrorf(a.ctx, "Conversation with ID %d not found.", sessionID)
+		return
+	}
+	conv.mu.Lock()
+	defer conv.mu.Unlock()
+	if conv.httpResp != nil && conv.httpResp.Body != nil {
+		conv.httpResp.Body.Close()
+	}
+}
+
+func (a *App) getConversation(sessionID int64) (*Conversation, bool) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if a.httpResp != nil && a.httpResp.Body != nil {
-		a.httpResp.Body.Close()
-	}
+	conv, ok := a.conversations[sessionID]
+	return conv, ok
 }
