@@ -169,11 +169,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 messages = [];
                 console.log("History is null or undefined, clearing messages.");
             }
-            renderMessages();
-            updateActiveSessionButton();
         }).catch(error => {
             console.error("Error loading chat history:", error);
         });
+        renderMessages();
+        updateActiveSessionButton();
     }
 
     function updateActiveSessionButton() {
