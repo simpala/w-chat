@@ -10,8 +10,16 @@ export function GetModels() {
   return window['go']['main']['App']['GetModels']();
 }
 
+export function HandleChat(arg1, arg2) {
+  return window['go']['main']['App']['HandleChat'](arg1, arg2);
+}
+
 export function LaunchLLM(arg1) {
   return window['go']['main']['App']['LaunchLLM'](arg1);
+}
+
+export function LoadChatHistory(arg1) {
+  return window['go']['main']['App']['LoadChatHistory'](arg1);
 }
 
 export function LoadChatSessions() {
@@ -30,6 +38,6 @@ export function SaveSettings(arg1) {
   return window['go']['main']['App']['SaveSettings'](arg1);
 }
 
-export function ShutdownLLM() {
-  return window['go']['main']['App']['ShutdownLLM']();
+export function StopStream() {
+  return window['go']['main']['App']['StopStream']();
 }

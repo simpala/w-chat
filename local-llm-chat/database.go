@@ -19,11 +19,9 @@ func NewDatabase(dbPath string) (*Database, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	if err := db.Ping(); err != nil {
 		return nil, err
 	}
-
 	return &Database{db: db}, nil
 }
 
@@ -67,7 +65,7 @@ func (d *Database) NewChatSession() (int64, error) {
 
 // GetChatSessions retrieves all chat sessions
 func (d *Database) GetChatSessions() ([]ChatSession, error) {
-	rows, err := d.db.Query("SELECT id, name, created_at FROM chat_sessions")
+	rows, err := d.db.Query("SELECT id, name, created_at FROM chat_sessions ORDER BY created_at DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -86,8 +84,46 @@ func (d *Database) GetChatSessions() ([]ChatSession, error) {
 	return sessions, nil
 }
 
-// DeleteChatSession deletes a chat session
+// DeleteChatSession deletes a chat session and its messages
 func (d *Database) DeleteChatSession(id int64) error {
-	_, err := d.db.Exec("DELETE FROM chat_sessions WHERE id = ?", id)
+	tx, err := d.db.Begin()
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec("DELETE FROM chat_messages WHERE session_id = ?", id)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	_, err = tx.Exec("DELETE FROM chat_sessions WHERE id = ?", id)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit()
+}
+
+// SaveChatMessage saves a single chat message to the database.
+func (d *Database) SaveChatMessage(sessionID int64, sender, message string) error {
+	_, err := d.db.Exec("INSERT INTO chat_messages (session_id, sender, message) VALUES (?, ?, ?)", sessionID, sender, message)
 	return err
+}
+
+// GetChatMessages retrieves all chat messages for a given session, ordered by creation time.
+func (d *Database) GetChatMessages(sessionID int64) ([]ChatMessage, error) {
+	rows, err := d.db.Query("SELECT sender, message FROM chat_messages WHERE session_id = ? ORDER BY created_at ASC", sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var messages []ChatMessage
+	for rows.Next() {
+		var msg ChatMessage
+		if err := rows.Scan(&msg.Role, &msg.Content); err != nil {
+			return nil, err
+		}
+		messages = append(messages, msg)
+	}
+	return messages, nil
 }
