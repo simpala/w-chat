@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const stopButton = document.getElementById('stopButton');
     const chatWindow = document.querySelector('.messages-container');
 
-    let currentSessionId = null;
+    let currentSessionId = localStorage.getItem('currentSessionId') || null;
     let messages = [];
     let isStreaming = false;
 
@@ -155,6 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         currentSessionId = sessionId;
+        localStorage.setItem('currentSessionId', currentSessionId);
         console.log("Switching to session:", currentSessionId);
         LoadChatHistory(currentSessionId).then(history => {
             console.log("Received history from backend:", history);
@@ -290,6 +291,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial setup
     loadSessions();
+    if (currentSessionId) {
+        switchSession(parseInt(currentSessionId));
+    }
     const settingsToggleButton = document.getElementById('settingsToggleButton');
     const rightSidebar = document.querySelector('.sidebar-container.right');
     const artifactsPanel = document.getElementById('artifactsPanel');
