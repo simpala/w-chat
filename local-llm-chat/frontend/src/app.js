@@ -155,13 +155,19 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         currentSessionId = sessionId;
-        console.log("Loading history for session:", currentSessionId);
+        console.log("Switching to session:", currentSessionId);
         LoadChatHistory(currentSessionId).then(history => {
-            console.log("History loaded:", history);
-            messages = history.map(m => ({
-                role: m.Role,
-                content: m.Content
-            }));
+            console.log("Received history from backend:", history);
+            if (history) {
+                messages = history.map(m => ({
+                    role: m.Role,
+                    content: m.Content
+                }));
+                console.log("Mapped messages:", messages);
+            } else {
+                messages = [];
+                console.log("History is null or undefined, clearing messages.");
+            }
             renderMessages();
             updateActiveSessionButton();
         }).catch(error => {

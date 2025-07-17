@@ -227,11 +227,14 @@ type ChatCompletionRequest struct {
 func (a *App) LoadChatHistory(sessionId int64) ([]ChatMessage, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	runtime.LogInfof(a.ctx, "Loading chat history for session %d", sessionId)
 
 	history, err := a.db.GetChatMessages(sessionId)
 	if err != nil {
+		runtime.LogErrorf(a.ctx, "Error getting chat messages from db: %s", err.Error())
 		return nil, err
 	}
+	runtime.LogInfof(a.ctx, "Loaded %d messages from db for session %d", len(history), sessionId)
 
 	conv, ok := a.conversations[sessionId]
 	if !ok {
@@ -243,6 +246,11 @@ func (a *App) LoadChatHistory(sessionId int64) ([]ChatMessage, error) {
 	conv.mu.Lock()
 	conv.messages = history
 	conv.mu.Unlock()
+	runtime.LogInfof(a.ctx, "Updated conversation in memory for session %d", sessionId)
+
+	if history == nil {
+		return []ChatMessage{}, nil
+	}
 
 	return history, nil
 }
