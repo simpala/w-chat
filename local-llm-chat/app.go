@@ -234,7 +234,7 @@ func (a *App) LoadChatHistory(sessionId int64) ([]ChatMessage, error) {
 		runtime.LogErrorf(a.ctx, "Error getting chat messages from db: %s", err.Error())
 		return nil, err
 	}
-	runtime.LogInfof(a.ctx, "Loaded %d messages from db for session %d", len(history), sessionId)
+	runtime.LogInfof(a.ctx, "Loaded %d messages from db for session %d. Content: %+v", len(history), sessionId, history) // Add this line to see the actual content
 
 	conv, ok := a.conversations[sessionId]
 	if !ok {

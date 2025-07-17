@@ -6,8 +6,17 @@
     <title>Local LLM Chat</title>
     
     
-  <script type="module" crossorigin src="./assets/main.3221b9af.js"></script>
-  <link rel="stylesheet" href="./assets/index.540dc30d.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        function scrollToBottom() {
+            const chatWindow = document.querySelector('.messages-container');
+            if (chatWindow) {
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+            }
+        }
+    </script>
+  <script type="module" crossorigin src="./assets/main.c30d946d.js"></script>
+  <link rel="stylesheet" href="./assets/index.4a40b9b8.css">
 </head>
 <body>
 <div class="settings-toggle-container">

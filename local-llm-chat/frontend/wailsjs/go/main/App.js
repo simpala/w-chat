@@ -38,6 +38,6 @@ export function SaveSettings(arg1) {
   return window['go']['main']['App']['SaveSettings'](arg1);
 }
 
-export function StopStream() {
-  return window['go']['main']['App']['StopStream']();
+export function StopStream(arg1) {
+  return window['go']['main']['App']['StopStream'](arg1);
 }

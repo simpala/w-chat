@@ -1,4 +1,4 @@
-console.log("app.js loaded");
+console.log("DEBUG: Main app.js file loaded.");
 import {
     initFuzzySearch,
     loadSettings,
@@ -25,6 +25,7 @@ import {
 import * as runtime from '../wailsjs/runtime';
 
 document.addEventListener('DOMContentLoaded', () => {
+    console.log("DEBUG: DOMContentLoaded event fired!");
     const newChatButton = document.getElementById('newChatButton');
     const chatSessionList = document.getElementById('chatSessionList');
     const sendButton = document.getElementById('sendButton');
@@ -146,6 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function switchSession(sessionId) {
+        console.log("DEBUG: switchSession function entered. Session ID:", sessionId); // ADD THIS LINE
         if (isStreaming) {
             console.log("Cannot switch session while streaming.");
             return;
@@ -157,22 +159,26 @@ document.addEventListener('DOMContentLoaded', () => {
         currentSessionId = sessionId;
         localStorage.setItem('currentSessionId', currentSessionId);
         console.log("Switching to session:", currentSessionId);
+
+        console.log("DEBUG: Calling LoadChatHistory for session:", currentSessionId); // ADD THIS LINE
         LoadChatHistory(currentSessionId).then(history => {
-            console.log("Received history from backend:", history);
+            console.log("DEBUG: LoadChatHistory promise resolved. Received history from backend:", history); // MODIFY THIS LINE
             if (history) {
                 messages = history.map(m => ({
-                    role: m.Role,
-                    content: m.Content
+                    role: m.role,
+                    content: m.content
                 }));
-                console.log("Mapped messages:", messages);
+                console.log("DEBUG: Mapped messages:", messages); // MODIFY THIS LINE
             } else {
                 messages = [];
-                console.log("History is null or undefined, clearing messages.");
+                console.log("DEBUG: History is null or undefined, clearing messages."); // MODIFY THIS LINE
             }
+            renderMessages();
         }).catch(error => {
-            console.error("Error loading chat history:", error);
+            console.error("DEBUG: Error loading chat history:", error); // MODIFY THIS LINE
+            messages = [];
+            renderMessages();
         });
-        renderMessages();
         updateActiveSessionButton();
     }
 

@@ -20,4 +20,4 @@ export function NewChat():Promise<number>;
 
 export function SaveSettings(arg1:string):Promise<void>;
 
-export function StopStream():Promise<void>;
+export function StopStream(arg1:number):Promise<void>;
