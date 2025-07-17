@@ -1,3 +1,4 @@
+console.log("app.js loaded");
 import {
     initFuzzySearch,
     loadSettings,
@@ -33,6 +34,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentSessionId = null;
     let messages = [];
+    let isStreaming = false;
+
+    const parseStreamedContent = (rawContent) => {
+        const parts = [];
+        let remainingContent = rawContent;
+        const thinkRegex = /<think>(.*?)<\/think>/gs;
+        let match;
+        let lastIndex = 0;
+
+        while ((match = thinkRegex.exec(remainingContent)) !== null) {
+            if (match.index > lastIndex) {
+                parts.push({
+                    type: 'text',
+                    content: remainingContent.substring(lastIndex, match.index)
+                });
+            }
+            parts.push({
+                type: 'thought',
+                content: match[1].trim()
+            });
+            lastIndex = thinkRegex.lastIndex;
+        }
+
+        if (lastIndex < remainingContent.length) {
+            parts.push({
+                type: 'text',
+                content: remainingContent.substring(lastIndex)
+            });
+        }
+
+        return parts;
+    };
 
     function renderMessages() {
         chatWindow.innerHTML = '';
@@ -46,31 +79,33 @@ document.addEventListener('DOMContentLoaded', () => {
         messageElement.classList.add('message', sender);
 
         if (sender === 'assistant') {
-            const thinkRegex = /<think>([\s\S]*?)<\/think>/g;
-            let lastIndex = 0;
-            let match;
+            const parsedParts = parseStreamedContent(messageContent || '');
+            parsedParts.forEach(part => {
+                const partContainer = document.createElement('div');
 
-            while ((match = thinkRegex.exec(messageContent)) !== null) {
-                // Add text before the <think> tag
-                if (match.index > lastIndex) {
-                    const textNode = document.createTextNode(messageContent.substring(lastIndex, match.index));
-                    messageElement.appendChild(textNode);
+                if (part.type === 'thought') {
+                    const detailsElement = document.createElement('details');
+                    detailsElement.classList.add('thought-block');
+
+                    const summaryElement = document.createElement('summary');
+                    summaryElement.classList.add('thought-summary');
+                    summaryElement.innerHTML = '<span class="inline-block mr-2">💡</span>Thinking Process';
+
+                    const contentElement = document.createElement('p');
+                    contentElement.classList.add('thought-content');
+                    contentElement.textContent = part.content;
+
+                    detailsElement.appendChild(summaryElement);
+                    detailsElement.appendChild(contentElement);
+                    partContainer.appendChild(detailsElement);
+                } else {
+                    const markdownDiv = document.createElement('div');
+                    markdownDiv.classList.add('markdown-content');
+                    markdownDiv.innerHTML = marked.parse(part.content);
+                    partContainer.appendChild(markdownDiv);
                 }
-
-                // Add the <think> tag content in its own container
-                const thinkElement = document.createElement('div');
-                thinkElement.classList.add('thought');
-                thinkElement.textContent = match[1];
-                messageElement.appendChild(thinkElement);
-
-                lastIndex = thinkRegex.lastIndex;
-            }
-
-            // Add any remaining text after the last <think> tag
-            if (lastIndex < messageContent.length) {
-                const textNode = document.createTextNode(messageContent.substring(lastIndex));
-                messageElement.appendChild(textNode);
-            }
+                messageElement.appendChild(partContainer);
+            });
         } else {
             messageElement.textContent = messageContent;
         }
@@ -114,41 +149,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleSendMessage() {
+        if (isStreaming) return;
         const messageContent = messageInput.value.trim();
         if (messageContent === '' || currentSessionId === null) {
             return;
         }
 
+        const userMessage = {
+            role: 'user',
+            rawContent: messageContent
+        };
         messages.push({ role: 'user', content: messageContent });
-        renderMessages();
+        addMessageToChatWindow('user', messageContent);
         messageInput.value = '';
 
+        isStreaming = true;
         sendButton.style.display = 'none';
         stopButton.style.display = 'block';
 
         let assistantResponse = '';
         messages.push({ role: 'assistant', content: '' });
 
-        const offStream = EventsOn("chat-stream", function(data) {
-            if (data === null) {
-                sendButton.style.display = 'block';
-                stopButton.style.display = 'none';
-                offStream();
-                return;
-            }
-            assistantResponse += data;
-            messages[messages.length - 1].content = assistantResponse;
-            renderMessages();
-        });
-
         sendMessage(currentSessionId, messageContent).catch(error => {
             console.error("Error sending message:", error);
-            messages.pop(); // Remove the empty assistant message
-            messages.push({ role: 'error', content: 'Failed to send message.' });
+            messages.pop();
+            messages.push({
+                role: 'error',
+                content: 'Failed to send message.'
+            });
             renderMessages();
+            isStreaming = false;
             sendButton.style.display = 'block';
             stopButton.style.display = 'none';
-            offStream();
         });
     }
 
@@ -172,6 +204,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }).catch(error => {
             console.error("Error creating new chat:", error);
         });
+    });
+
+    EventsOn("chat-stream", function(data) {
+        if (data === null) {
+            isStreaming = false;
+            sendButton.style.display = 'block';
+            stopButton.style.display = 'none';
+            return;
+        }
+        let lastMessageBubble = document.querySelector('.message.assistant:last-child');
+        if (!lastMessageBubble) {
+            addMessageToChatWindow('assistant', '');
+            lastMessageBubble = document.querySelector('.message.assistant:last-child');
+        }
+        let assistantResponse = messages[messages.length - 1].content;
+        assistantResponse += data;
+        messages[messages.length - 1].content = assistantResponse;
+
+        lastMessageBubble.innerHTML = '';
+        const parsedParts = parseStreamedContent(assistantResponse);
+        parsedParts.forEach(part => {
+            const partContainer = document.createElement('div');
+
+            if (part.type === 'thought') {
+                const detailsElement = document.createElement('details');
+                detailsElement.classList.add('thought-block');
+                const summaryElement = document.createElement('summary');
+                summaryElement.classList.add('thought-summary');
+                summaryElement.innerHTML = '<span class="inline-block mr-2">💡</span>Thinking Process';
+                const contentElement = document.createElement('p');
+                contentElement.classList.add('thought-content');
+                contentElement.textContent = part.content;
+                detailsElement.appendChild(summaryElement);
+                detailsElement.appendChild(contentElement);
+                partContainer.appendChild(detailsElement);
+            } else {
+                const markdownDiv = document.createElement('div');
+                markdownDiv.classList.add('markdown-content');
+                markdownDiv.innerHTML = marked.parse(part.content);
+                partContainer.appendChild(markdownDiv);
+            }
+            lastMessageBubble.appendChild(partContainer);
+        });
+        scrollToBottom();
     });
 
     // Initial setup
