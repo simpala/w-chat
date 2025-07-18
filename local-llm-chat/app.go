@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 
@@ -346,13 +345,20 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 	}
 	conv.mu.Lock()
 	defer conv.mu.Unlock()
-	re := regexp.MustCompile(`<think>([\s\S]*?)<\/think>`)
-	cleanResponse := re.ReplaceAllString(fullResponse.String(), "")
-	assistantMessage := ChatMessage{Role: "assistant", Content: cleanResponse}
+
+	// Remove or comment out these lines that strip the <think> tags:
+	// re := regexp.MustCompile(`<think>([\\s\\S]*?)<\\/think>`)
+	// cleanResponse := re.ReplaceAllString(fullResponse.String(), "")
+
+	// Change 'cleanResponse' to 'fullResponse.String()' for both the
+	// assistantMessage creation and the SaveChatMessage call.
+	assistantMessage := ChatMessage{Role: "assistant", Content: fullResponse.String()} // <-- MODIFIED
 	conv.messages = append(conv.messages, assistantMessage)
-	if err := a.db.SaveChatMessage(sessionID, "assistant", cleanResponse); err != nil {
+	if err := a.db.SaveChatMessage(sessionID, "assistant", fullResponse.String()); err != nil { // <-- MODIFIED
 		runtime.LogErrorf(a.ctx, "Error saving assistant message: %s", err.Error())
 	}
+
+	// --- END CHANGES HERE ---
 
 	runtime.EventsEmit(a.ctx, "chat-stream", nil) // Signal end of stream
 }
