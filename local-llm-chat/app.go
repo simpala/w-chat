@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -220,6 +221,7 @@ type ChatMessage struct {
 type ChatCompletionRequest struct {
 	Messages []ChatMessage `json:"messages"`
 	Stream   bool          `json:"stream"`
+	NPredict int           `json:"N_precdict,omitempty"` // This will send as "max_tokens" in JSON
 }
 
 // LoadChatHistory loads the chat history for a given session into memory.
@@ -271,7 +273,7 @@ func (a *App) HandleChat(sessionId int64, message string) {
 		return
 	}
 
-	reqBody := ChatCompletionRequest{Messages: conv.messages, Stream: true}
+	reqBody := ChatCompletionRequest{Messages: conv.messages, Stream: true, NPredict: -1}
 	conv.mu.Unlock()
 
 	jsonBody, err := json.Marshal(reqBody)
@@ -292,75 +294,127 @@ func (a *App) HandleChat(sessionId int64, message string) {
 	go a.streamHandler(sessionId, resp)
 }
 
-// streamHandler processes the SSE stream from the LLM.
-func (a *App) streamHandler(sessionID int64, resp *http.Response) {
-	defer resp.Body.Close()
-	scanner := bufio.NewScanner(resp.Body)
-	var fullResponse strings.Builder
+// ChatCompletionChunk models a chunk from the LLM stream.
+type ChatCompletionChunk struct {
+	Choices []struct {
+		Delta struct {
+			Content string `json:"content"`
+		} `json:"delta"`
+	} `json:"choices"`
+}
 
+func (a *App) streamHandler(sessionID int64, resp *http.Response) {
+	defer resp.Body.Close() // Ensure the HTTP response body is closed
+	scanner := bufio.NewScanner(resp.Body)
+
+	// Retrieve the conversation. This mutex is important for protecting conv.messages.
+	conv, ok := a.getConversation(sessionID)
+	if !ok {
+		runtime.LogErrorf(a.ctx, "Conversation with ID %d not found.", sessionID)
+		// It's good practice to signal the end of the stream to the frontend
+		// even if an error occurs early.
+		runtime.EventsEmit(a.ctx, "chat-stream", nil)
+		return
+	}
+
+	// --- Batching mechanism variables ---
+	var mu sync.Mutex                       // Mutex to protect `currentChunkBuffer` as it's accessed by two goroutines
+	var currentChunkBuffer strings.Builder  // Accumulates small content chunks before sending to frontend
+	var fullResponseBuilder strings.Builder // Accumulates *all* content for saving to DB at the end
+
+	// Configure batching parameters. Adjust these values to fine-tune performance vs. real-time feel.
+	const batchInterval = 50 * time.Millisecond // How often to send accumulated chunks (e.g., 50ms)
+	const maxBatchChars = 80                    // Send immediately if buffer grows beyond this many characters
+
+	ticker := time.NewTicker(batchInterval) // Create a ticker for time-based flushing
+	defer ticker.Stop()                     // Ensure ticker is stopped when streamHandler exits
+
+	// --- Goroutine for Time-Based Flushing ---
+	// This goroutine runs in the background and periodically sends whatever is in the buffer.
+	go func() {
+		defer runtime.LogDebugf(a.ctx, "Batch sender goroutine for session %d exited.", sessionID) // For debugging
+		for range ticker.C {                                                                       // This loop runs every 'batchInterval'
+			mu.Lock() // Lock to safely access the shared buffer
+			if currentChunkBuffer.Len() > 0 {
+				chunkToSend := currentChunkBuffer.String()            // Get content from buffer
+				currentChunkBuffer.Reset()                            // Clear the buffer
+				mu.Unlock()                                           // Unlock before emitting (emission might block)
+				runtime.EventsEmit(a.ctx, "chat-stream", chunkToSend) // Send to frontend
+			} else {
+				mu.Unlock() // Unlock even if buffer is empty
+			}
+		}
+	}()
+	// --- End Goroutine for Time-Based Flushing ---
+
+	// --- Main Loop: Process incoming LLM stream chunks ---
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.HasPrefix(line, "data: ") {
 			data := strings.TrimPrefix(line, "data: ")
 			if data == "[DONE]" {
-				break
+				break // Signal from LLM that the stream is complete
 			}
 
-			var result map[string]interface{}
-			if err := json.Unmarshal([]byte(data), &result); err != nil {
+			var chunk ChatCompletionChunk
+			if err := json.Unmarshal([]byte(data), &chunk); err != nil {
 				runtime.LogErrorf(a.ctx, "Error unmarshalling stream data: %s", err.Error())
 				continue
 			}
 
-			choices, ok := result["choices"].([]interface{})
-			if !ok || len(choices) == 0 {
-				continue
-			}
-			firstChoice, ok := choices[0].(map[string]interface{})
-			if !ok {
-				continue
-			}
-			delta, ok := firstChoice["delta"].(map[string]interface{})
-			if !ok {
-				continue
-			}
-			content, ok := delta["content"].(string)
-			if !ok {
-				continue
-			}
+			// Check if there's actual content in the chunk
+			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
+				content := chunk.Choices[0].Delta.Content
 
-			fullResponse.WriteString(content)
-			runtime.EventsEmit(a.ctx, "chat-stream", content)
+				mu.Lock()                                // Lock before writing to shared buffers
+				currentChunkBuffer.WriteString(content)  // Add to buffer for frontend
+				fullResponseBuilder.WriteString(content) // Add to full response for DB
+
+				// --- Character-Based Flushing ---
+				// If the buffer gets large enough, send it immediately without waiting for the ticker.
+				if currentChunkBuffer.Len() >= maxBatchChars {
+					chunkToSend := currentChunkBuffer.String()
+					currentChunkBuffer.Reset()
+					mu.Unlock() // Unlock before emitting
+					runtime.EventsEmit(a.ctx, "chat-stream", chunkToSend)
+				} else {
+					mu.Unlock() // Unlock if not sending immediately
+				}
+				// --- End Character-Based Flushing ---
+			}
 		}
 	}
 
+	// Handle any errors that occurred during scanning the response body
 	if err := scanner.Err(); err != nil {
 		runtime.LogErrorf(a.ctx, "Error reading stream for session %d: %s", sessionID, err)
 	}
 
-	conv, ok := a.getConversation(sessionID)
-	if !ok {
-		runtime.LogErrorf(a.ctx, "Conversation with ID %d not found.", sessionID)
-		return
+	// --- Final Flush at End of Stream ---
+	// After the main loop finishes (either by breaking or scanner.Err()),
+	// ensure any remaining content in the buffer is sent to the frontend.
+	mu.Lock()
+	if currentChunkBuffer.Len() > 0 {
+		runtime.EventsEmit(a.ctx, "chat-stream", currentChunkBuffer.String())
+		// No need to reset currentChunkBuffer here as the function is about to exit.
 	}
-	conv.mu.Lock()
-	defer conv.mu.Unlock()
+	mu.Unlock()
+	// --- End Final Flush ---
 
-	// Remove or comment out these lines that strip the <think> tags:
-	// re := regexp.MustCompile(`<think>([\\s\\S]*?)<\\/think>`)
-	// cleanResponse := re.ReplaceAllString(fullResponse.String(), "")
+	// --- Save the full, accumulated response to the database ---
+	conv.mu.Lock()         // Lock the conversation mutex before modifying its state
+	defer conv.mu.Unlock() // Ensure conversation mutex is unlocked when leaving this block
 
-	// Change 'cleanResponse' to 'fullResponse.String()' for both the
-	// assistantMessage creation and the SaveChatMessage call.
-	assistantMessage := ChatMessage{Role: "assistant", Content: fullResponse.String()} // <-- MODIFIED
+	assistantMessage := ChatMessage{Role: "assistant", Content: fullResponseBuilder.String()}
 	conv.messages = append(conv.messages, assistantMessage)
-	if err := a.db.SaveChatMessage(sessionID, "assistant", fullResponse.String()); err != nil { // <-- MODIFIED
+	if err := a.db.SaveChatMessage(sessionID, "assistant", fullResponseBuilder.String()); err != nil {
 		runtime.LogErrorf(a.ctx, "Error saving assistant message: %s", err.Error())
 	}
 
-	// --- END CHANGES HERE ---
-
-	runtime.EventsEmit(a.ctx, "chat-stream", nil) // Signal end of stream
+	// --- Signal End of Stream to Frontend ---
+	// Send a nil (or special empty string) to the frontend to signal the end of the stream.
+	// Your JavaScript `EventsOn("chat-stream")` listener already expects `data === null` for this.
+	runtime.EventsEmit(a.ctx, "chat-stream", nil)
 }
 
 // StopStream stops the current chat stream.

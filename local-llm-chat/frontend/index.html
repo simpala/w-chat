@@ -6,8 +6,17 @@
     <title>Local LLM Chat</title>
     <link href="/src/style.css" rel="stylesheet"/>
     <link href="/static/styles.css" rel="stylesheet"/>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <link rel="stylesheet" href="/highlight.js/styles/github-dark.css">
+
+    <script src="/marked.min.js"></script>
+    <script src="/highlight.js/highlight.min.js"></script>
+
     <script>
+        console.log("DEBUG_INLINE: 'marked' type directly after script tag:", typeof marked);
+    </script>
+    <script>
+
         function scrollToBottom() {
             const chatWindow = document.querySelector('.messages-container');
             if (chatWindow) {
@@ -17,66 +26,63 @@
     </script>
 </head>
 <body>
-<div class="settings-toggle-container">
-    <button id="settingsToggleButton" title="Toggle Settings Pane">⚙️</button>
-</div>
-<div class="container">
-    <div class="sidebar-container">
-        <button id="newChatButton">New Chat</button>
-        <p class="italic-small">ctrl + left mouse click to delete</p>
-        <div id="chatSessionList">
-            <!-- Chat sessions will be added here dynamically -->
-        </div>
+    <div class="settings-toggle-container">
+        <button id="settingsToggleButton" title="Toggle Settings Pane">⚙️</button>
     </div>
-    <div class="chat-area">
-        <div class="chat-header">
-            <select id="systemPromptSelect"></select>
-            <textarea id="customSystemPrompt" placeholder="System Prompt Content..." readonly></textarea>
+    <div class="container">
+        <div class="sidebar-container">
+            <button id="newChatButton">New Chat</button>
+            <p class="italic-small">ctrl + left mouse click to delete</p>
+            <div id="chatSessionList">
+                </div>
         </div>
-        <div class="messages-container">
-        </div>
-        <div class="input-area">
-            <textarea id="messageInput" placeholder="Type your message..."></textarea>
-            <input accept="image/*,video/*" id="fileUploadInput" style="display: none;" type="file"/>
-            <button id="uploadArtifactButton" title="Upload File">📎</button>
-            <button id="sendButton">Send</button>
-            <button id="stopButton" style="display: none;">Stop</button>
-        </div>
-    </div>
-    <div class="artifacts-panel" id="artifactsPanel">
-        <div class="resize-handle"></div> <!-- Visual cue for resizing -->
-        <div class="artifacts-header">
-            <h3>Artifacts</h3>
-            <button id="toggleArtifactsPanel">Toggle</button>
-        </div>
-        <div class="artifacts-content" id="artifactsContent">
-            <!-- Artifacts will be displayed here -->
-        </div>
-    </div>
-    <div class="sidebar-container right sidebar-hidden">
-        <input id="llamaPathInput" placeholder="Llama.cpp directory" type="text">
-        <input id="modelPathInput" placeholder="Model Folder Path" type="text"/>
-        <div class="custom-select">
-            <input type="text" id="chatModelSelectInput" placeholder="Select Model...">
-            <input type="hidden" id="selectedModelPath">
-            <div id="chatModelSelectList" class="select-items select-hide"></div>
-        </div>
-        <textarea id="chatModelArgs" placeholder="Chat Model Arguments..."></textarea>
-        <button id="launchLLMButton">Launch LLM Model</button>
-        <div class="speculative-element">
-            <div class="margin-bottom">
-                <label for="speculativeMainModelSelect">-m:</label>
-                <select id="speculativeMainModelSelect"></select>
+        <div class="chat-area">
+            <div class="chat-header">
+                <select id="systemPromptSelect"></select>
+                <textarea id="customSystemPrompt" placeholder="System Prompt Content..." readonly></textarea>
             </div>
-            <div class="margin-bottom">
-                <label for="speculativeDraftModelSelect">-md:</label>
-                <select id="speculativeDraftModelSelect"></select>
+            <div class="messages-container">
             </div>
-            <textarea id="speculativeModelArgs" placeholder="Speculative Model Arguments..."></textarea>
-            <button id="launchSpeculativeButton">Launch Speculative Model</button>
+            <div class="input-area">
+                <textarea id="messageInput" placeholder="Type your message..."></textarea>
+                <input accept="image/*,video/*" id="fileUploadInput" style="display: none;" type="file"/>
+                <button id="uploadArtifactButton" title="Upload File">📎</button>
+                <button id="sendButton">Send</button>
+                <button id="stopButton" style="display: none;">Stop</button>
+            </div>
+        </div>
+        <div class="artifacts-panel" id="artifactsPanel">
+            <div class="resize-handle"></div> <div class="artifacts-header">
+                <h3>Artifacts</h3>
+                <button id="toggleArtifactsPanel">Toggle</button>
+            </div>
+            <div class="artifacts-content" id="artifactsContent">
+                </div>
+        </div>
+        <div class="sidebar-container right sidebar-hidden">
+            <input id="llamaPathInput" placeholder="Llama.cpp directory" type="text">
+            <input id="modelPathInput" placeholder="Model Folder Path" type="text"/>
+            <div class="custom-select">
+                <input type="text" id="chatModelSelectInput" placeholder="Select Model...">
+                <input type="hidden" id="selectedModelPath">
+                <div id="chatModelSelectList" class="select-items select-hide"></div>
+            </div>
+            <textarea id="chatModelArgs" placeholder="Chat Model Arguments..."></textarea>
+            <button id="launchLLMButton">Launch LLM Model</button>
+            <div class="speculative-element">
+                <div class="margin-bottom">
+                    <label for="speculativeMainModelSelect">-m:</label>
+                    <select id="speculativeMainModelSelect"></select>
+                </div>
+                <div class="margin-bottom">
+                    <label for="speculativeDraftModelSelect">-md:</label>
+                    <select id="speculativeDraftModelSelect"></select>
+                </div>
+                <textarea id="speculativeModelArgs" placeholder="Speculative Model Arguments..."></textarea>
+                <button id="launchSpeculativeButton">Launch Speculative Model</button>
+            </div>
         </div>
     </div>
-</div>
-<script src="src/app.js" type="module"></script>
+    <script src="src/app.js" type="module"></script>
 </body>
 </html>

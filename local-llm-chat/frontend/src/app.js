@@ -25,7 +25,27 @@ import {
 import * as runtime from '../wailsjs/runtime';
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("DEBUG: DOMContentLoaded event fired!");
+    console.log("DEBUG: DOMContentLoaded event fired.");
+    // This line will send a message to the Go backend, which should appear in your terminal
+    runtime.LogInfo("DEBUG: Frontend DOMContentLoaded event fired, attempting to log via Go runtime.");
+
+    // Keep these checks, and add runtime.LogInfo/Error for clearer output
+    if (typeof marked !== 'undefined') {
+        console.log("DEBUG: 'marked' is defined and loaded.");
+        runtime.LogInfo("DEBUG: 'marked' is defined and loaded.");
+    } else {
+        console.error("ERROR: 'marked' is NOT defined! The script might not be loading correctly.");
+        runtime.LogError("ERROR: 'marked' is NOT defined! The script might not be loading correctly.");
+    }
+
+    // if (typeof hljs !== 'undefined') {
+    //     console.log("DEBUG: 'hljs' is defined and loaded.");
+    //     runtime.LogInfo("DEBUG: 'hljs' is defined and loaded.");
+    // } else {
+    //     console.error("ERROR: 'hljs' is NOT defined! The script might not be loading correctly.");
+    //     runtime.LogError("ERROR: 'hljs' is NOT defined! The script might not be loading correctly.");
+    // }
+
     const newChatButton = document.getElementById('newChatButton');
     const chatSessionList = document.getElementById('chatSessionList');
     const sendButton = document.getElementById('sendButton');
@@ -69,11 +89,19 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function renderMessages() {
-        chatWindow.innerHTML = '';
-        messages.forEach(message => {
-            addMessageToChatWindow(message.role, message.content);
-        });
+    chatWindow.innerHTML = '';
+    messages.forEach(message => {
+        addMessageToChatWindow(message.role, message.content);
+    });
+    // *** ADD THIS BLOCK HERE ***
+    if (typeof hljs !== 'undefined') {
+        hljs.highlightAll(); // This tells highlight.js to find and highlight code blocks in all newly rendered messages
+    } else {
+        // This should appear in your terminal if hljs is still not defined
+        runtime.LogError("ERROR: hljs.highlightAll() called in renderMessages but hljs is not defined.");
     }
+    // *****************************
+}
 
     function addMessageToChatWindow(sender, messageContent) {
         const messageElement = document.createElement('div');
@@ -251,50 +279,86 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    EventsOn("chat-stream", function(data) {
-        if (data === null) {
-            isStreaming = false;
-            sendButton.style.display = 'block';
-            stopButton.style.display = 'none';
-            return;
-        }
-        let lastMessageBubble = document.querySelector('.message.assistant:last-child');
-        if (!lastMessageBubble) {
-            addMessageToChatWindow('assistant', '');
-            lastMessageBubble = document.querySelector('.message.assistant:last-child');
-        }
-        let assistantResponse = messages[messages.length - 1].content;
-        assistantResponse += data;
-        messages[messages.length - 1].content = assistantResponse;
+let debounceTimer;
+const DEBOUNCE_DELAY_MS = 30; // Tune this: 50ms-100ms is a good starting point
 
-        lastMessageBubble.innerHTML = '';
-        const parsedParts = parseStreamedContent(assistantResponse);
-        parsedParts.forEach(part => {
-            const partContainer = document.createElement('div');
+EventsOn("chat-stream", function(data) {
+    if (data === null) {
+        // Stream finished, ensure final update and highlight
+        clearTimeout(debounceTimer); // Clear any pending updates
+        updateAssistantMessageUI(messages[messages.length - 1].content); // Force final render
+        isStreaming = false;
+        sendButton.style.display = 'block';
+        stopButton.style.display = 'none';
+        return;
+    }
 
-            if (part.type === 'thought') {
-                const detailsElement = document.createElement('details');
-                detailsElement.classList.add('thought-block');
-                const summaryElement = document.createElement('summary');
-                summaryElement.classList.add('thought-summary');
-                summaryElement.innerHTML = '<span class="inline-block mr-2">💡</span>Thinking Process';
-                const contentElement = document.createElement('p');
-                contentElement.classList.add('thought-content');
-                contentElement.textContent = part.content;
-                detailsElement.appendChild(summaryElement);
-                detailsElement.appendChild(contentElement);
-                partContainer.appendChild(detailsElement);
-            } else {
-                const markdownDiv = document.createElement('div');
-                markdownDiv.classList.add('markdown-content');
-                markdownDiv.innerHTML = marked.parse(part.content);
-                partContainer.appendChild(markdownDiv);
-            }
-            lastMessageBubble.appendChild(partContainer);
-        });
-        scrollToBottom();
+    let lastMessageBubble = document.querySelector('.message.assistant:last-child');
+    if (!lastMessageBubble) {
+        addMessageToChatWindow('assistant', '');
+        lastMessageBubble = document.querySelector('.message.assistant:last-child');
+    }
+
+    let assistantResponse = messages[messages.length - 1].content;
+    assistantResponse += data;
+    messages[messages.length - 1].content = assistantResponse; // Update the stored full message
+
+    // --- DEBOUNCE THE UI UPDATE ---
+    clearTimeout(debounceTimer); // Reset the timer every time a new chunk arrives
+    debounceTimer = setTimeout(() => {
+        // This function will only execute after DEBOUNCE_DELAY_MS has passed
+        // since the *last* 'chat-stream' event.
+        updateAssistantMessageUI(assistantResponse);
+    }, DEBOUNCE_DELAY_MS);
+    // --- END DEBOUNCE ---
+});
+// Helper function for the actual UI update
+function updateAssistantMessageUI(currentFullResponse) {
+    let lastMessageBubble = document.querySelector('.message.assistant:last-child');
+    if (!lastMessageBubble) {
+        // Fallback if bubble not found (should be rare if addMessageToChatWindow is called)
+        console.error("updateAssistantMessageUI called but no assistant message bubble found.");
+        return;
+    }
+
+    // Clear and re-render the entire content of the last message bubble
+    lastMessageBubble.innerHTML = ''; // Clear existing content
+    const parsedParts = parseStreamedContent(currentFullResponse); // Re-parse the full accumulated response
+
+    parsedParts.forEach(part => {
+        const partContainer = document.createElement('div');
+        // Your existing logic to create thought blocks or markdown divs
+        if (part.type === 'thought') {
+            const detailsElement = document.createElement('details');
+            detailsElement.classList.add('thought-block');
+            const summaryElement = document.createElement('summary');
+            summaryElement.classList.add('thought-summary');
+            summaryElement.innerHTML = '<span class="inline-block mr-2">💡</span>Thinking Process';
+            const contentElement = document.createElement('p');
+            contentElement.classList.add('thought-content');
+            contentElement.textContent = part.content;
+            detailsElement.appendChild(summaryElement);
+            detailsElement.appendChild(contentElement);
+            partContainer.appendChild(detailsElement);
+        } else {
+            const markdownDiv = document.createElement('div');
+            markdownDiv.classList.add('markdown-content');
+            markdownDiv.innerHTML = marked.parse(part.content); // Markdown parsing happens here
+            partContainer.appendChild(markdownDiv);
+        }
+        lastMessageBubble.appendChild(partContainer);
     });
 
+    // Highlight code blocks only after all content is appended
+    if (typeof hljs !== 'undefined') { // Check if hljs is available
+        hljs.highlightAll();
+    } else {
+        console.warn("highlight.js not available, code blocks will not be highlighted.");
+    }
+
+    // Scroll to bottom after the UI has been updated
+    scrollToBottom();
+}
     // Initial setup
     loadSessions();
     if (currentSessionId) {
