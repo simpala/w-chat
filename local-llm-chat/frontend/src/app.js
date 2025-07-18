@@ -50,6 +50,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatSessionList = document.getElementById('chatSessionList');
     const sendButton = document.getElementById('sendButton');
     const messageInput = document.getElementById('messageInput');
+
+    // Initial state setup
+    messageInput.placeholder = "no model loaded...";
+    sendButton.disabled = true;
     const stopButton = document.getElementById('stopButton');
     const chatWindow = document.querySelector('.messages-container');
 

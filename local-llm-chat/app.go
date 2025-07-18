@@ -197,17 +197,41 @@ func (a *App) LaunchLLM(command string) (string, error) {
 	return "LLM server launched successfully!", nil
 }
 
+// HealthCheck checks the health of the LLM server.
+func (a *App) HealthCheck() (string, error) {
+	resp, err := http.Get("http://localhost:8080/health")
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+	status, ok := result["status"].(string)
+	if !ok {
+		return "", fmt.Errorf("unexpected health check response")
+	}
+	return status, nil
+}
+
 // ShutdownLLM attempts to gracefully shut down the LLM server.
-func (a *App) shutdown(ctx context.Context) bool {
+func (a *App) ShutdownLLM() error {
 	if a.llmCmd != nil && a.llmCmd.Process != nil {
 		runtime.LogInfo(a.ctx, "Attempting to shut down LLM server...")
 		if err := a.llmCmd.Process.Signal(os.Interrupt); err != nil {
 			runtime.LogErrorf(a.ctx, "Failed to send SIGTERM to LLM server: %v. Attempting to kill.", err)
 			if err := a.llmCmd.Process.Kill(); err != nil {
 				runtime.LogErrorf(a.ctx, "Failed to kill LLM server: %v", err)
+				return err
 			}
 		}
 	}
+	return nil
+}
+
+func (a *App) shutdown(ctx context.Context) bool {
+	a.ShutdownLLM()
 	return false
 }
 

@@ -131,6 +131,19 @@ body {
     margin-bottom: 0.25em;
 }
 
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.loading-placeholder::placeholder {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
 /* Think Block Styling */
 .thought-block {
     background-color: #4a5568; /* Darker gray */
