@@ -58,7 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
     sendButton.disabled = true;
     const stopButton = document.getElementById('stopButton');
     const chatWindow = document.querySelector('.messages-container');
-    const systemPromptSelect = document.getElementById('systemPromptSelect');
+    const systemPromptSelectInput = document.getElementById('systemPromptSelectInput');
+    const systemPromptSelectList = document.getElementById('systemPromptSelectList');
     const customSystemPrompt = document.getElementById('customSystemPrompt');
 
     let currentSessionId = localStorage.getItem('currentSessionId') || null;
@@ -68,37 +69,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function loadPrompts() {
         GetPrompts().then(prompts => {
-            systemPromptSelect.innerHTML = '<option value="">Default</option>';
+            systemPromptSelectList.innerHTML = '';
+            const defaultOption = document.createElement('div');
+            defaultOption.textContent = 'Default';
+            defaultOption.addEventListener('click', () => {
+                systemPromptSelectInput.value = 'Default';
+                selectedSystemPrompt = '';
+                customSystemPrompt.value = '';
+                systemPromptSelectList.classList.add('select-hide');
+            });
+            systemPromptSelectList.appendChild(defaultOption);
             prompts.forEach(prompt => {
-                const option = document.createElement('option');
-                option.value = prompt;
+                const option = document.createElement('div');
                 option.textContent = prompt;
-                systemPromptSelect.appendChild(option);
+                option.addEventListener('click', () => {
+                    systemPromptSelectInput.value = prompt;
+                    GetPrompt(prompt).then(promptContent => {
+                        selectedSystemPrompt = promptContent;
+                        customSystemPrompt.value = promptContent;
+                    });
+                    systemPromptSelectList.classList.add('select-hide');
+                });
+                systemPromptSelectList.appendChild(option);
             });
         });
     }
 
-    systemPromptSelect.addEventListener('change', () => {
-        const selectedPromptName = systemPromptSelect.value;
-        if (selectedPromptName) {
-            GetPrompt(selectedPromptName).then(promptContent => {
-                selectedSystemPrompt = promptContent;
-                customSystemPrompt.value = promptContent;
-                // visually distinguish the active prompt
-                systemPromptSelect.querySelectorAll('option').forEach(option => {
-                    if (option.value === selectedPromptName) {
-                        option.classList.add('active');
-                    } else {
-                        option.classList.remove('active');
-                    }
-                });
-            });
-        } else {
-            selectedSystemPrompt = '';
-            customSystemPrompt.value = '';
-            systemPromptSelect.querySelectorAll('option').forEach(option => {
-                option.classList.remove('active');
-            });
+    systemPromptSelectInput.addEventListener('click', () => {
+        systemPromptSelectList.classList.toggle('select-hide');
+    });
+
+    document.addEventListener('click', (e) => {
+        const systemPromptSelect = document.querySelector('.custom-select');
+        if (!systemPromptSelect.contains(e.target)) {
+            systemPromptSelectList.classList.add('select-hide');
         }
     });
 
