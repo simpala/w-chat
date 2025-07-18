@@ -268,21 +268,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleSendMessage() {
         if (isStreaming) return;
-        let messageContent = messageInput.value.trim();
-        if (messageContent === '' || currentSessionId === null) {
+        const userMessageContent = messageInput.value.trim();
+        if (userMessageContent === '' || currentSessionId === null) {
             return;
         }
 
+        let contentToSend = userMessageContent;
         if (selectedSystemPrompt) {
-            messageContent = selectedSystemPrompt + '\n\n' + messageContent;
+            contentToSend = selectedSystemPrompt + '\n\n' + userMessageContent;
         }
 
         const userMessage = {
             role: 'user',
-            rawContent: messageContent
+            rawContent: userMessageContent
         };
-        messages.push({ role: 'user', content: messageContent });
-        addMessageToChatWindow('user', messageContent);
+        messages.push({ role: 'user', content: userMessageContent });
+        addMessageToChatWindow('user', userMessageContent);
         messageInput.value = '';
 
         isStreaming = true;
@@ -292,7 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let assistantResponse = '';
         messages.push({ role: 'assistant', content: '' });
 
-        sendMessage(currentSessionId, messageContent).catch(error => {
+        sendMessage(currentSessionId, contentToSend).catch(error => {
             console.error("Error sending message:", error);
             messages.pop();
             messages.push({

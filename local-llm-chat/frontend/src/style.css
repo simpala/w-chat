@@ -47,6 +47,14 @@ body {
     border-bottom: 1px solid #34495e;
 }
 
+#systemPromptSelect {
+    background-color: #333;
+    color: #fff;
+    border: 1px solid #555;
+    border-radius: 5px;
+    padding: 5px;
+}
+
 .select-items div:hover {
     background-color: #34495e;
 }
