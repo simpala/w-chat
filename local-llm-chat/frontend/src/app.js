@@ -17,7 +17,9 @@ import {
     LoadChatSessions,
     DeleteChatSession,
     LoadChatHistory,
-    StopStream
+    StopStream,
+    GetPrompts,
+    GetPrompt
 } from '../wailsjs/go/main/App';
 import {
     EventsOn
@@ -56,10 +58,53 @@ document.addEventListener('DOMContentLoaded', () => {
     sendButton.disabled = true;
     const stopButton = document.getElementById('stopButton');
     const chatWindow = document.querySelector('.messages-container');
+    const systemPromptSelectInput = document.getElementById('systemPromptSelectInput');
+    const systemPromptSelectList = document.getElementById('systemPromptSelectList');
+    const customSystemPrompt = document.getElementById('customSystemPrompt');
 
     let currentSessionId = localStorage.getItem('currentSessionId') || null;
     let messages = [];
     let isStreaming = false;
+    let selectedSystemPrompt = '';
+
+    function loadPrompts() {
+        GetPrompts().then(prompts => {
+            systemPromptSelectList.innerHTML = '';
+            const defaultOption = document.createElement('div');
+            defaultOption.textContent = 'Default';
+            defaultOption.addEventListener('click', () => {
+                systemPromptSelectInput.value = 'Default';
+                selectedSystemPrompt = '';
+                customSystemPrompt.value = '';
+                systemPromptSelectList.classList.add('select-hide');
+            });
+            systemPromptSelectList.appendChild(defaultOption);
+            prompts.forEach(prompt => {
+                const option = document.createElement('div');
+                option.textContent = prompt;
+                option.addEventListener('click', () => {
+                    systemPromptSelectInput.value = prompt;
+                    GetPrompt(prompt).then(promptContent => {
+                        selectedSystemPrompt = promptContent;
+                        customSystemPrompt.value = promptContent;
+                    });
+                    systemPromptSelectList.classList.add('select-hide');
+                });
+                systemPromptSelectList.appendChild(option);
+            });
+        });
+    }
+
+    systemPromptSelectInput.addEventListener('click', () => {
+        systemPromptSelectList.classList.toggle('select-hide');
+    });
+
+    document.addEventListener('click', (e) => {
+        const systemPromptSelect = document.querySelector('.custom-select');
+        if (!systemPromptSelect.contains(e.target)) {
+            systemPromptSelectList.classList.add('select-hide');
+        }
+    });
 
     const parseStreamedContent = (rawContent) => {
         const parts = [];
@@ -227,17 +272,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleSendMessage() {
         if (isStreaming) return;
-        const messageContent = messageInput.value.trim();
-        if (messageContent === '' || currentSessionId === null) {
+        const userMessageContent = messageInput.value.trim();
+        if (userMessageContent === '' || currentSessionId === null) {
             return;
+        }
+
+        let contentToSend = userMessageContent;
+        if (selectedSystemPrompt) {
+            contentToSend = selectedSystemPrompt + '\n\n' + userMessageContent;
         }
 
         const userMessage = {
             role: 'user',
-            rawContent: messageContent
+            rawContent: userMessageContent
         };
-        messages.push({ role: 'user', content: messageContent });
-        addMessageToChatWindow('user', messageContent);
+        messages.push({ role: 'user', content: userMessageContent });
+        addMessageToChatWindow('user', userMessageContent);
         messageInput.value = '';
 
         isStreaming = true;
@@ -247,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let assistantResponse = '';
         messages.push({ role: 'assistant', content: '' });
 
-        sendMessage(currentSessionId, messageContent).catch(error => {
+        sendMessage(currentSessionId, contentToSend).catch(error => {
             console.error("Error sending message:", error);
             messages.pop();
             messages.push({
@@ -368,6 +418,7 @@ function updateAssistantMessageUI(currentFullResponse) {
     if (currentSessionId) {
         switchSession(parseInt(currentSessionId));
     }
+    loadPrompts();
     const settingsToggleButton = document.getElementById('settingsToggleButton');
     const rightSidebar = document.querySelector('.sidebar-container.right');
     const artifactsPanel = document.getElementById('artifactsPanel');

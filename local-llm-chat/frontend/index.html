@@ -38,7 +38,11 @@
         </div>
         <div class="chat-area">
             <div class="chat-header">
-                <select id="systemPromptSelect"></select>
+                <div class="custom-select">
+                    <input type="text" id="systemPromptSelectInput" placeholder="Select Prompt...">
+                    <input type="hidden" id="selectedSystemPrompt">
+                    <div id="systemPromptSelectList" class="select-items select-hide"></div>
+                </div>
                 <textarea id="customSystemPrompt" placeholder="System Prompt Content..." readonly></textarea>
             </div>
             <div class="messages-container">
