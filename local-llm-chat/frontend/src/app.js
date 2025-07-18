@@ -17,7 +17,9 @@ import {
     LoadChatSessions,
     DeleteChatSession,
     LoadChatHistory,
-    StopStream
+    StopStream,
+    GetPrompts,
+    GetPrompt
 } from '../wailsjs/go/main/App';
 import {
     EventsOn
@@ -56,10 +58,49 @@ document.addEventListener('DOMContentLoaded', () => {
     sendButton.disabled = true;
     const stopButton = document.getElementById('stopButton');
     const chatWindow = document.querySelector('.messages-container');
+    const systemPromptSelect = document.getElementById('systemPromptSelect');
+    const customSystemPrompt = document.getElementById('customSystemPrompt');
 
     let currentSessionId = localStorage.getItem('currentSessionId') || null;
     let messages = [];
     let isStreaming = false;
+    let selectedSystemPrompt = '';
+
+    function loadPrompts() {
+        GetPrompts().then(prompts => {
+            systemPromptSelect.innerHTML = '<option value="">Default</option>';
+            prompts.forEach(prompt => {
+                const option = document.createElement('option');
+                option.value = prompt;
+                option.textContent = prompt;
+                systemPromptSelect.appendChild(option);
+            });
+        });
+    }
+
+    systemPromptSelect.addEventListener('change', () => {
+        const selectedPromptName = systemPromptSelect.value;
+        if (selectedPromptName) {
+            GetPrompt(selectedPromptName).then(promptContent => {
+                selectedSystemPrompt = promptContent;
+                customSystemPrompt.value = promptContent;
+                // visually distinguish the active prompt
+                systemPromptSelect.querySelectorAll('option').forEach(option => {
+                    if (option.value === selectedPromptName) {
+                        option.classList.add('active');
+                    } else {
+                        option.classList.remove('active');
+                    }
+                });
+            });
+        } else {
+            selectedSystemPrompt = '';
+            customSystemPrompt.value = '';
+            systemPromptSelect.querySelectorAll('option').forEach(option => {
+                option.classList.remove('active');
+            });
+        }
+    });
 
     const parseStreamedContent = (rawContent) => {
         const parts = [];
@@ -227,9 +268,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleSendMessage() {
         if (isStreaming) return;
-        const messageContent = messageInput.value.trim();
+        let messageContent = messageInput.value.trim();
         if (messageContent === '' || currentSessionId === null) {
             return;
+        }
+
+        if (selectedSystemPrompt) {
+            messageContent = selectedSystemPrompt + '\n\n' + messageContent;
         }
 
         const userMessage = {
@@ -368,6 +413,7 @@ function updateAssistantMessageUI(currentFullResponse) {
     if (currentSessionId) {
         switchSession(parseInt(currentSessionId));
     }
+    loadPrompts();
     const settingsToggleButton = document.getElementById('settingsToggleButton');
     const rightSidebar = document.querySelector('.sidebar-container.right');
     const artifactsPanel = document.getElementById('artifactsPanel');

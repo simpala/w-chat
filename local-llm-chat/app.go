@@ -169,6 +169,46 @@ func (a *App) GetModels() ([]string, error) {
 	return models, err
 }
 
+// GetPrompts returns a list of .md files in the prompts directory.
+func (a *App) GetPrompts() ([]string, error) {
+	exePath, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
+	promptsDir := filepath.Join(filepath.Dir(exePath), "prompts")
+	var prompts []string
+	err = filepath.Walk(promptsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && strings.HasSuffix(info.Name(), ".md") {
+			prompts = append(prompts, strings.TrimSuffix(info.Name(), ".md"))
+		}
+		return nil
+	})
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []string{}, nil
+		}
+		return nil, err
+	}
+	return prompts, nil
+}
+
+// GetPrompt returns the content of a specific prompt file.
+func (a *App) GetPrompt(promptName string) (string, error) {
+	exePath, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	promptFile := filepath.Join(filepath.Dir(exePath), "prompts", promptName+".md")
+	content, err := os.ReadFile(promptFile)
+	if err != nil {
+		return "", err
+	}
+	return string(content), nil
+}
+
 // LaunchLLM launches the LLM server in the background.
 func (a *App) LaunchLLM(command string) (string, error) {
 	if a.llmCmd != nil && a.llmCmd.Process != nil {
