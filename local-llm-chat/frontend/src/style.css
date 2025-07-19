@@ -341,3 +341,799 @@ body.theme-light {
 }
 
 /* You can add more themes here */
+
+/* Theme: Grey */
+body.theme-grey {
+    --bg-primary: #1e1e1e;
+    --bg-secondary: #252525;
+    --bg-tertiary: #2a2a2a;
+    --bg-code-inline: #333;
+    --bg-thought-block: #3a3a3a;
+    --bg-thought-hover: #4a4a4a;
+
+    --text-primary: #d4d4d4;
+    --text-secondary: #d4d4d4;
+    --text-placeholder: #a0aec0;
+    --text-thought-summary: #d4d4d4;
+    --text-thought-content: #d4d4d4;
+
+    --border-color: #444;
+    --border-thought-block: #444;
+
+    --scrollbar-thumb: #555;
+    --scrollbar-track: #333;
+
+    --ui-hover-bg: #5a5a5a;
+    --button-bg: #4a4a4a;
+    --button-text: #d4d4d4;
+    --button-hover-bg: #5a5a5a;
+    --active-session-bg: #5a5a5a;
+}
+
+/* Theme: Green */
+body.theme-green {
+    --bg-primary: #28372f; /* Dark green background */
+    --bg-secondary: #3d5c4c; /* Slightly lighter green */
+    --bg-tertiary: #1e2a24;
+    --bg-code-inline: #334a3e;
+    --bg-thought-block: #4a6b5a;
+    --bg-thought-hover: #405e4e;
+
+    --text-primary: #e0ffe0; /* Light green text */
+    --text-secondary: #f0fff0;
+    --text-placeholder: #a0c0a0;
+    --text-thought-summary: #b0d0b0;
+    --text-thought-content: #d0e0d0;
+
+    --border-color: #5a806c;
+    --border-thought-block: #70907e;
+
+    --scrollbar-thumb: #778;
+    --scrollbar-track: #556;
+
+    --ui-hover-bg: #5a806c;
+    --button-bg: #3d5c4c;
+    --button-text: #e0ffe0;
+    --button-hover-bg: #5a806c;
+    --active-session-bg: #5a806c;
+}
+
+/* Basic Reset */
+body,
+h1,
+h2,
+h3,
+p,
+ul,
+li {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: sans-serif;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    display: flex;
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+/* Main layout container */
+.container {
+    display: flex;
+    width: 100%;
+    height: 100vh;
+}
+
+/* Chat area */
+.chat-area {
+    flex: 1;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    text-align: left;
+}
+
+/* Chat messages container */
+.messages-container {
+    overflow-y: auto;
+    flex-grow: 1;
+    padding-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.messages-container::-webkit-scrollbar {
+    width: 0;
+}
+
+/* User message styling */
+.message.user {
+    background-color: var(--bg-secondary);
+    padding: 10px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    max-width: 80%;
+    align-self: flex-start;
+    word-break: break-all;
+    white-space: pre-line;
+}
+
+/* AI message styling */
+.message.ai {
+    background-color: var(--bg-tertiary);
+    padding: 10px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    align-self: flex-start;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    word-break: break-all;
+    white-space: pre-line;
+}
+
+.message.ai pre {
+    background-color: var(--bg-code-inline);
+    padding: 10px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.message.ai code {
+    font-family: monospace;
+    display: block;
+    word-break: break-word;
+}
+
+/* Basic CSS for syntax highlighting */
+.message.ai pre {
+    background-color: var(--bg-code-inline);
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.message.ai code {
+    font-family: 'Courier New', monospace;
+}
+
+.message.ai ul,
+.message.ai ol {
+    padding-left: 20px;
+    margin: 10px 0;
+}
+
+.message.ai li {
+    margin-bottom: 5px;
+    white-space: normal;
+}
+
+.message.ai li br {
+    display: inline;
+}
+
+/* Input area */
+.input-area {
+    display: flex;
+    padding: 20px;
+    border-top: 1px solid var(--border-color);
+}
+
+.input-area textarea {
+    flex: 1;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border: none;
+    padding: 10px;
+    border-radius: 5px;
+    resize: vertical;
+}
+
+.input-area button {
+    background-color: var(--button-bg);
+    color: var(--button-text);
+    border: none;
+    padding: 10px 15px;
+    margin-left: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.input-area button:hover {
+    background-color: var(--button-hover-bg);
+}
+
+/* Sidebar container */
+.sidebar-container {
+    display: flex;
+    flex-direction: column;
+    width: 11.25vw;
+    max-width: 250px;
+    min-width: 100px;
+    background-color: var(--bg-primary);
+    padding: 20px;
+    border-right: 1px solid var(--border-color);
+    position: relative;
+}
+
+.sidebar-container.right {
+    border-left: 1px solid var(--border-color);
+    border-right: none;
+    z-index: 1040; /* Ensure settings sidebar is above general content but below settings button (1050) and artifact panel (1060) */
+}
+
+.sidebar-container input,
+.sidebar-container select,
+.sidebar-container textarea {
+    display: block;
+    width: calc(100% - 15px);
+    max-width: calc(100% - 15px);
+    box-sizing: border-box;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border: none;
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+}
+
+.sidebar-container button {
+    display: block;
+    width: 100%;
+    background-color: var(--button-bg);
+    color: var(--button-text);
+    border: none;
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar-container button.selected {
+    background-color: var(--active-session-bg);
+}
+
+.sidebar-container button:hover {
+    background-color: var(--button-hover-bg);
+}
+
+/* Style for the session list container */
+#chatSessionList {
+    margin-bottom: 10px;
+    padding-right: 10px;
+}
+
+.commands-container {
+    position: absolute;
+    bottom: 20px;
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.commands-container #commandsButton {
+    width: calc(100% - 20px);
+    margin: 0 10px;
+}
+
+/* Style for the commands button itself */
+#commandsButton {
+    width: 100%;
+    bottom: 20px;
+    position: absolute;
+}
+
+/* Notifications */
+.notification {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: 15px 20px;
+    border-radius: 5px;
+    z-index: 1000;
+    animation: fadeOut 3s forwards;
+    white-space: nowrap;
+}
+
+@keyframes fadeOut {
+    0% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+        display: none;
+    }
+}
+
+/* Additional style for conditional hiding */
+.rag-element {
+    display: none;
+}
+
+.rag-element.show {
+    display: block;
+}
+
+.speculative-element {
+    display: none;
+}
+
+.speculative-element.show {
+    display: block;
+}
+
+.chat-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.rag-controls {
+    margin-top: auto;
+    background-color: var(--bg-tertiary);
+    padding: 10px;
+    border-top: 1px solid var(--border-color);
+}
+
+.chat-header select {
+    display: block;
+    flex-grow: 0;    /* Do not grow */
+    flex-shrink: 0;  /* Do not shrink */
+    flex-basis: 200px; /* Set a fixed base width, adjust as needed */
+    max-width: 250px; /* Optional: if you want to cap its width */
+    margin-right: 10px;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border: none;
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+}
+
+.chat-header input { /* This rule now correctly targets #customSystemPrompt */
+    display: block;
+    flex-grow: 1;     /* Allow this input to grow */
+    flex-shrink: 1;   /* Allow it to shrink if space is very constrained */
+    flex-basis: 0;    /* Start with no intrinsic width, will expand based on flex-grow */
+    /* Remove max-width and min-width unless specific constraints are desired for the expanding field */
+    /* margin-right: 10px; /* Remove margin as it's the last item in this flex row */
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border: none;
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+}
+
+.chat-header button {
+    background-color: var(--button-bg);
+    color: var(--button-text);
+    border: none;
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    width: fit-content;
+}
+
+.chat-header button:hover {
+    background-color: var(--button-hover-bg);
+}
+
+.speculative-element select {
+    max-width: 80%;
+    display: inline-block;
+}
+
+.speculative-element label {
+    margin-right: 5px;
+    display: inline-block;
+    font-style: italic;
+    font-size: 0.8em;
+}
+
+.slider-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.slider-container label {
+    margin-right: 10px;
+    font-style: italic;
+    font-size: 0.8em;
+}
+
+.slider-container input[type="range"] {
+    width: 100%;
+    flex: 1;
+}
+
+.slider-container.hidden {
+    display: none;
+}
+
+.slider-container input[type="checkbox"] {
+    width: auto;
+    margin-left: 5px;
+}
+
+/* New classes for inline styles */
+.italic-small {
+    font-style: italic;
+    font-size: 0.8em;
+}
+
+.flex-align-center {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.margin-bottom {
+    margin-bottom: 10px;
+}
+
+.hidden {
+    display: none;
+}
+
+/* Styles for the code block wrapper and copy button */
+.code-block-wrapper {
+    position: relative; /* Allows absolute positioning for the button */
+    margin-bottom: 10px; /* Matches existing .message.ai pre margin if any, or adds some space */
+}
+
+/* Ensure that .message.ai pre inside the wrapper doesn't add extra margin */
+.message.ai .code-block-wrapper pre {
+    margin-bottom: 0;
+}
+
+.code-block-wrapper {
+    position: relative; /* Allows absolute positioning for the button */
+    margin-bottom: 10px; /* Matches existing .message.ai pre margin if any, or adds some space */
+}
+
+/* Ensure that .message.ai pre inside the wrapper doesn't add extra margin */
+.message.ai .code-block-wrapper pre {
+    margin-bottom: 0;
+}
+
+.copy-code-button {
+    background-color: var(--button-bg);
+    color: var(--button-text);
+    border: none;
+    padding: 6px 10px; /* Slightly larger padding */
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75em; /* Slightly smaller font */
+    transition: background-color 0.2s ease-in-out;
+    margin-left: auto; /* Pushes the button to the right in a flex container */
+}
+
+.copy-code-button:hover {
+    background-color: var(--button-hover-bg);
+}
+
+.copy-code-button:active {
+    background-color: var(--button-hover-bg);
+}
+
+.copy-code-button.copied {
+    background-color: #4CAF50; /* Green to indicate success */
+    color: white;
+}
+
+/* Styles for the code block header in artifacts panel */
+.code-artifact-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.code-artifact-header p {
+    margin: 0; /* Remove default paragraph margin */
+}
+
+/* Ensure copy button is always visible within the artifacts panel */
+.code-artifact .copy-code-button {
+    opacity: 1; /* Always visible in artifacts panel */
+}
+
+/* For code blocks in the main chat, keep the hover effect */
+.code-block-wrapper .copy-code-button {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    opacity: 0;
+    z-index: 10;
+}
+
+.code-block-wrapper:hover .copy-code-button {
+    opacity: 0.8;
+}
+
+.code-block-wrapper .copy-code-button:hover {
+    opacity: 1;
+}
+
+/* Settings Toggle Button */
+.settings-toggle-container {
+    position: fixed;
+    bottom: 15px; /* Adjusted for a bit more space from the bottom */
+    right: 15px; /* Adjusted for a bit more space from the right */
+    z-index: 1070; /* Increased to be above the artifacts panel */
+}
+
+#settingsToggleButton {
+    background-color: var(--button-bg); /* Darker, distinct from other sidebar buttons */
+    color: var(--button-text);
+    border: 1px solid var(--border-color); /* Subtle border */
+    padding: 10px 12px; /* Slightly larger for easier clicking */
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.4em; /* Larger gear icon */
+    line-height: 1;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    transition: background-color 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+
+#settingsToggleButton:hover {
+    background-color: var(--button-hover-bg);
+    transform: rotate(30deg);
+}
+
+#settingsToggleButton:active {
+    background-color: var(--button-hover-bg);
+    transform: rotate(60deg);
+}
+
+/* Class to hide the sidebar */
+.sidebar-container.right.sidebar-hidden { /* More specific selector */
+    display: none;
+}
+
+/* Optional: Adjust main container layout when right sidebar is hidden */
+/* This might be needed if the container doesn't naturally resize.
+   For now, assuming display:none on the sidebar itself is sufficient.
+.container.right-sidebar-hidden .chat-area {
+    margin-right: 0; /* Or adjust flex properties if needed */
+/*} */
+
+.chat-header textarea#customSystemPrompt {
+    display: block;
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    background-color: var(--bg-tertiary); /* Slightly different background for readonly */
+    color: var(--text-secondary); /* Slightly muted color for readonly text */
+    border: 1px solid var(--border-color);
+    padding: 10px 15px;
+    margin-bottom: 10px; /* Matches other elements in header */
+    border-radius: 5px;
+    resize: none; /* Important for a read-only display field */
+    overflow-y: auto; /* Allow scrolling if content is too long */
+    min-height: 40px; /* Approximate height of a single-line input, same as other inputs */
+    line-height: 1.4; /* Better for multi-line text */
+    cursor: default; /* Indicate it's not for typing */
+    font-family: sans-serif; /* Ensure it matches other inputs/selects */
+    white-space: pre-wrap; /* To respect newlines in the prompt text */
+    word-break: break-word; /* To break long words */
+}
+
+/* Artifacts Panel Styles */
+.artifacts-panel {
+    display: flex;
+    flex-direction: column;
+    width: 30%; /* Initial width, can be resized */
+    max-width: 50%; /* Max width */
+    min-width: 200px; /* Min width to prevent it from becoming too small */
+    height: calc(100vh - 0px); /* Take full viewport height */
+    border-left: 1px solid var(--border-color);
+    background-color: var(--bg-secondary);
+    padding: 10px;
+    overflow-y: auto;
+    resize: horizontal; /* Allows horizontal resizing */
+    overflow-x: hidden; /* Prevents horizontal scrollbar due to resize handle */
+    position: relative;
+    z-index: 1060; /* Above settings toggle button */
+}
+
+.resize-handle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 5px; /* Width of the handle */
+    height: 100%;
+    cursor: ew-resize; /* Indicates horizontal resizing */
+    background-color: var(--scrollbar-thumb); /* A slightly different color to be noticeable */
+    opacity: 0.5;
+    transition: background-color 0.2s ease-in-out, opacity 0.2s ease-in-out;
+}
+
+.resize-handle:hover {
+    background-color: var(--scrollbar-thumb);
+    opacity: 0.8;
+}
+
+.artifacts-panel.collapsed .resize-handle {
+    display: none; /* Hide resize handle when panel is collapsed */
+}
+
+
+.artifacts-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 10px; /* Add some padding below the header */
+    border-bottom: 1px solid var(--border-color); /* Separator line */
+    margin-bottom: 10px;
+}
+
+.artifacts-header h3 {
+    margin: 0;
+    font-size: 1.2em;
+    color: var(--text-primary);
+}
+
+#toggleArtifactsPanel {
+    background-color: var(--button-bg);
+    color: var(--button-text);
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#toggleArtifactsPanel:hover {
+    background-color: var(--button-hover-bg);
+}
+
+.artifacts-content {
+    flex-grow: 1;
+    overflow-y: auto; /* Allows vertical scrolling for content */
+    padding-top: 5px; /* Small padding at the top of content area */
+}
+
+.artifacts-content::-webkit-scrollbar {
+    width: 0;
+}
+
+.artifacts-content img,
+.artifacts-content video {
+    max-width: 100%; /* Ensure media fits within the panel */
+    height: auto;    /* Maintain aspect ratio */
+    margin-bottom: 15px; /* Space below each artifact */
+    border-radius: 4px;
+    display: block; /* Prevent extra space below inline images */
+}
+
+.artifacts-content .code-artifact { /* Specific class for code blocks in artifacts panel */
+    background-color: var(--bg-primary); /* Darker background for contrast */
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 12px;
+    overflow-x: auto; /* Horizontal scroll for wide code */
+    margin-bottom: 15px;
+    /* Removed max-height to prevent individual vertical scrollbars */
+}
+
+.artifacts-content .code-artifact::-webkit-scrollbar {
+    height: 0; /* Make horizontal scrollbar invisible */
+}
+
+.artifacts-content .code-artifact pre {
+    margin: 0; /* Remove default pre margins */
+    background-color: transparent; /* Inherit from .code-artifact */
+    padding: 0; /* Remove default pre padding */
+}
+
+.artifacts-content .code-artifact code {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9em;
+    color: var(--text-primary); /* Ensure code text is visible */
+    white-space: pre; /* Preserve whitespace and line breaks, allow overflow for scrolling */
+}
+
+/* Styles for when artifacts panel is collapsed */
+.artifacts-panel.collapsed {
+    width: 45px; /* Width when collapsed */
+    min-width: 45px; /* Consistent min-width when collapsed */
+    padding-left: 0;
+    padding-right: 0;
+    overflow: hidden; /* Hide content when collapsed */
+}
+
+.artifacts-panel.collapsed .artifacts-content,
+.artifacts-panel.collapsed .artifacts-header h3 {
+    display: none; /* Hide content and title when collapsed */
+}
+
+.artifacts-panel.collapsed .artifacts-header {
+    justify-content: center; /* Center the toggle button */
+    border-bottom: none; /* Remove border when collapsed */
+    padding-bottom: 0;
+    margin-bottom: 0;
+}
+
+.artifacts-panel.collapsed #toggleArtifactsPanel {
+    /* No longer using vertical writing mode for simple arrow icons */
+    /* transform: rotate(180deg); /* Not needed for << / >> */
+    padding: 5px 8px; /* Adjust padding for better fit of icons */
+    font-size: 1.2em; /* Slightly larger icon */
+    line-height: 1; /* Ensure consistent line height */
+}
+
+/* Ensure the main container uses all available space correctly */
+.container {
+    display: flex;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden; /* Prevent scrollbars on the body/container itself */
+}
+
+/* Adjust chat area and sidebars to coexist with artifacts panel */
+/* The chat-area might need its flex properties adjusted if it's not behaving as expected */
+
+/* Ensure HighlightJS styles apply correctly within artifacts panel */
+.artifacts-content .hljs {
+    display: block;
+    overflow-x: auto;
+    padding: 0.5em;
+    background: var(--bg-primary); /* Match .code-artifact background or your theme */
+    color: var(--text-primary);
+}
+
+.artifact-item {
+    position: relative;
+    padding-top: 25px; /* Add padding to make space for the delete button */
+}
+
+.delete-artifact-button {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 2px 5px;
+    line-height: 1;
+}
+
+.delete-artifact-button:hover {
+    color: var(--text-primary);
+    background-color: var(--button-hover-bg);
+}
+
+/* Styles for multi-task plan artifacts */
+.multi-task-artifacts {
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 15px;
+    max-height: 400px; /* Adjust as needed */
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column-reverse; /* New items appear at the bottom */
+}
+
+.multi-task-artifact {
+    background-color: var(--bg-secondary);
+    padding: 10px;
+    border-radius: 5px;
+    margin-top: 10px; /* Spacing between artifacts */
+}
