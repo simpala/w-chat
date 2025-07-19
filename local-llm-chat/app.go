@@ -105,7 +105,6 @@ func (a *App) startup(ctx context.Context) {
 	runtime.LogInfof(a.ctx, "Final a.config state after startup: %+v", a.config)
 
 	// --- ArtifactService Initialization ---
-	sessionID := "default-chat-session"
 	userConfigDir, err := os.UserConfigDir()
 	if err != nil {
 		log.Fatalf("Failed to get user config dir: %v", err)
