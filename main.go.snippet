@@ -1,0 +1,88 @@
+package main
+
+import (
+	"context"
+	"embed"
+	"log"
+	"os"
+	"path/filepath"
+
+	"your_project/artifacts" // Assumes your project is in a module named 'your_project'
+
+	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/options"
+	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
+)
+
+//go:embed all:frontend/dist
+var assets embed.FS
+
+// App struct to hold services and the Wails context
+type App struct {
+	ctx             context.Context
+	ArtifactService *artifacts.ArtifactService
+}
+
+// NewApp creates a new App application struct
+func NewApp() *App {
+	return &App{}
+}
+
+// startup is called when the app starts. The context is saved
+// so we can call the runtime methods
+func (a *App) startup(ctx context.Context) {
+	a.ctx = ctx
+	wailsRuntime := runtime.NewRuntime(ctx)
+
+	// --- ArtifactService Initialization ---
+
+	// 1. Define a session ID. For now, it's a fixed value.
+	// In a real app, this would be dynamically managed.
+	sessionID := "default-session-123"
+
+	// 2. Determine a reliable directory for storing artifact content.
+	// Using the user's application data directory is a good practice.
+	appDataDir, err := os.UserConfigDir()
+	if err != nil {
+		log.Fatalf("Failed to get user config dir: %s", err)
+	}
+	artifactsDir := filepath.Join(appDataDir, "YourAppName", "artifacts")
+
+	// 3. Create the ArtifactService instance.
+	artifactService, err := artifacts.NewArtifactService(artifactsDir, sessionID, wailsRuntime)
+	if err != nil {
+		log.Fatalf("Failed to create ArtifactService: %s", err)
+	}
+	a.ArtifactService = artifactService
+
+	// 4. Defer cleanup of non-persistent artifacts for when the app closes.
+	defer artifactService.CleanupNonPersistentArtifacts(sessionID)
+}
+
+func main() {
+	// Create an instance of the app structure
+	app := NewApp()
+
+	// Create application with options
+	err := wails.Run(&options.App{
+		Title:  "Your Wails App",
+		Width:  1024,
+		Height: 768,
+		AssetServer: &assetserver.Options{
+			Assets: assets,
+		},
+		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
+		OnStartup:        app.startup,
+		Bind: []interface{}{
+			app,
+			// Bind the ArtifactService instance directly so frontend can call its methods.
+			// The frontend will access it via `window.go.artifacts.ArtifactService`.
+			app.ArtifactService,
+		},
+	})
+
+	if err != nil {
+		println("Error:", err.Error())
+	}
+}
