@@ -25,7 +25,7 @@ func main() {
 		Height: 768,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
-			Handler: http.FileServer(http.Dir(os.Getenv("HOME") + "/.config/local-llm-chat/artifacts")),
+			Handler: http.StripPrefix("/artifacts/", http.FileServer(http.Dir(os.Getenv("HOME") + "/.config/local-llm-chat/artifacts"))),
 		},
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
 		OnStartup:        app.startup,

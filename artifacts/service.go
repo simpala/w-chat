@@ -81,7 +81,7 @@ func (s *ArtifactService) AddArtifact(sessionID string, artifactType ArtifactTyp
 				return "", fmt.Errorf("failed to write artifact content to disk: %w", err)
 			}
 			contentPath = filePath
-			url = "/wails/assetserver/" + contentPath
+			url = "/artifacts/" + sessionID + "/" + fileName
 		}
 	}
 
