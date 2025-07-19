@@ -688,7 +688,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             fileName: file.name,
                             size: file.size
                         };
-                        window.go.main.App.AddArtifact(currentSessionId, artifactType, content, metadata, true);
+                        window.go.main.App.AddArtifact(String(currentSessionId), artifactType, content, metadata, true);
                     }
                 };
                 reader.readAsDataURL(file);
@@ -709,7 +709,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderArtifacts() {
         const artifactsContent = document.getElementById('artifactsContent');
         artifactsContent.innerHTML = '';
-        window.go.main.App.ListArtifacts(currentSessionId).then(artifacts => {
+        window.go.main.App.ListArtifacts(String(currentSessionId)).then(artifacts => {
             if (artifacts) {
                 artifacts.forEach(artifact => {
                     const artifactElement = document.createElement('div');
