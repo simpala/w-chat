@@ -28,9 +28,6 @@ import {
     ReadFileContent
 } from '../wailsjs/go/main/App';
 import {
-    artifacts
-} from '../wailsjs/go/models';
-import {
     EventsOn
 } from '../wailsjs/runtime';
 import * as runtime from '../wailsjs/runtime';
@@ -681,9 +678,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const fileExtension = file.name.split('.').pop().toLowerCase();
                     let artifactType;
                     if (['png', 'jpg', 'jpeg', 'gif'].includes(fileExtension)) {
-                        artifactType = window.go.models.artifacts.ArtifactType.IMAGE;
+                        artifactType = "image"
                     } else if (['mp4', 'mov', 'webm'].includes(fileExtension)) {
-                        artifactType = window.go.models.artifacts.ArtifactType.VIDEO;
+                        artifactType = "video"
                     }
 
                     if (artifactType) {
@@ -719,11 +716,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     artifactElement.classList.add('artifact');
                     if (artifact.type === 'image') {
                         const img = document.createElement('img');
-                        img.src = "file://" + artifact.content_path;
+                        img.src = "file://" + artifact.contentPath;
                         artifactElement.appendChild(img);
                     } else if (artifact.type === 'video') {
                         const video = document.createElement('video');
-                        video.src = "file://" + artifact.content_path;
+                        video.src = "file://" + artifact.contentPath;
                         video.controls = true;
                         artifactElement.appendChild(video);
                     }
