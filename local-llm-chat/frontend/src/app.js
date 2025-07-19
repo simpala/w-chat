@@ -716,11 +716,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     artifactElement.classList.add('artifact');
                     if (artifact.type === 'image') {
                         const img = document.createElement('img');
-                        img.src = artifact.url;
+                        img.src = artifact.URL;
                         artifactElement.appendChild(img);
                     } else if (artifact.type === 'video') {
                         const video = document.createElement('video');
-                        video.src = artifact.url;
+                        video.src = artifact.URL;
                         video.controls = true;
                         artifactElement.appendChild(video);
                     }
