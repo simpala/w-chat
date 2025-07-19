@@ -668,45 +668,35 @@ document.addEventListener('DOMContentLoaded', () => {
     // initFuzzySearch([]) is no longer needed here as it's handled by loadSettingsAndApplyTheme
 
     uploadArtifactButton.addEventListener('click', () => {
-        runtime.dialog.OpenFile({
-            title: "Select files",
-            filters: [{
-                    DisplayName: "Images & Videos",
-                    Pattern: "*.png;*.jpg;*.jpeg;*.gif;*.mp4;*.mov;*.webm"
-                },
-                {
-                    DisplayName: "Images",
-                    Pattern: "*.png;*.jpg;*.jpeg;*.gif"
-                },
-                {
-                    DisplayName: "Videos",
-                    Pattern: "*.mp4;*.mov;*.webm"
-                },
-            ],
-            canSelectMultiple: true,
-        }).then(files => {
-            if (files) {
-                files.forEach(file => {
-                    ReadFileContent(file).then(content => {
-                        const fileExtension = file.split('.').pop().toLowerCase();
-                        let artifactType;
-                        if (['png', 'jpg', 'jpeg', 'gif'].includes(fileExtension)) {
-                            artifactType = artifacts.ArtifactType.IMAGE;
-                        } else if (['mp4', 'mov', 'webm'].includes(fileExtension)) {
-                            artifactType = artifacts.ArtifactType.VIDEO;
-                        }
+        fileUploadInput.click();
+    });
 
-                        if (artifactType) {
-                            const metadata = {
-                                fileName: file.split('/').pop(),
-                                size: content.length
-                            };
-                            window.go.main.App.AddArtifact("default-chat-session", artifactType, content, metadata, true);
-                        }
-                    });
-                });
+    fileUploadInput.addEventListener('change', (event) => {
+        const files = event.target.files;
+        if (files) {
+            for (const file of files) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const content = e.target.result.split(',')[1];
+                    const fileExtension = file.name.split('.').pop().toLowerCase();
+                    let artifactType;
+                    if (['png', 'jpg', 'jpeg', 'gif'].includes(fileExtension)) {
+                        artifactType = artifacts.ArtifactType.IMAGE;
+                    } else if (['mp4', 'mov', 'webm'].includes(fileExtension)) {
+                        artifactType = artifacts.ArtifactType.VIDEO;
+                    }
+
+                    if (artifactType) {
+                        const metadata = {
+                            fileName: file.name,
+                            size: file.size
+                        };
+                        window.go.main.App.AddArtifact("default-chat-session", artifactType, content, metadata, true);
+                    }
+                };
+                reader.readAsDataURL(file);
             }
-        });
+        }
     });
 
     EventsOn("newArtifactAdded", (artifactId) => {
