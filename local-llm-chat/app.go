@@ -686,3 +686,15 @@ func (a *App) ReadFileContent(filePath string) (string, error) {
 	}
 	return base64.StdEncoding.EncodeToString(content), nil
 }
+
+func (a *App) ListArtifacts(sessionID string) ([]*artifacts.Artifact, error) {
+	return a.ArtifactService.ListArtifacts(sessionID)
+}
+
+func (a *App) AddArtifact(sessionID string, artifactType artifacts.ArtifactType, content string, metadata map[string]interface{}, isPersistent bool) (string, error) {
+	decodedContent, err := base64.StdEncoding.DecodeString(content)
+	if err != nil {
+		return "", err
+	}
+	return a.ArtifactService.AddArtifact(sessionID, artifactType, decodedContent, metadata, isPersistent)
+}

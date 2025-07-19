@@ -701,7 +701,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 fileName: file.split('/').pop(),
                                 size: content.length
                             };
-                            window.go.main.App.ArtifactService.AddArtifact("default-chat-session", artifactType, content, metadata, true);
+                            window.go.main.App.AddArtifact("default-chat-session", artifactType, content, metadata, true);
                         }
                     });
                 });
@@ -722,7 +722,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderArtifacts() {
         const artifactsContent = document.getElementById('artifactsContent');
         artifactsContent.innerHTML = '';
-        window.go.main.App.ArtifactService.ListArtifacts("default-chat-session").then(artifacts => {
+        window.go.main.App.ListArtifacts("default-chat-session").then(artifacts => {
             if (artifacts) {
                 artifacts.forEach(artifact => {
                     const artifactElement = document.createElement('div');
