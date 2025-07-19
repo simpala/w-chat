@@ -2,7 +2,7 @@ package main
 
 import (
 	"embed"
-	"local-llm-chat/artifacts"
+	_ "local-llm-chat/artifacts"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
