@@ -1,0 +1,8 @@
+// ReadFileContent reads a file from disk and returns its content as a base64 encoded string.
+func (a *App) ReadFileContent(filePath string) (string, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(content), nil
+}

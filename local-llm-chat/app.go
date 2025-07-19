@@ -3,8 +3,11 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"local-llm-chat/artifacts"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -18,12 +21,13 @@ import (
 
 // App struct
 type App struct {
-	ctx           context.Context
-	config        Config
-	db            *Database
-	llmCmd        *exec.Cmd // This holds the command for the LLM process
-	conversations map[int64]*Conversation
-	mu            sync.Mutex
+	ctx             context.Context
+	config          Config
+	db              *Database
+	llmCmd          *exec.Cmd // This holds the command for the LLM process
+	conversations   map[int64]*Conversation
+	mu              sync.Mutex
+	ArtifactService *artifacts.ArtifactService
 }
 
 // Config struct - Add the Theme field here
@@ -99,6 +103,24 @@ func (a *App) startup(ctx context.Context) {
 	}
 	a.config = config // Assign local config back to a.config
 	runtime.LogInfof(a.ctx, "Final a.config state after startup: %+v", a.config)
+
+	// --- ArtifactService Initialization ---
+	sessionID := "default-chat-session"
+	userConfigDir, err := os.UserConfigDir()
+	if err != nil {
+		log.Fatalf("Failed to get user config dir: %v", err)
+	}
+	artifactsDir := filepath.Join(userConfigDir, "local-llm-chat", "artifacts")
+	if err := os.MkdirAll(artifactsDir, os.ModePerm); err != nil {
+		log.Fatalf("Failed to create artifacts directory: %v", err)
+	}
+
+	a.ArtifactService = artifacts.NewArtifactService(a.ctx, artifactsDir)
+	log.Printf("ArtifactService initialized. Artifacts directory: %s", artifactsDir)
+
+	// Defer cleanup for non-persistent artifacts
+	defer a.ArtifactService.CleanupNonPersistentArtifacts(sessionID)
+	// --- End ArtifactService Initialization ---
 }
 
 // NewChat creates a new chat session.
@@ -654,4 +676,13 @@ func (a *App) getConversation(sessionID int64) (*Conversation, bool) {
 	defer a.mu.Unlock()
 	conv, ok := a.conversations[sessionID]
 	return conv, ok
+}
+
+// ReadFileContent reads a file from disk and returns its content as a base64 encoded string.
+func (a *App) ReadFileContent(filePath string) (string, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(content), nil
 }

@@ -38,3 +38,5 @@ require (
 )
 
 // replace github.com/wailsapp/wails/v2 v2.10.2 => /home/jules/go/pkg/mod
+
+replace local-llm-chat/artifacts => ../artifacts
