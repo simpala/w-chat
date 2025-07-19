@@ -79,10 +79,7 @@ func (s *ArtifactService) AddArtifact(sessionID string, artifactType ArtifactTyp
 			if err = os.WriteFile(filePath, content, 0644); err != nil {
 				return "", fmt.Errorf("failed to write artifact content to disk: %w", err)
 			}
-			contentPath, err = filepath.Abs(filePath)
-			if err != nil {
-				return "", fmt.Errorf("failed to get absolute path for artifact content: %w", err)
-			}
+			contentPath = filePath
 		}
 	}
 
