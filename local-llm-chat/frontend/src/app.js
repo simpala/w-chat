@@ -681,9 +681,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const fileExtension = file.name.split('.').pop().toLowerCase();
                     let artifactType;
                     if (['png', 'jpg', 'jpeg', 'gif'].includes(fileExtension)) {
-                        artifactType = artifacts.ArtifactType.IMAGE;
+                        artifactType = window.go.models.artifacts.ArtifactType.IMAGE;
                     } else if (['mp4', 'mov', 'webm'].includes(fileExtension)) {
-                        artifactType = artifacts.ArtifactType.VIDEO;
+                        artifactType = window.go.models.artifacts.ArtifactType.VIDEO;
                     }
 
                     if (artifactType) {
