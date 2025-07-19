@@ -109,7 +109,7 @@ func (s *ArtifactService) AddArtifact(sessionID string, artifactType ArtifactTyp
 
 	// Notify the frontend that a new artifact is available.
 	if s.ctx != nil {
-		runtime.EventsEmit(s.ctx, "newArtifactAdded", artifactID)
+		runtime.EventsEmit(s.ctx, "newArtifactAdded")
 	}
 
 	return artifactID, nil
