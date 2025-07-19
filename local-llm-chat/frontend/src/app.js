@@ -1,11 +1,14 @@
+// app.js
+
 console.log("DEBUG: Main app.js file loaded.");
 import {
-    initFuzzySearch,
-    loadSettings,
-    saveSettings,
-    handleModelSelection,
-    fuse
+    handleModelSelection, // Now handles selection and saves settings
+    populateModelList, // Exported for initial population
+    loadSettingsAndApplyTheme, // Consolidated load function
+    saveAllSettings, // Consolidated save function
+    fuse // <--- CRITICAL FIX: IMPORT FUSE HERE
 } from './modules/settings.js';
+
 import {
     launchLLM
 } from './modules/llm.js';
@@ -26,12 +29,26 @@ import {
 } from '../wailsjs/runtime';
 import * as runtime from '../wailsjs/runtime';
 
+// Function to apply the theme - EXPORTED so settings.js can import it
+export function applyTheme(themeName) {
+    console.log("DEBUG: applyTheme called with:", themeName);
+    const body = document.body;
+    // Remove all existing theme classes
+    body.className = body.className.split(' ').filter(c => !c.startsWith('theme-')).join(' ');
+
+    if (themeName && themeName !== 'default') {
+        body.classList.add(`theme-${themeName}`);
+    }
+    body.dataset.theme = themeName; // Store the active theme name in a data attribute
+    console.log("DEBUG: Body classes after applyTheme:", body.className);
+    console.log("DEBUG: Body data-theme after applyTheme:", body.dataset.theme);
+}
+
+
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DEBUG: DOMContentLoaded event fired.");
-    // This line will send a message to the Go backend, which should appear in your terminal
     runtime.LogInfo("DEBUG: Frontend DOMContentLoaded event fired, attempting to log via Go runtime.");
 
-    // Keep these checks, and add runtime.LogInfo/Error for clearer output
     if (typeof marked !== 'undefined') {
         console.log("DEBUG: 'marked' is defined and loaded.");
         runtime.LogInfo("DEBUG: 'marked' is defined and loaded.");
@@ -40,27 +57,20 @@ document.addEventListener('DOMContentLoaded', () => {
         runtime.LogError("ERROR: 'marked' is NOT defined! The script might not be loading correctly.");
     }
 
-    // if (typeof hljs !== 'undefined') {
-    //     console.log("DEBUG: 'hljs' is defined and loaded.");
-    //     runtime.LogInfo("DEBUG: 'hljs' is defined and loaded.");
-    // } else {
-    //     console.error("ERROR: 'hljs' is NOT defined! The script might not be loading correctly.");
-    //     runtime.LogError("ERROR: 'hljs' is NOT defined! The script might not be loading correctly.");
-    // }
-
     const newChatButton = document.getElementById('newChatButton');
     const chatSessionList = document.getElementById('chatSessionList');
     const sendButton = document.getElementById('sendButton');
     const messageInput = document.getElementById('messageInput');
-
-    // Initial state setup
-    messageInput.placeholder = "no model loaded...";
-    sendButton.disabled = true;
     const stopButton = document.getElementById('stopButton');
     const chatWindow = document.querySelector('.messages-container');
     const systemPromptSelectInput = document.getElementById('systemPromptSelectInput');
     const systemPromptSelectList = document.getElementById('systemPromptSelectList');
     const customSystemPrompt = document.getElementById('customSystemPrompt');
+
+    // Custom Theme Dropdown elements
+    const themeSelectInput = document.getElementById('themeSelectInput');
+    const themeSelectList = document.getElementById('themeSelectList');
+    const selectedThemeValue = document.getElementById('selectedThemeValue'); // Hidden input for value
 
     let currentSessionId = localStorage.getItem('currentSessionId') || null;
     let messages = [];
@@ -72,6 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
             systemPromptSelectList.innerHTML = '';
             const defaultOption = document.createElement('div');
             defaultOption.textContent = 'Default';
+            defaultOption.setAttribute('data-value', 'default'); // Add data-value
             defaultOption.addEventListener('click', () => {
                 systemPromptSelectInput.value = 'Default';
                 selectedSystemPrompt = '';
@@ -82,6 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
             prompts.forEach(prompt => {
                 const option = document.createElement('div');
                 option.textContent = prompt;
+                option.setAttribute('data-value', prompt); // Add data-value
                 option.addEventListener('click', () => {
                     systemPromptSelectInput.value = prompt;
                     GetPrompt(prompt).then(promptContent => {
@@ -95,14 +107,54 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    systemPromptSelectInput.addEventListener('click', () => {
+    // Event listeners for custom system prompt dropdown
+    systemPromptSelectInput.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent document click from immediately closing
+        themeSelectList.classList.add('select-hide'); // Close other dropdowns
+        document.getElementById('chatModelSelectList').classList.add('select-hide');
         systemPromptSelectList.classList.toggle('select-hide');
     });
 
+    // Event listeners for custom theme dropdown
+    themeSelectInput.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent document click from immediately closing
+        systemPromptSelectList.classList.add('select-hide'); // Close other dropdowns
+        document.getElementById('chatModelSelectList').classList.add('select-hide');
+        themeSelectList.classList.toggle('select-hide');
+    });
+
+    // Event listener for theme options
+    themeSelectList.querySelectorAll('div').forEach(option => {
+        option.addEventListener('click', () => {
+            const themeValue = option.getAttribute('data-value');
+            const themeText = option.textContent;
+
+            themeSelectInput.value = themeText;
+            selectedThemeValue.value = themeValue; // Update hidden input
+            applyTheme(themeValue); // Apply the theme
+            saveAllSettings(); // Save theme preference immediately via the consolidated function
+            themeSelectList.classList.add('select-hide'); // Hide dropdown
+        });
+    });
+
+
     document.addEventListener('click', (e) => {
-        const systemPromptSelect = document.querySelector('.custom-select');
-        if (!systemPromptSelect.contains(e.target)) {
+        // Close system prompt dropdown if click outside
+        const systemPromptSelect = document.querySelector('.chat-header .custom-select');
+        if (systemPromptSelect && !systemPromptSelect.contains(e.target)) {
             systemPromptSelectList.classList.add('select-hide');
+        }
+
+        // Close theme dropdown if click outside
+        const themeSelect = document.querySelector('.sidebar-container.right .custom-select:last-of-type'); // More specific selector for theme dropdown
+        if (themeSelect && !themeSelect.contains(e.target)) {
+            themeSelectList.classList.add('select-hide');
+        }
+
+        // Close chat model dropdown if click outside
+        const chatModelSelect = document.querySelector('.sidebar-container.right .custom-select:first-of-type'); // More specific selector for chat model dropdown
+        if (chatModelSelect && !chatModelSelect.contains(e.target)) {
+            document.getElementById('chatModelSelectList').classList.add('select-hide');
         }
     });
 
@@ -138,19 +190,16 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function renderMessages() {
-    chatWindow.innerHTML = '';
-    messages.forEach(message => {
-        addMessageToChatWindow(message.role, message.content);
-    });
-    // *** ADD THIS BLOCK HERE ***
-    if (typeof hljs !== 'undefined') {
-        hljs.highlightAll(); // This tells highlight.js to find and highlight code blocks in all newly rendered messages
-    } else {
-        // This should appear in your terminal if hljs is still not defined
-        runtime.LogError("ERROR: hljs.highlightAll() called in renderMessages but hljs is not defined.");
+        chatWindow.innerHTML = '';
+        messages.forEach(message => {
+            addMessageToChatWindow(message.role, message.content);
+        });
+        if (typeof hljs !== 'undefined') {
+            hljs.highlightAll();
+        } else {
+            runtime.LogError("ERROR: hljs.highlightAll() called in renderMessages but hljs is not defined.");
+        }
     }
-    // *****************************
-}
 
     function addMessageToChatWindow(sender, messageContent) {
         const messageElement = document.createElement('div');
@@ -164,15 +213,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (part.type === 'thought') {
                     const detailsElement = document.createElement('details');
                     detailsElement.classList.add('thought-block');
-
                     const summaryElement = document.createElement('summary');
                     summaryElement.classList.add('thought-summary');
                     summaryElement.innerHTML = '<span class="inline-block mr-2">💡</span>Thinking Process';
-
-                    const contentElement = document.createElement('p');
+                    const contentElement = document.createElement('p'); // Corrected from document.classList.add
                     contentElement.classList.add('thought-content');
                     contentElement.textContent = part.content;
-
                     detailsElement.appendChild(summaryElement);
                     detailsElement.appendChild(contentElement);
                     partContainer.appendChild(detailsElement);
@@ -224,7 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function switchSession(sessionId) {
-        console.log("DEBUG: switchSession function entered. Session ID:", sessionId); // ADD THIS LINE
+        console.log("DEBUG: switchSession function entered. Session ID:", sessionId);
         if (isStreaming) {
             console.log("Cannot switch session while streaming.");
             return;
@@ -237,22 +283,22 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('currentSessionId', currentSessionId);
         console.log("Switching to session:", currentSessionId);
 
-        console.log("DEBUG: Calling LoadChatHistory for session:", currentSessionId); // ADD THIS LINE
+        console.log("DEBUG: Calling LoadChatHistory for session:", currentSessionId);
         LoadChatHistory(currentSessionId).then(history => {
-            console.log("DEBUG: LoadChatHistory promise resolved. Received history from backend:", history); // MODIFY THIS LINE
+            console.log("DEBUG: LoadChatHistory promise resolved. Received history from backend:", history);
             if (history) {
                 messages = history.map(m => ({
                     role: m.role,
                     content: m.content
                 }));
-                console.log("DEBUG: Mapped messages:", messages); // MODIFY THIS LINE
+                console.log("DEBUG: Mapped messages:", messages);
             } else {
                 messages = [];
-                console.log("DEBUG: History is null or undefined, clearing messages."); // MODIFY THIS LINE
+                console.log("DEBUG: History is null or undefined, clearing messages.");
             }
             renderMessages();
         }).catch(error => {
-            console.error("DEBUG: Error loading chat history:", error); // MODIFY THIS LINE
+            console.error("DEBUG: Error loading chat history:", error);
             messages = [];
             renderMessages();
         });
@@ -277,16 +323,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // let contentToSend = userMessageContent;
-        // if (selectedSystemPrompt) {
-        //     contentToSend = selectedSystemPrompt + '\n\n' + userMessageContent;
-        // }
-        const contentToSend = userMessageContent;
+        const contentToSend = userMessageContent; // System prompt is handled in Go backend
+
         const userMessage = {
             role: 'user',
             rawContent: userMessageContent
         };
-        messages.push({ role: 'user', content: userMessageContent });
+        messages.push({
+            role: 'user',
+            content: userMessageContent
+        });
         addMessageToChatWindow('user', userMessageContent);
         messageInput.value = '';
 
@@ -295,9 +341,11 @@ document.addEventListener('DOMContentLoaded', () => {
         stopButton.style.display = 'block';
 
         let assistantResponse = '';
-        messages.push({ role: 'assistant', content: '' });
+        messages.push({
+            role: 'assistant',
+            content: ''
+        });
 
-    // Ensure sendMessage now uses only the user's message
         sendMessage(currentSessionId, contentToSend).catch(error => {
             console.error("Error sending message:", error);
             messages.pop();
@@ -311,7 +359,6 @@ document.addEventListener('DOMContentLoaded', () => {
             stopButton.style.display = 'none';
         });
     }
-
 
     sendButton.addEventListener('click', (e) => {
         e.preventDefault();
@@ -328,7 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
     newChatButton.addEventListener('click', (e) => {
         e.preventDefault();
         // Pass the selectedSystemPrompt to the NewChat function
-        NewChat(selectedSystemPrompt).then((newId) => { // Modified
+        NewChat(selectedSystemPrompt).then((newId) => {
             switchSession(newId);
             loadSessions();
         }).catch(error => {
@@ -336,92 +383,85 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-let debounceTimer;
-const DEBOUNCE_DELAY_MS = 30; // Tune this: 50ms-100ms is a good starting point
+    let debounceTimer;
+    const DEBOUNCE_DELAY_MS = 30;
 
-EventsOn("chat-stream", function(data) {
-    if (data === null) {
-        // Stream finished, ensure final update and highlight
-        clearTimeout(debounceTimer); // Clear any pending updates
-        updateAssistantMessageUI(messages[messages.length - 1].content); // Force final render
-        isStreaming = false;
-        sendButton.style.display = 'block';
-        stopButton.style.display = 'none';
-        return;
-    }
-
-    let lastMessageBubble = document.querySelector('.message.assistant:last-child');
-    if (!lastMessageBubble) {
-        addMessageToChatWindow('assistant', '');
-        lastMessageBubble = document.querySelector('.message.assistant:last-child');
-    }
-
-    let assistantResponse = messages[messages.length - 1].content;
-    assistantResponse += data;
-    messages[messages.length - 1].content = assistantResponse; // Update the stored full message
-
-    // --- DEBOUNCE THE UI UPDATE ---
-    clearTimeout(debounceTimer); // Reset the timer every time a new chunk arrives
-    debounceTimer = setTimeout(() => {
-        // This function will only execute after DEBOUNCE_DELAY_MS has passed
-        // since the *last* 'chat-stream' event.
-        updateAssistantMessageUI(assistantResponse);
-    }, DEBOUNCE_DELAY_MS);
-    // --- END DEBOUNCE ---
-});
-// Helper function for the actual UI update
-function updateAssistantMessageUI(currentFullResponse) {
-    let lastMessageBubble = document.querySelector('.message.assistant:last-child');
-    if (!lastMessageBubble) {
-        // Fallback if bubble not found (should be rare if addMessageToChatWindow is called)
-        console.error("updateAssistantMessageUI called but no assistant message bubble found.");
-        return;
-    }
-
-    // Clear and re-render the entire content of the last message bubble
-    lastMessageBubble.innerHTML = ''; // Clear existing content
-    const parsedParts = parseStreamedContent(currentFullResponse); // Re-parse the full accumulated response
-
-    parsedParts.forEach(part => {
-        const partContainer = document.createElement('div');
-        // Your existing logic to create thought blocks or markdown divs
-        if (part.type === 'thought') {
-            const detailsElement = document.createElement('details');
-            detailsElement.classList.add('thought-block');
-            const summaryElement = document.createElement('summary');
-            summaryElement.classList.add('thought-summary');
-            summaryElement.innerHTML = '<span class="inline-block mr-2">💡</span>Thinking Process';
-            const contentElement = document.createElement('p');
-            contentElement.classList.add('thought-content');
-            contentElement.textContent = part.content;
-            detailsElement.appendChild(summaryElement);
-            detailsElement.appendChild(contentElement);
-            partContainer.appendChild(detailsElement);
-        } else {
-            const markdownDiv = document.createElement('div');
-            markdownDiv.classList.add('markdown-content');
-            markdownDiv.innerHTML = marked.parse(part.content); // Markdown parsing happens here
-            partContainer.appendChild(markdownDiv);
+    EventsOn("chat-stream", function(data) {
+        if (data === null) {
+            clearTimeout(debounceTimer);
+            updateAssistantMessageUI(messages[messages.length - 1].content);
+            isStreaming = false;
+            sendButton.style.display = 'block';
+            stopButton.style.display = 'none';
+            return;
         }
-        lastMessageBubble.appendChild(partContainer);
+
+        let lastMessageBubble = document.querySelector('.message.assistant:last-child');
+        if (!lastMessageBubble) {
+            addMessageToChatWindow('assistant', '');
+            lastMessageBubble = document.querySelector('.message.assistant:last-child');
+        }
+
+        let assistantResponse = messages[messages.length - 1].content;
+        assistantResponse += data;
+        messages[messages.length - 1].content = assistantResponse;
+
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            updateAssistantMessageUI(assistantResponse);
+        }, DEBOUNCE_DELAY_MS);
     });
 
-    // Highlight code blocks only after all content is appended
-    if (typeof hljs !== 'undefined') { // Check if hljs is available
-        hljs.highlightAll();
-    } else {
-        console.warn("highlight.js not available, code blocks will not be highlighted.");
+    function updateAssistantMessageUI(currentFullResponse) {
+        let lastMessageBubble = document.querySelector('.message.assistant:last-child');
+        if (!lastMessageBubble) {
+            console.error("updateAssistantMessageUI called but no assistant message bubble found.");
+            return;
+        }
+
+        lastMessageBubble.innerHTML = '';
+        const parsedParts = parseStreamedContent(currentFullResponse);
+
+        parsedParts.forEach(part => {
+            const partContainer = document.createElement('div');
+            if (part.type === 'thought') {
+                const detailsElement = document.createElement('details');
+                detailsElement.classList.add('thought-block');
+                const summaryElement = document.createElement('summary');
+                summaryElement.classList.add('thought-summary');
+                summaryElement.innerHTML = '<span class="inline-block mr-2">💡</span>Thinking Process';
+                const contentElement = document.createElement('p'); // Corrected from document.classList.add
+                contentElement.classList.add('thought-content');
+                contentElement.textContent = part.content;
+                detailsElement.appendChild(summaryElement);
+                detailsElement.appendChild(contentElement);
+                partContainer.appendChild(detailsElement);
+            } else {
+                const markdownDiv = document.createElement('div');
+                markdownDiv.classList.add('markdown-content');
+                markdownDiv.innerHTML = marked.parse(part.content);
+                partContainer.appendChild(markdownDiv);
+            }
+            lastMessageBubble.appendChild(partContainer);
+        });
+
+        if (typeof hljs !== 'undefined') {
+            hljs.highlightAll();
+        } else {
+            console.warn("highlight.js not available, code blocks will not be highlighted.");
+        }
+
+        scrollToBottom();
     }
 
-    // Scroll to bottom after the UI has been updated
-    scrollToBottom();
-}
     // Initial setup
     loadSessions();
     if (currentSessionId) {
         switchSession(parseInt(currentSessionId));
     }
     loadPrompts();
+    loadSettingsAndApplyTheme(); // Call the consolidated load function from settings.js
+
     const settingsToggleButton = document.getElementById('settingsToggleButton');
     const rightSidebar = document.querySelector('.sidebar-container.right');
     const artifactsPanel = document.getElementById('artifactsPanel');
@@ -453,18 +493,24 @@ function updateAssistantMessageUI(currentFullResponse) {
         }
     }
 
+    // Event listener for chat model select input to handle fuzzy search
     document.getElementById('chatModelSelectInput').addEventListener('input', (e) => {
         const query = e.target.value;
         const chatModelSelectList = document.getElementById('chatModelSelectList');
-        if (query && fuse) {
+        
+        runtime.LogInfo(`DEBUG: app.js: Fuzzy search input query: '${query}'`);
+        
+        if (query && fuse) { // Use the fuse instance from settings.js
             const results = fuse.search(query);
+            runtime.LogInfo(`DEBUG: app.js: Fuzzy search results count for query '${query}': ${results.length}`);
+            
             const items = results.map(result => result.item);
             chatModelSelectList.innerHTML = '';
             items.forEach(item => {
                 const option = document.createElement('div');
                 option.textContent = item.name;
                 option.setAttribute('data-path', item.path);
-                option.addEventListener('click', () => handleModelSelection(item.name, item.path));
+                option.addEventListener('click', () => handleModelSelection(item.name, item.path)); // Use handleModelSelection from settings.js
                 chatModelSelectList.appendChild(option);
             });
             chatModelSelectList.classList.remove('select-hide');
@@ -473,23 +519,22 @@ function updateAssistantMessageUI(currentFullResponse) {
         }
     });
 
-    document.addEventListener('click', (e) => {
-        const chatModelSelect = document.querySelector('.custom-select');
-        if (!chatModelSelect.contains(e.target)) {
-            document.getElementById('chatModelSelectList').classList.add('select-hide');
-        }
+    // Event listener for chat model select input to open/close
+    document.getElementById('chatModelSelectInput').addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent document click from immediately closing
+        systemPromptSelectList.classList.add('select-hide'); // Close other dropdowns
+        themeSelectList.classList.add('select-hide');
+        document.getElementById('chatModelSelectList').classList.toggle('select-hide');
     });
 
-    document.getElementById('chatModelSelectInput').addEventListener('click', () => {
-        document.getElementById('chatModelSelectList').classList.remove('select-hide');
-    });
 
-    document.getElementById('llamaPathInput').addEventListener('change', saveSettings);
-    document.getElementById('modelPathInput').addEventListener('change', saveSettings);
-    document.getElementById('chatModelArgs').addEventListener('change', saveSettings);
+    // Event listeners for saving settings (including theme)
+    document.getElementById('llamaPathInput').addEventListener('change', saveAllSettings);
+    document.getElementById('modelPathInput').addEventListener('change', saveAllSettings);
+    // Note: handleModelSelection now calls saveAllSettings internally
+    document.getElementById('chatModelArgs').addEventListener('change', saveAllSettings);
 
     document.getElementById('launchLLMButton').addEventListener('click', launchLLM);
 
-    initFuzzySearch([]);
-    loadSettings();
+    // initFuzzySearch([]) is no longer needed here as it's handled by loadSettingsAndApplyTheme
 });

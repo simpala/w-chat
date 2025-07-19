@@ -24,8 +24,8 @@
             }
         }
     </script>
-  <script type="module" crossorigin src="./assets/main.ec8691f4.js"></script>
-  <link rel="stylesheet" href="./assets/index.8bd406e0.css">
+  <script type="module" crossorigin src="./assets/main.90be3a4b.js"></script>
+  <link rel="stylesheet" href="./assets/index.396b0030.css">
 </head>
 <body>
     <div class="settings-toggle-container">
@@ -66,27 +66,45 @@
                 </div>
         </div>
         <div class="sidebar-container right sidebar-hidden">
-            <input id="llamaPathInput" placeholder="Llama.cpp directory" type="text">
-            <input id="modelPathInput" placeholder="Model Folder Path" type="text"/>
-            <div class="custom-select">
-                <input type="text" id="chatModelSelectInput" placeholder="Select Model...">
-                <input type="hidden" id="selectedModelPath">
-                <div id="chatModelSelectList" class="select-items select-hide"></div>
-            </div>
-            <textarea id="chatModelArgs" placeholder="Chat Model Arguments..."></textarea>
-            <button id="launchLLMButton">Launch LLM Model</button>
-            <div class="speculative-element">
-                <div class="margin-bottom">
-                    <label for="speculativeMainModelSelect">-m:</label>
-                    <select id="speculativeMainModelSelect"></select>
+            <!-- Wrapper div for main settings content - this will now grow and scroll -->
+            <div class="sidebar-content-wrapper">
+                <input id="llamaPathInput" placeholder="Llama.cpp directory" type="text">
+                <input id="modelPathInput" placeholder="Model Folder Path" type="text"/>
+                <div class="custom-select">
+                    <input type="text" id="chatModelSelectInput" placeholder="Select Model...">
+                    <input type="hidden" id="selectedModelPath">
+                    <div id="chatModelSelectList" class="select-items select-hide"></div>
                 </div>
-                <div class="margin-bottom">
-                    <label for="speculativeDraftModelSelect">-md:</label>
-                    <select id="speculativeDraftModelSelect"></select>
+                <textarea id="chatModelArgs" placeholder="Chat Model Arguments..."></textarea>
+                <button id="launchLLMButton">Launch LLM Model</button>
+
+                <div class="speculative-element">
+                    <div class="margin-bottom">
+                        <label for="speculativeMainModelSelect">-m:</label>
+                        <select id="speculativeMainModelSelect"></select>
+                    </div>
+                    <div class="margin-bottom">
+                        <label for="speculativeDraftModelSelect">-md:</label>
+                        <select id="speculativeDraftModelSelect"></select>
+                    </div>
+                    <textarea id="speculativeModelArgs" placeholder="Speculative Model Arguments..."></textarea>
+                    <button id="launchSpeculativeButton">Launch Speculative Model</button>
                 </div>
-                <textarea id="speculativeModelArgs" placeholder="Speculative Model Arguments..."></textarea>
-                <button id="launchSpeculativeButton">Launch Speculative Model</button>
+            </div> <!-- End sidebar-content-wrapper -->
+
+            <!-- Custom Theme Selector - MOVED OUTSIDE THE WRAPPER, DIRECT CHILD OF sidebar-container right -->
+            <!-- Added margin-bottom-adjusted class for bottom padding -->
+            <div class="custom-select margin-bottom-adjusted">
+                <input type="text" id="themeSelectInput" placeholder="Select Theme...">
+                <input type="hidden" id="selectedThemeValue">
+                <div id="themeSelectList" class="select-items select-hide">
+                    <div data-value="default">Default Theme</div>
+                    <div data-value="dark-blue">Dark Blue</div>
+                    <div data-value="light">Light Theme</div>
+                    <!-- Add more themes here if you define them in style.css -->
+                </div>
             </div>
+
         </div>
     </div>
     

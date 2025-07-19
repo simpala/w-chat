@@ -1,12 +1,47 @@
+/* style.css */
+
+/* Default Theme - These are your current colors, applied globally */
+:root {
+    /* Backgrounds */
+    --bg-primary: rgba(27, 38, 54, 1); /* html background */
+    --bg-secondary: #2c3e50; /* select-items, custom-select background */
+    --bg-tertiary: #1a202c; /* pre background */
+    --bg-code-inline: #2d3748; /* code background */
+    --bg-thought-block: #4a5568; /* thought block background */
+    --bg-thought-hover: #34495e; /* thought block hover background */
+
+    /* Text Colors */
+    --text-primary: white; /* html, body, main text */
+    --text-secondary: #f7fafc; /* pre text */
+    --text-placeholder: #a0aec0; /* placeholder text */
+    --text-thought-summary: #a0aec0; /* thought summary text */
+    --text-thought-content: #cbd5e0; /* thought content text */
+
+    /* Borders */
+    --border-color: #34495e; /* select-items, select-items div border */
+    --border-thought-block: #718096; /* thought block border */
+
+    /* Scrollbar */
+    --scrollbar-thumb: #555;
+    --scrollbar-track: #333;
+
+    /* General UI */
+    --ui-hover-bg: #34495e; /* Hover background for select items */
+    --button-bg: #4a5568; /* Default button background */
+    --button-text: white; /* Default button text */
+    --button-hover-bg: #3f5e7e; /* Default button hover */
+    --active-session-bg: #3f5e7e; /* Active chat session button */
+}
+
 html {
-    background-color: rgba(27, 38, 54, 1);
+    background-color: var(--bg-primary); /* Use variable */
     text-align: center;
-    color: white;
+    color: var(--text-primary); /* Use variable */
 }
 
 body {
     margin: 0;
-    color: white;
+    color: var(--text-primary); /* Use variable */
     font-family: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
     "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
     sans-serif;
@@ -29,27 +64,30 @@ body {
     position: relative;
 }
 
+/* Default dropdown behavior (drops down) */
 .select-items {
     position: absolute;
-    background-color: #2c3e50;
-    border: 1px solid #34495e;
-    border-top: none;
+    background-color: var(--bg-secondary); /* Use variable */
+    border: 1px solid var(--border-color); /* Use variable */
     z-index: 99;
-    top: 100%;
+    top: 100%; /* Default to dropping downwards */
+    bottom: auto; /* Ensure no conflicting bottom property */
     left: 0;
     right: 0;
+    border-top: none; /* Default to no top border */
+    border-bottom: 1px solid var(--border-color); /* Default to bottom border */
+    border-radius: 0 0 5px 5px; /* Rounded corners only at the bottom for dropdown */
 }
 
 .select-items div {
     padding: 10px;
     cursor: pointer;
-    background-color: #2c3e50;
-    border-bottom: 1px solid #34495e;
+    background-color: var(--bg-secondary); /* Use variable */
+    border-bottom: 1px solid var(--border-color); /* Use variable */
 }
 
-
 .select-items div:hover {
-    background-color: #34495e;
+    background-color: var(--ui-hover-bg); /* Use variable */
 }
 
 .select-hide {
@@ -58,8 +96,8 @@ body {
 
 /* Think Block Styling */
 .thought-block {
-    background-color: #4a5568; /* Darker gray */
-    border: 1px solid #718096; /* Gray */
+    background-color: var(--bg-thought-block); /* Use variable */
+    border: 1px solid var(--border-thought-block); /* Use variable */
     border-radius: 0.375rem; /* rounded-md */
     padding: 0.5rem; /* p-2 */
     cursor: pointer;
@@ -68,7 +106,7 @@ body {
 
 .thought-summary {
     font-weight: 600; /* font-semibold */
-    color: #a0aec0; /* Lighter gray */
+    color: var(--text-thought-summary); /* Use variable */
     display: flex;
     align-items: center;
 }
@@ -79,12 +117,12 @@ body {
 
 .thought-content {
     font-size: 0.875rem; /* text-sm */
-    color: #cbd5e0; /* Even lighter gray */
+    color: var(--text-thought-content); /* Use variable */
     margin-top: 0.25rem; /* mt-1 */
     white-space: pre-wrap; /* Preserve whitespace and line breaks */
 }
 
-/* Markdown Styling (mimicking Tailwind Typography prose) */
+/* Markdown Styling (Update to use variables) */
 .markdown-content h1, .markdown-content h2, .markdown-content h3, .markdown-content h4, .markdown-content h5, .markdown-content h6 {
     font-weight: 600;
     margin-top: 1.5em;
@@ -99,14 +137,14 @@ body {
     font-weight: 700;
 }
 .markdown-content code {
-    background-color: #2d3748; /* Dark gray */
+    background-color: var(--bg-code-inline); /* Use variable */
     padding: 0.2em 0.4em;
     border-radius: 0.25rem;
     font-size: 0.875em;
 }
 .markdown-content pre {
-    background-color: #1a202c; /* Very dark gray */
-    color: #f7fafc; /* Almost white */
+    background-color: var(--bg-tertiary); /* Use variable */
+    color: var(--text-secondary); /* Use variable */
     padding: 1rem;
     border-radius: 0.5rem;
     overflow-x: auto;
@@ -144,3 +182,162 @@ body {
 .loading-placeholder::placeholder {
     animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+/* Scrollbar styling - update to use variables */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+}
+
+/* Ensure placeholder color also uses a variable */
+input::placeholder, textarea::placeholder {
+    color: var(--text-placeholder);
+}
+
+/* General button styling */
+button {
+    background-color: var(--button-bg);
+    color: var(--button-text);
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.2s ease;
+}
+
+button:hover {
+    background-color: var(--button-hover-bg);
+}
+
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Active chat session button */
+#chatSessionList button.active {
+    background-color: var(--active-session-bg);
+    font-weight: bold;
+}
+
+/* --- Flexbox for Right Sidebar --- */
+.sidebar-container.right {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* This pushes the last direct child to the bottom */
+    height: 100%; /* Ensure the sidebar takes full height of its parent */
+    padding: 1rem; /* Add some padding to the sidebar itself */
+    /* Removed gap here, as direct children will be spaced by space-between or individual margins */
+}
+
+/* Apply flex-grow to the content wrapper, not individual items directly */
+.sidebar-content-wrapper {
+    flex-grow: 1; /* This wrapper will now take up all available space */
+    display: flex; /* Make it a flex container too */
+    flex-direction: column; /* Stack its children vertically */
+    gap: 1rem; /* Add some spacing between elements inside the wrapper */
+    overflow-y: auto; /* Allow scrolling if content overflows */
+    padding-bottom: 1rem; /* Add padding at the bottom of the scrollable area */
+}
+
+/* Ensure inputs and textareas don't grow excessively within the wrapper */
+.sidebar-content-wrapper input[type="text"],
+.sidebar-content-wrapper textarea,
+.sidebar-content-wrapper .custom-select {
+    width: 100%; /* Make them fill the available width */
+    box-sizing: border-box; /* Include padding and border in the element's total width and height */
+    flex-grow: 0; /* Important: Prevent them from growing individually */
+    height: auto; /* Allow height to be determined by content */
+}
+
+/* Specific styling for the speculative element to ensure it doesn't stretch */
+.speculative-element {
+    flex-shrink: 0; /* Prevent it from shrinking */
+    /* Removed margin-top: auto; as it's now within the flow and spaced by gap */
+}
+
+/* --- Specific Drop-Up Behavior for Theme Selector --- */
+/* Target the select-items specifically within the theme dropdown */
+#themeSelectList { /* Target by ID for highest specificity */
+    top: auto; /* Override default top: 100% */
+    bottom: calc(100% + 0.5rem); /* Position above the input, with a small gap */
+    border-top: 1px solid var(--border-color); /* Add top border */
+    border-bottom: none; /* Remove bottom border */
+    border-radius: 5px 5px 0 0; /* Rounded corners only at the top for drop-up */
+}
+
+/* Adjust margin for the theme selector to lift it from the bottom edge of the sidebar */
+.custom-select.margin-bottom-adjusted {
+    margin-bottom: 2.5rem; /* Increased this value to move it higher */
+}
+
+
+/* --- Theme Definitions --- */
+
+/* Theme: Dark Blue */
+body.theme-dark-blue {
+    --bg-primary: #1e2a38;
+    --bg-secondary: #34475e;
+    --bg-tertiary: #233040;
+    --bg-code-inline: #2b3a4a;
+    --bg-thought-block: #40556b;
+    --bg-thought-hover: #374a5e;
+
+    --text-primary: #e0f2f7;
+    --text-secondary: #f0f8ff;
+    --text-placeholder: #aab;
+    --text-thought-summary: #b0c4de;
+    --text-thought-content: #d0e0ea;
+
+    --border-color: #4a627d;
+    --border-thought-block: #607b9a;
+
+    --scrollbar-thumb: #667;
+    --scrollbar-track: #445;
+
+    --ui-hover-bg: #4a627d;
+    --button-bg: #34475e;
+    --button-text: #e0f2f7;
+    --button-hover-bg: #4a627d;
+    --active-session-bg: #4a627d;
+}
+
+/* Theme: Light */
+body.theme-light {
+    --bg-primary: #f0f2f5;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #e9ecef;
+    --bg-code-inline: #ced4da;
+    --bg-thought-block: #e0e4e8;
+    --bg-thought-hover: #d0d4d8;
+
+    --text-primary: #343a40;
+    --text-secondary: #212529;
+    --text-placeholder: #6c757d;
+    --text-thought-summary: #495057;
+    --text-thought-content: #6c757d;
+
+    --border-color: #dee2e6;
+    --border-thought-block: #c0c4c8;
+
+    --scrollbar-thumb: #aaa;
+    --scrollbar-track: #eee;
+
+    --ui-hover-bg: #e9ecef;
+    --button-bg: #6c757d;
+    --button-text: #ffffff;
+    --button-hover-bg: #5a6268;
+    --active-session-bg: #5a6268;
+}
+
+/* You can add more themes here */

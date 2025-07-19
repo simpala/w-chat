@@ -26,12 +26,13 @@ type App struct {
 	mu            sync.Mutex
 }
 
-// Config struct
+// Config struct - Add the Theme field here
 type Config struct {
 	LlamaCppDir   string            `json:"llama_cpp_dir"`
 	ModelsDir     string            `json:"models_dir"`
 	SelectedModel string            `json:"selected_model"`
 	ModelArgs     map[string]string `json:"model_args"`
+	Theme         string            `json:"theme"` // Add this line for theme persistence
 }
 
 // Conversation struct to hold the state of a single chat session
@@ -63,27 +64,43 @@ func (a *App) startup(ctx context.Context) {
 		runtime.LogErrorf(a.ctx, "Error initializing database: %s", err.Error())
 		return
 	}
+
+	// Log the expected path of config.json
+	exePath, err := os.Executable()
+	if err == nil {
+		configFilePath := filepath.Join(filepath.Dir(exePath), "config.json")
+		runtime.LogInfof(a.ctx, "Expected config.json path: %s", configFilePath)
+	} else {
+		runtime.LogErrorf(a.ctx, "Could not determine executable path for config.json logging: %v", err)
+	}
+
 	settings, err := a.LoadSettings()
 	if err != nil {
 		runtime.LogErrorf(a.ctx, "Error loading config: %s", err.Error())
+	} else {
+		runtime.LogInfof(a.ctx, "Raw settings loaded from config.json: %s", settings)
 	}
+
 	var config Config
 	err = json.Unmarshal([]byte(settings), &config)
 	if err != nil {
-		runtime.LogErrorf(a.ctx, "Error unmarshalling settings: %s", err.Error())
+		runtime.LogErrorf(a.ctx, "Error unmarshalling settings string into Config struct: %s", err.Error())
+	} else {
+		runtime.LogInfof(a.ctx, "Unmarshalled Config struct in startup: %+v", config)
 	}
+
 	if config.ModelArgs == nil {
 		config.ModelArgs = make(map[string]string)
 	}
 	a.config = config
+	runtime.LogInfof(a.ctx, "Final a.config state after startup: %+v", a.config)
 }
 
 // NewChat creates a new chat session.
 func (a *App) NewChat(systemPrompt string) (int64, error) { // Modified signature
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	// FIX: Pass the systemPrompt argument to a.db.NewChatSession()
-	id, err := a.db.NewChatSession(systemPrompt) // <-- This line needs the fix
+	id, err := a.db.NewChatSession(systemPrompt) // Pass systemPrompt here
 	if err != nil {
 		return 0, err
 	}
@@ -109,27 +126,46 @@ func (a *App) DeleteChatSession(id int64) error {
 
 // SaveSettings saves the configuration to a JSON file.
 func (a *App) SaveSettings(settings string) error {
+	runtime.LogInfof(a.ctx, "SaveSettings called with raw settings string: %s", settings)
 	var config Config
 	err := json.Unmarshal([]byte(settings), &config)
 	if err != nil {
+		runtime.LogErrorf(a.ctx, "Error unmarshalling settings string in SaveSettings: %s", err.Error())
 		return err
 	}
+	runtime.LogInfof(a.ctx, "Config struct after unmarshalling in SaveSettings: %+v", config)
+
+	// Preserve existing ModelArgs if not provided in the new settings string
 	if a.config.ModelArgs == nil {
 		a.config.ModelArgs = make(map[string]string)
 	}
-	for model, args := range a.config.ModelArgs {
-		if _, ok := config.ModelArgs[model]; !ok {
-			config.ModelArgs[model] = args
+	if config.ModelArgs == nil { // If the incoming config doesn't have ModelArgs, use existing
+		config.ModelArgs = a.config.ModelArgs
+	} else { // Merge or overwrite ModelArgs
+		for model, args := range a.config.ModelArgs {
+			if _, ok := config.ModelArgs[model]; !ok {
+				config.ModelArgs[model] = args
+			}
 		}
 	}
-	a.config = config
+	a.config = config // Update the app's config
+	runtime.LogInfof(a.ctx, "a.config state before saving to file: %+v", a.config)
+
 	file, err := os.Create("config.json")
 	if err != nil {
+		runtime.LogErrorf(a.ctx, "Error creating config.json file: %s", err.Error())
 		return err
 	}
 	defer file.Close()
 	encoder := json.NewEncoder(file)
-	return encoder.Encode(a.config)
+	encoder.SetIndent("", "  ") // Pretty print JSON
+	encodeErr := encoder.Encode(a.config)
+	if encodeErr != nil {
+		runtime.LogErrorf(a.ctx, "Error encoding config to JSON file: %s", encodeErr.Error())
+		return encodeErr
+	}
+	runtime.LogInfo(a.ctx, "Config saved to config.json successfully.")
+	return nil
 }
 
 // LoadSettings loads the configuration from a JSON file.
@@ -137,38 +173,79 @@ func (a *App) LoadSettings() (string, error) {
 	file, err := os.Open("config.json")
 	if err != nil {
 		if os.IsNotExist(err) {
-			a.config = Config{}
-			err := a.SaveSettings("{}")
-			if err != nil {
-				return "", err
+			runtime.LogInfo(a.ctx, "config.json does not exist. Initializing with default config.")
+			a.config = Config{} // Initialize with default empty config
+			// Set a default theme if config.json doesn't exist yet
+			a.config.Theme = "default"
+			// Save the default config to create the file
+			// Note: Calling SaveSettings here will trigger its own logging.
+			saveErr := a.SaveSettings(`{"theme":"default"}`)
+			if saveErr != nil {
+				runtime.LogErrorf(a.ctx, "Error saving default config.json: %s", saveErr.Error())
+				return "", saveErr
 			}
-			return "{}", nil
+			return `{"theme":"default"}`, nil // Return default theme in JSON
 		}
+		runtime.LogErrorf(a.ctx, "Error opening config.json: %s", err.Error())
 		return "", err
 	}
 	defer file.Close()
-	decoder := json.NewDecoder(file)
+
+	fileContentBytes, readErr := os.ReadFile("config.json")
+	if readErr != nil {
+		runtime.LogErrorf(a.ctx, "Error reading content from config.json: %s", readErr.Error())
+		return "", readErr
+	}
+	fileContent := string(fileContentBytes)
+	runtime.LogInfof(a.ctx, "Content read from config.json: %s", fileContent)
+
+	decoder := json.NewDecoder(strings.NewReader(fileContent)) // Use strings.NewReader for decoding
 	err = decoder.Decode(&a.config)
 	if err != nil {
+		runtime.LogErrorf(a.ctx, "Error decoding config.json content into Config struct: %s", err.Error())
 		return "", err
 	}
+	// Ensure Theme is set if it's missing from loaded config (e.g., old config file)
+	if a.config.Theme == "" {
+		a.config.Theme = "default"
+		runtime.LogInfo(a.ctx, "Theme was empty, defaulted to 'default'.")
+	}
+	runtime.LogInfof(a.ctx, "a.config state after loading and decoding: %+v", a.config)
+
 	configBytes, err := json.Marshal(a.config)
-	return string(configBytes), err
+	if err != nil {
+		runtime.LogErrorf(a.ctx, "Error marshalling a.config to JSON string for frontend: %s", err.Error())
+		return "", err
+	}
+	runtime.LogInfof(a.ctx, "Returning config JSON string to frontend: %s", string(configBytes))
+	return string(configBytes), nil
 }
 
 // GetModels returns a list of .GGUF models in the models directory.
 func (a *App) GetModels() ([]string, error) {
 	var models []string
 	modelsDir := a.config.ModelsDir
+	if modelsDir == "" {
+		return []string{}, nil // Return empty if no models directory is set
+	}
 	err := filepath.Walk(modelsDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			// Log the error but continue walking if possible
+			runtime.LogErrorf(a.ctx, "Error accessing path %s: %v", path, err)
+			return nil // Return nil to continue walking
 		}
 		if !info.IsDir() && (strings.HasSuffix(info.Name(), ".gguf") || strings.HasSuffix(info.Name(), ".GGUF")) {
 			models = append(models, path)
 		}
 		return nil
 	})
+	if err != nil {
+		// Only return error if the initial walk failed (e.g., directory doesn't exist)
+		if os.IsNotExist(err) {
+			return []string{}, nil
+		}
+		return nil, err
+	}
 	return models, err
 }
 
@@ -290,17 +367,6 @@ type ChatCompletionRequest struct {
 	Stream   bool          `json:"stream"`
 	NPredict int           `json:"N_precdict,omitempty"` // This will send as "max_tokens" in JSON
 }
-
-// // ChatSession struct for database communication.
-// type ChatSession struct {
-// 	ID           int64     `json:"id"`
-// 	Name         string    `json:"name"`
-// 	CreatedAt    time.Time `json:"created_at"`
-// 	SystemPrompt string    `json:"system_prompt"` // Add this field
-// }
-
-// Update your db.GetChatSession and db.NewChatSession to handle system_prompt.
-// (Example assumes your database functions are updated accordingly)
 
 // LoadChatHistory loads the chat history for a given session into memory.
 func (a *App) LoadChatHistory(sessionId int64) ([]ChatMessage, error) {
