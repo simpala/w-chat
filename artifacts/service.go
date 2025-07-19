@@ -51,6 +51,8 @@ func (s *ArtifactService) AddArtifact(sessionID string, artifactType ArtifactTyp
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	log.Printf("Adding artifact: sessionID=%s, artifactType=%s, isPersistent=%t", sessionID, artifactType, isPersistent)
+
 	artifactID := uuid.New().String()
 	contentPath := ""
 	var err error
@@ -62,7 +64,9 @@ func (s *ArtifactService) AddArtifact(sessionID string, artifactType ArtifactTyp
 		case TypeImage, TypeVideo:
 			// Ensure the session-specific directory exists.
 			sessionArtifactsDir := filepath.Join(s.artifactsDir, sessionID)
+			log.Printf("Artifacts directory: %s", sessionArtifactsDir)
 			if err = os.MkdirAll(sessionArtifactsDir, 0755); err != nil {
+				log.Printf("Error creating session artifacts directory: %v", err)
 				return "", fmt.Errorf("failed to create session artifacts directory: %w", err)
 			}
 
@@ -76,12 +80,15 @@ func (s *ArtifactService) AddArtifact(sessionID string, artifactType ArtifactTyp
 
 			fileName := fmt.Sprintf("%s%s", artifactID, ext)
 			filePath := filepath.Join(sessionArtifactsDir, fileName)
+			log.Printf("Artifact file path: %s", filePath)
 
 			if err = os.WriteFile(filePath, content, 0644); err != nil {
+				log.Printf("Error writing artifact content to disk: %v", err)
 				return "", fmt.Errorf("failed to write artifact content to disk: %w", err)
 			}
 			contentPath = filePath
 			url = "/artifacts/" + sessionID + "/" + fileName
+			log.Printf("Artifact URL: %s", url)
 		}
 	}
 

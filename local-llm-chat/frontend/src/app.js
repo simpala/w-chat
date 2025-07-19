@@ -710,18 +710,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const artifactsContent = document.getElementById('artifactsContent');
         artifactsContent.innerHTML = '';
         window.go.main.App.ListArtifacts(String(currentSessionId)).then(artifacts => {
+            console.log("Artifacts:", artifacts);
             if (artifacts) {
                 artifacts.forEach(artifact => {
+                    console.log("Rendering artifact:", artifact);
                     const artifactElement = document.createElement('div');
                     artifactElement.classList.add('artifact');
                     if (artifact.type === 'image') {
                         const img = document.createElement('img');
                         img.src = artifact.URL;
+                        console.log("Image source:", img.src);
                         artifactElement.appendChild(img);
                     } else if (artifact.type === 'video') {
                         const video = document.createElement('video');
                         video.src = artifact.URL;
                         video.controls = true;
+                        console.log("Video source:", video.src);
                         artifactElement.appendChild(video);
                     }
                     const artifactName = document.createElement('p');
