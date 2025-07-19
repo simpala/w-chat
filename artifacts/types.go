@@ -41,6 +41,9 @@ type Artifact struct {
 	// For purely metadata-based artifacts (e.g., TOOL_NOTIFICATION), this may be empty.
 	ContentPath string `json:"contentPath"`
 
+	// URL is the URL that can be used to access the artifact's content.
+	URL string `json:"url"`
+
 	// Metadata is a flexible map for storing type-specific data.
 	// Examples:
 	// - For CODE: {"language": "python", "lines": 150}

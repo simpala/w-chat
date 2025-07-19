@@ -54,6 +54,7 @@ func (s *ArtifactService) AddArtifact(sessionID string, artifactType ArtifactTyp
 	artifactID := uuid.New().String()
 	contentPath := ""
 	var err error
+	var url string
 
 	// For types that require file storage, save the content to disk.
 	if len(content) > 0 {
@@ -80,6 +81,7 @@ func (s *ArtifactService) AddArtifact(sessionID string, artifactType ArtifactTyp
 				return "", fmt.Errorf("failed to write artifact content to disk: %w", err)
 			}
 			contentPath = filePath
+			url = "/wails/assetserver/" + contentPath
 		}
 	}
 
@@ -88,6 +90,7 @@ func (s *ArtifactService) AddArtifact(sessionID string, artifactType ArtifactTyp
 		SessionID:    sessionID,
 		Type:         artifactType,
 		ContentPath:  contentPath,
+		URL:          url,
 		Metadata:     metadata,
 		Timestamp:    time.Now(),
 		IsPersistent: isPersistent,
