@@ -50,7 +50,8 @@ type Conversation struct {
 // NewApp creates a new App application struct
 func NewApp() *App {
 	return &App{
-		conversations: make(map[int64]*Conversation),
+		conversations:   make(map[int64]*Conversation),
+		ArtifactService: &artifacts.ArtifactService{},
 	}
 }
 
