@@ -17,8 +17,8 @@ export namespace main {
 	export class ChatSession {
 	    id: number;
 	    name: string;
-	    created_at: string;
 	    system_prompt: string;
+	    created_at: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ChatSession(source);
@@ -28,8 +28,8 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
 	        this.name = source["name"];
-	        this.created_at = source["created_at"];
 	        this.system_prompt = source["system_prompt"];
+	        this.created_at = source["created_at"];
 	    }
 	}
 

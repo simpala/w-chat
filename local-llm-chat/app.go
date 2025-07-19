@@ -108,6 +108,7 @@ func (a *App) NewChat(systemPrompt string) (int64, error) { // Modified signatur
 		messages:     make([]ChatMessage, 0),
 		systemPrompt: systemPrompt, // Store the system prompt in the in-memory conversation
 	}
+	runtime.LogInfof(a.ctx, "New chat session %d created with system prompt: '%s'", id, systemPrompt)
 	return id, nil
 }
 
@@ -326,7 +327,7 @@ func (a *App) HealthCheck() (string, error) {
 	defer resp.Body.Close()
 	var result map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", err
+		return "", fmt.Errorf("unexpected health check response")
 	}
 	status, ok := result["status"].(string)
 	if !ok {
@@ -401,7 +402,7 @@ func (a *App) LoadChatHistory(sessionId int64) ([]ChatMessage, error) {
 	conv.messages = history
 	conv.systemPrompt = session.SystemPrompt // Assign the loaded system prompt
 	conv.mu.Unlock()
-	runtime.LogInfof(a.ctx, "Updated conversation in memory for session %d", sessionId)
+	runtime.LogInfof(a.ctx, "Updated conversation in memory for session %d. System Prompt: '%s'", sessionId, conv.systemPrompt)
 
 	if history == nil {
 		return []ChatMessage{}, nil
@@ -424,11 +425,20 @@ func (a *App) HandleChat(sessionId int64, message string) {
 
 	// Construct messages for the LLM API call, including the system prompt
 	var messagesForLLM []ChatMessage
+	runtime.LogInfof(a.ctx, "HandleChat: System Prompt for session %d: '%s'", sessionId, conv.systemPrompt) // NEW LOG
 	if conv.systemPrompt != "" {
 		messagesForLLM = append(messagesForLLM, ChatMessage{Role: "system", Content: conv.systemPrompt}) // Add system prompt first
 	}
 	messagesForLLM = append(messagesForLLM, conv.messages...) // Add existing chat history
 	messagesForLLM = append(messagesForLLM, userMessage)      // Add the current user message
+
+	// Log the full message payload being sent to the LLM
+	messagesJson, err := json.Marshal(messagesForLLM)
+	if err != nil {
+		runtime.LogErrorf(a.ctx, "HandleChat: Error marshalling messagesForLLM for logging: %v", err)
+	} else {
+		runtime.LogInfof(a.ctx, "HandleChat: Full message payload to LLM for session %d: %s", sessionId, string(messagesJson)) // NEW LOG
+	}
 
 	// Update the in-memory conversation with the new user message
 	conv.messages = append(conv.messages, userMessage)
@@ -573,7 +583,7 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 		runtime.LogErrorf(a.ctx, "Error saving assistant message: %s", err.Error())
 	}
 
-	// --- Signal End of Stream to Frontend ---
+	// --- Signal End of Stream to Frontend --
 	// Send a nil (or special empty string) to the frontend to signal the end of the stream.
 	// Your JavaScript `EventsOn("chat-stream")` listener already expects `data === null` for this.
 	runtime.EventsEmit(a.ctx, "chat-stream", nil)
