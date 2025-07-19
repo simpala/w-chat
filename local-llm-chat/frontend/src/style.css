@@ -342,6 +342,34 @@ body.theme-light {
 
 /* You can add more themes here */
 
+/* Theme: Grey */
+body.theme-grey {
+    --bg-primary: #1e1e1e;
+    --bg-secondary: #252525;
+    --bg-tertiary: #2a2a2a;
+    --bg-code-inline: #333;
+    --bg-thought-block: #3a3a3a;
+    --bg-thought-hover: #4a4a4a;
+
+    --text-primary: #d4d4d4;
+    --text-secondary: #d4d4d4;
+    --text-placeholder: #a0aec0;
+    --text-thought-summary: #d4d4d4;
+    --text-thought-content: #d4d4d4;
+
+    --border-color: #444;
+    --border-thought-block: #444;
+
+    --scrollbar-thumb: #555;
+    --scrollbar-track: #333;
+
+    --ui-hover-bg: #5a5a5a;
+    --button-bg: #4a4a4a;
+    --button-text: #d4d4d4;
+    --button-hover-bg: #5a5a5a;
+    --active-session-bg: #5a5a5a;
+}
+
 /* Theme: Green */
 body.theme-green {
     --bg-primary: #28372f; /* Dark green background */
