@@ -29,7 +29,7 @@ func main() {
 		OnBeforeClose:    app.shutdown,
 		Bind: []interface{}{
 			app,
-			&app.ArtifactService,
+			app.ArtifactService,
 		},
 	})
 
