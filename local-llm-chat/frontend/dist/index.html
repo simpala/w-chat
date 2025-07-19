@@ -24,8 +24,8 @@
             }
         }
     </script>
-  <script type="module" crossorigin src="./assets/main.aca818aa.js"></script>
-  <link rel="stylesheet" href="./assets/index.4a40b9b8.css">
+  <script type="module" crossorigin src="./assets/main.ec8691f4.js"></script>
+  <link rel="stylesheet" href="./assets/index.8bd406e0.css">
 </head>
 <body>
     <div class="settings-toggle-container">
@@ -40,7 +40,11 @@
         </div>
         <div class="chat-area">
             <div class="chat-header">
-                <select id="systemPromptSelect"></select>
+                <div class="custom-select">
+                    <input type="text" id="systemPromptSelectInput" placeholder="Select Prompt...">
+                    <input type="hidden" id="selectedSystemPrompt">
+                    <div id="systemPromptSelectList" class="select-items select-hide"></div>
+                </div>
                 <textarea id="customSystemPrompt" placeholder="System Prompt Content..." readonly></textarea>
             </div>
             <div class="messages-container">

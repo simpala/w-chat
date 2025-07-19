@@ -277,11 +277,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        let contentToSend = userMessageContent;
-        if (selectedSystemPrompt) {
-            contentToSend = selectedSystemPrompt + '\n\n' + userMessageContent;
-        }
-
+        // let contentToSend = userMessageContent;
+        // if (selectedSystemPrompt) {
+        //     contentToSend = selectedSystemPrompt + '\n\n' + userMessageContent;
+        // }
+        const contentToSend = userMessageContent;
         const userMessage = {
             role: 'user',
             rawContent: userMessageContent
@@ -297,6 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let assistantResponse = '';
         messages.push({ role: 'assistant', content: '' });
 
+    // Ensure sendMessage now uses only the user's message
         sendMessage(currentSessionId, contentToSend).catch(error => {
             console.error("Error sending message:", error);
             messages.pop();
@@ -310,6 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
             stopButton.style.display = 'none';
         });
     }
+
 
     sendButton.addEventListener('click', (e) => {
         e.preventDefault();
@@ -325,7 +327,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     newChatButton.addEventListener('click', (e) => {
         e.preventDefault();
-        NewChat().then((newId) => {
+        // Pass the selectedSystemPrompt to the NewChat function
+        NewChat(selectedSystemPrompt).then((newId) => { // Modified
             switchSession(newId);
             loadSessions();
         }).catch(error => {

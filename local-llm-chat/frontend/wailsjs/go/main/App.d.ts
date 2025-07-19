@@ -6,7 +6,13 @@ export function DeleteChatSession(arg1:number):Promise<void>;
 
 export function GetModels():Promise<Array<string>>;
 
+export function GetPrompt(arg1:string):Promise<string>;
+
+export function GetPrompts():Promise<Array<string>>;
+
 export function HandleChat(arg1:number,arg2:string):Promise<void>;
+
+export function HealthCheck():Promise<string>;
 
 export function LaunchLLM(arg1:string):Promise<string>;
 
@@ -16,8 +22,10 @@ export function LoadChatSessions():Promise<Array<main.ChatSession>>;
 
 export function LoadSettings():Promise<string>;
 
-export function NewChat():Promise<number>;
+export function NewChat(arg1:string):Promise<number>;
 
 export function SaveSettings(arg1:string):Promise<void>;
+
+export function ShutdownLLM():Promise<void>;
 
 export function StopStream(arg1:number):Promise<void>;

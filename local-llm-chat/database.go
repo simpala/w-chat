@@ -31,7 +31,8 @@ func (d *Database) Initialize() error {
 		CREATE TABLE IF NOT EXISTS chat_sessions (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			system_prompt TEXT DEFAULT '' -- Add this line
 		);
 
 		CREATE TABLE IF NOT EXISTS chat_messages (
@@ -43,20 +44,47 @@ func (d *Database) Initialize() error {
 			FOREIGN KEY(session_id) REFERENCES chat_sessions(id)
 		);
 	`)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// This block attempts to add the system_prompt column if it doesn't exist.
+	// It's a basic migration strategy.
+	_, err = d.db.Exec(`
+		PRAGMA foreign_keys = OFF;
+		CREATE TABLE IF NOT EXISTS chat_sessions_new (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			system_prompt TEXT DEFAULT ''
+		);
+		INSERT INTO chat_sessions_new (id, name, created_at, system_prompt)
+		SELECT id, name, created_at, '' FROM chat_sessions;
+		DROP TABLE chat_sessions;
+		ALTER TABLE chat_sessions_new RENAME TO chat_sessions;
+		PRAGMA foreign_keys = ON;
+	`)
+	// We ignore the error here because the column might already exist after the first run.
+	if err != nil {
+		fmt.Printf("Warning: Could not alter chat_sessions table to add system_prompt column (it might already exist): %v\n", err)
+	}
+
+	return nil
 }
 
 // ChatSession struct
 type ChatSession struct {
-	ID        int64  `json:"id"`
-	Name      string `json:"name"`
-	CreatedAt string `json:"created_at"`
+	ID           int64  `json:"id"`
+	Name         string `json:"name"`
+	CreatedAt    string `json:"created_at"`
+	SystemPrompt string `json:"system_prompt"` // Add this line
 }
 
-// NewChatSession creates a new chat session
-func (d *Database) NewChatSession() (int64, error) {
+// NewChatSession creates a new chat session with an optional system prompt
+func (d *Database) NewChatSession(systemPrompt string) (int64, error) { // <--- **FIX: Add systemPrompt string parameter**
 	name := fmt.Sprintf("Chat %s", time.Now().Format("2006-01-02 15:04:05"))
-	res, err := d.db.Exec("INSERT INTO chat_sessions (name) VALUES (?)", name)
+	// Insert the system_prompt into the chat_sessions table
+	res, err := d.db.Exec("INSERT INTO chat_sessions (name, system_prompt) VALUES (?, ?)", name, systemPrompt) // <--- **FIX: Pass systemPrompt here**
 	if err != nil {
 		return 0, err
 	}
@@ -65,7 +93,7 @@ func (d *Database) NewChatSession() (int64, error) {
 
 // GetChatSessions retrieves all chat sessions
 func (d *Database) GetChatSessions() ([]ChatSession, error) {
-	rows, err := d.db.Query("SELECT id, name, created_at FROM chat_sessions ORDER BY created_at DESC")
+	rows, err := d.db.Query("SELECT id, name, created_at, system_prompt FROM chat_sessions ORDER BY created_at DESC") // <--- **FIX: Select system_prompt**
 	if err != nil {
 		return nil, err
 	}
@@ -75,13 +103,29 @@ func (d *Database) GetChatSessions() ([]ChatSession, error) {
 	for rows.Next() {
 		var session ChatSession
 		var createdAt time.Time
-		if err := rows.Scan(&session.ID, &session.Name, &createdAt); err != nil {
+		// Scan into the new SystemPrompt field
+		if err := rows.Scan(&session.ID, &session.Name, &createdAt, &session.SystemPrompt); err != nil { // <--- **FIX: Scan into session.SystemPrompt**
 			return nil, err
 		}
 		session.CreatedAt = createdAt.Format(time.RFC3339)
 		sessions = append(sessions, session)
 	}
 	return sessions, nil
+}
+
+// GetChatSession retrieves a single chat session by ID
+func (d *Database) GetChatSession(id int64) (*ChatSession, error) {
+	row := d.db.QueryRow("SELECT id, name, created_at, system_prompt FROM chat_sessions WHERE id = ?", id)
+	var session ChatSession
+	var createdAt time.Time
+	if err := row.Scan(&session.ID, &session.Name, &createdAt, &session.SystemPrompt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("chat session with ID %d not found", id)
+		}
+		return nil, err
+	}
+	session.CreatedAt = createdAt.Format(time.RFC3339)
+	return &session, nil
 }
 
 // DeleteChatSession deletes a chat session and its messages

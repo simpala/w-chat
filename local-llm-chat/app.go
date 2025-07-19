@@ -36,9 +36,10 @@ type Config struct {
 
 // Conversation struct to hold the state of a single chat session
 type Conversation struct {
-	messages []ChatMessage
-	httpResp *http.Response
-	mu       sync.Mutex
+	messages     []ChatMessage
+	systemPrompt string // Add this line
+	httpResp     *http.Response
+	mu           sync.Mutex
 }
 
 // NewApp creates a new App application struct
@@ -78,15 +79,17 @@ func (a *App) startup(ctx context.Context) {
 }
 
 // NewChat creates a new chat session.
-func (a *App) NewChat() (int64, error) {
+func (a *App) NewChat(systemPrompt string) (int64, error) { // Modified signature
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	id, err := a.db.NewChatSession()
+	// FIX: Pass the systemPrompt argument to a.db.NewChatSession()
+	id, err := a.db.NewChatSession(systemPrompt) // <-- This line needs the fix
 	if err != nil {
 		return 0, err
 	}
 	a.conversations[id] = &Conversation{
-		messages: make([]ChatMessage, 0),
+		messages:     make([]ChatMessage, 0),
+		systemPrompt: systemPrompt, // Store the system prompt in the in-memory conversation
 	}
 	return id, nil
 }
@@ -288,6 +291,17 @@ type ChatCompletionRequest struct {
 	NPredict int           `json:"N_precdict,omitempty"` // This will send as "max_tokens" in JSON
 }
 
+// // ChatSession struct for database communication.
+// type ChatSession struct {
+// 	ID           int64     `json:"id"`
+// 	Name         string    `json:"name"`
+// 	CreatedAt    time.Time `json:"created_at"`
+// 	SystemPrompt string    `json:"system_prompt"` // Add this field
+// }
+
+// Update your db.GetChatSession and db.NewChatSession to handle system_prompt.
+// (Example assumes your database functions are updated accordingly)
+
 // LoadChatHistory loads the chat history for a given session into memory.
 func (a *App) LoadChatHistory(sessionId int64) ([]ChatMessage, error) {
 	a.mu.Lock()
@@ -299,7 +313,16 @@ func (a *App) LoadChatHistory(sessionId int64) ([]ChatMessage, error) {
 		runtime.LogErrorf(a.ctx, "Error getting chat messages from db: %s", err.Error())
 		return nil, err
 	}
-	runtime.LogInfof(a.ctx, "Loaded %d messages from db for session %d. Content: %+v", len(history), sessionId, history) // Add this line to see the actual content
+	runtime.LogInfof(a.ctx, "Loaded %d messages from db for session %d. Content: %+v", len(history), sessionId, history)
+
+	// Fetch the chat session to get the system prompt
+	session, err := a.db.GetChatSession(sessionId) // Call the new GetChatSession from database.go
+	if err != nil {
+		runtime.LogErrorf(a.ctx, "Error getting chat session from db: %s", err.Error())
+		// You might want to handle this more gracefully, e.g., proceed without a system prompt
+		// if the session itself is somehow missing, but its messages are present.
+		return nil, err
+	}
 
 	conv, ok := a.conversations[sessionId]
 	if !ok {
@@ -310,6 +333,7 @@ func (a *App) LoadChatHistory(sessionId int64) ([]ChatMessage, error) {
 	}
 	conv.mu.Lock()
 	conv.messages = history
+	conv.systemPrompt = session.SystemPrompt // Assign the loaded system prompt
 	conv.mu.Unlock()
 	runtime.LogInfof(a.ctx, "Updated conversation in memory for session %d", sessionId)
 
@@ -328,18 +352,27 @@ func (a *App) HandleChat(sessionId int64, message string) {
 		return
 	}
 	conv.mu.Lock()
+	defer conv.mu.Unlock() // Ensure mutex is unlocked at the end of the function
 
 	userMessage := ChatMessage{Role: "user", Content: message}
+
+	// Construct messages for the LLM API call, including the system prompt
+	var messagesForLLM []ChatMessage
+	if conv.systemPrompt != "" {
+		messagesForLLM = append(messagesForLLM, ChatMessage{Role: "system", Content: conv.systemPrompt}) // Add system prompt first
+	}
+	messagesForLLM = append(messagesForLLM, conv.messages...) // Add existing chat history
+	messagesForLLM = append(messagesForLLM, userMessage)      // Add the current user message
+
+	// Update the in-memory conversation with the new user message
 	conv.messages = append(conv.messages, userMessage)
 	if err := a.db.SaveChatMessage(sessionId, "user", message); err != nil {
 		runtime.LogErrorf(a.ctx, "Error saving user message: %s", err.Error())
-		conv.mu.Unlock()
-		return
+		return // Return early if saving fails
 	}
 
-	reqBody := ChatCompletionRequest{Messages: conv.messages, Stream: true, NPredict: -1}
-	conv.mu.Unlock()
-
+	// Use messagesForLLM for the request body
+	reqBody := ChatCompletionRequest{Messages: messagesForLLM, Stream: true, NPredict: -1}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
 		runtime.LogErrorf(a.ctx, "Error marshalling request body: %s", err.Error())
@@ -351,9 +384,8 @@ func (a *App) HandleChat(sessionId int64, message string) {
 		runtime.LogErrorf(a.ctx, "Error making POST request to LLM: %s", err.Error())
 		return
 	}
-	conv.mu.Lock()
-	conv.httpResp = resp
-	conv.mu.Unlock()
+	conv.httpResp = resp // Store the http.Response for potential StopStream
+	// No need to unlock/relock around this if using defer conv.mu.Unlock()
 
 	go a.streamHandler(sessionId, resp)
 }

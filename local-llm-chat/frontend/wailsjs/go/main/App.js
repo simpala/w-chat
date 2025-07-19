@@ -10,8 +10,20 @@ export function GetModels() {
   return window['go']['main']['App']['GetModels']();
 }
 
+export function GetPrompt(arg1) {
+  return window['go']['main']['App']['GetPrompt'](arg1);
+}
+
+export function GetPrompts() {
+  return window['go']['main']['App']['GetPrompts']();
+}
+
 export function HandleChat(arg1, arg2) {
   return window['go']['main']['App']['HandleChat'](arg1, arg2);
+}
+
+export function HealthCheck() {
+  return window['go']['main']['App']['HealthCheck']();
 }
 
 export function LaunchLLM(arg1) {
@@ -30,12 +42,16 @@ export function LoadSettings() {
   return window['go']['main']['App']['LoadSettings']();
 }
 
-export function NewChat() {
-  return window['go']['main']['App']['NewChat']();
+export function NewChat(arg1) {
+  return window['go']['main']['App']['NewChat'](arg1);
 }
 
 export function SaveSettings(arg1) {
   return window['go']['main']['App']['SaveSettings'](arg1);
+}
+
+export function ShutdownLLM() {
+  return window['go']['main']['App']['ShutdownLLM']();
 }
 
 export function StopStream(arg1) {

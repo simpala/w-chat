@@ -18,6 +18,7 @@ export namespace main {
 	    id: number;
 	    name: string;
 	    created_at: string;
+	    system_prompt: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ChatSession(source);
@@ -28,6 +29,7 @@ export namespace main {
 	        this.id = source["id"];
 	        this.name = source["name"];
 	        this.created_at = source["created_at"];
+	        this.system_prompt = source["system_prompt"];
 	    }
 	}
 
