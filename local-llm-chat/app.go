@@ -21,7 +21,7 @@ type App struct {
 	ctx           context.Context
 	config        Config
 	db            *Database
-	llmCmd        *exec.Cmd
+	llmCmd        *exec.Cmd // This holds the command for the LLM process
 	conversations map[int64]*Conversation
 	mu            sync.Mutex
 }
@@ -74,6 +74,8 @@ func (a *App) startup(ctx context.Context) {
 		runtime.LogErrorf(a.ctx, "Could not determine executable path for config.json logging: %v", err)
 	}
 
+	// This block for loading settings was previously confirmed to work.
+	// It loads into a.config AND returns a string.
 	settings, err := a.LoadSettings()
 	if err != nil {
 		runtime.LogErrorf(a.ctx, "Error loading config: %s", err.Error())
@@ -81,6 +83,9 @@ func (a *App) startup(ctx context.Context) {
 		runtime.LogInfof(a.ctx, "Raw settings loaded from config.json: %s", settings)
 	}
 
+	// The returned string is then unmarshalled into a local config variable
+	// and then assigned back to a.config. While redundant, this sequence
+	// was stable for settings loading.
 	var config Config
 	err = json.Unmarshal([]byte(settings), &config)
 	if err != nil {
@@ -92,7 +97,7 @@ func (a *App) startup(ctx context.Context) {
 	if config.ModelArgs == nil {
 		config.ModelArgs = make(map[string]string)
 	}
-	a.config = config
+	a.config = config // Assign local config back to a.config
 	runtime.LogInfof(a.ctx, "Final a.config state after startup: %+v", a.config)
 }
 
@@ -123,6 +128,47 @@ func (a *App) DeleteChatSession(id int64) error {
 	defer a.mu.Unlock()
 	delete(a.conversations, id)
 	return a.db.DeleteChatSession(id)
+}
+
+// UpdateChatSystemPrompt updates the system prompt for an existing chat session.
+func (a *App) UpdateChatSystemPrompt(sessionID int64, newSystemPrompt string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	conv, ok := a.conversations[sessionID]
+	if !ok {
+		runtime.LogErrorf(a.ctx, "UpdateChatSystemPrompt: Conversation with ID %d not found in memory.", sessionID)
+		return fmt.Errorf("conversation not found")
+	}
+
+	conv.mu.Lock()
+	conv.systemPrompt = newSystemPrompt // Update in-memory struct
+	conv.mu.Unlock()
+
+	err := a.db.UpdateChatSessionSystemPrompt(sessionID, newSystemPrompt) // Update in database
+	if err != nil {
+		runtime.LogErrorf(a.ctx, "UpdateChatSystemPrompt: Error updating system prompt in DB for session %d: %s", sessionID, err.Error())
+		return err
+	}
+	runtime.LogInfof(a.ctx, "UpdateChatSystemPrompt: System prompt for session %d updated to: '%s'", sessionID, newSystemPrompt)
+	return nil
+}
+
+// IsLLMLoaded checks if the LLM process is currently running.
+func (a *App) IsLLMLoaded() bool {
+	// Check if llmCmd exists and its process is not nil and has not exited
+	// Note: cmd.ProcessState will be nil if the command hasn't started or finished.
+	// We want to check if the process is actively running.
+	if a.llmCmd != nil && a.llmCmd.Process != nil && a.llmCmd.ProcessState == nil {
+		// Further check if the process is still alive by sending a signal 0
+		// which checks existence without killing. This is OS-specific.
+		// For simplicity and cross-platform compatibility with Wails,
+		// checking llmCmd.ProcessState == nil is often sufficient for "running".
+		runtime.LogDebugf(a.ctx, "IsLLMLoaded: LLM process appears to be running (PID: %d).", a.llmCmd.Process.Pid)
+		return true
+	}
+	runtime.LogDebugf(a.ctx, "IsLLMLoaded: LLM process is not running.")
+	return false
 }
 
 // SaveSettings saves the configuration to a JSON file.
@@ -201,7 +247,7 @@ func (a *App) LoadSettings() (string, error) {
 	runtime.LogInfof(a.ctx, "Content read from config.json: %s", fileContent)
 
 	decoder := json.NewDecoder(strings.NewReader(fileContent)) // Use strings.NewReader for decoding
-	err = decoder.Decode(&a.config)
+	err = decoder.Decode(&a.config)                            // This directly decodes into a.config
 	if err != nil {
 		runtime.LogErrorf(a.ctx, "Error decoding config.json content into Config struct: %s", err.Error())
 		return "", err
@@ -424,7 +470,7 @@ func (a *App) HandleChat(sessionId int64, message string) {
 	userMessage := ChatMessage{Role: "user", Content: message}
 
 	// Construct messages for the LLM API call, including the system prompt
-	var messagesForLLM []ChatMessage
+	var messagesForLLM []ChatMessage                                                                        // Corrected variable name
 	runtime.LogInfof(a.ctx, "HandleChat: System Prompt for session %d: '%s'", sessionId, conv.systemPrompt) // NEW LOG
 	if conv.systemPrompt != "" {
 		messagesForLLM = append(messagesForLLM, ChatMessage{Role: "system", Content: conv.systemPrompt}) // Add system prompt first

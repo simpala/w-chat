@@ -26,6 +26,10 @@ export function HealthCheck() {
   return window['go']['main']['App']['HealthCheck']();
 }
 
+export function IsLLMLoaded() {
+  return window['go']['main']['App']['IsLLMLoaded']();
+}
+
 export function LaunchLLM(arg1) {
   return window['go']['main']['App']['LaunchLLM'](arg1);
 }
@@ -56,4 +60,8 @@ export function ShutdownLLM() {
 
 export function StopStream(arg1) {
   return window['go']['main']['App']['StopStream'](arg1);
+}
+
+export function UpdateChatSystemPrompt(arg1, arg2) {
+  return window['go']['main']['App']['UpdateChatSystemPrompt'](arg1, arg2);
 }

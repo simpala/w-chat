@@ -108,6 +108,12 @@ func (d *Database) GetChatSession(id int64) (*ChatSession, error) {
 	return &session, nil
 }
 
+// UpdateChatSessionSystemPrompt updates the system_prompt for a given chat session.
+func (d *Database) UpdateChatSessionSystemPrompt(sessionID int64, systemPrompt string) error {
+	_, err := d.db.Exec("UPDATE chat_sessions SET system_prompt = ? WHERE id = ?", systemPrompt, sessionID)
+	return err
+}
+
 // DeleteChatSession deletes a chat session and its messages
 func (d *Database) DeleteChatSession(id int64) error {
 	tx, err := d.db.Begin()

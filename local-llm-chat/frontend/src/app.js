@@ -2,12 +2,10 @@
 
 console.log("DEBUG: Main app.js file loaded.");
 import {
-    handleModelSelection, // Now handles selection and saves settings
-    populateModelList, // Exported for initial population
-    loadSettingsAndApplyTheme, // Consolidated load function
-    saveAllSettings, // Consolidated save function
-    fuse // <--- CRITICAL FIX: IMPORT FUSE HERE
-} from './modules/settings.js';
+    initFuzzySearch,
+    handleModelSelection,
+    fuse
+} from './modules/settings.js'; // Assuming settings.js handles fuzzy search, etc.
 
 import {
     launchLLM
@@ -22,14 +20,21 @@ import {
     LoadChatHistory,
     StopStream,
     GetPrompts,
-    GetPrompt
+    GetPrompt,
+    SaveSettings as GoSaveSettings, // Alias to avoid conflict with local saveSettings
+    LoadSettings as GoLoadSettings, // Alias to avoid conflict with local loadSettings
+    UpdateChatSystemPrompt, // Import the new Go function for updating system prompt
+    IsLLMLoaded // <--- NEW: Import IsLLMLoaded
 } from '../wailsjs/go/main/App';
 import {
     EventsOn
 } from '../wailsjs/runtime';
 import * as runtime from '../wailsjs/runtime';
 
-// Function to apply the theme - EXPORTED so settings.js can import it
+// Define currentSettings globally
+let currentSettings = {};
+
+// Function to apply the theme
 export function applyTheme(themeName) {
     console.log("DEBUG: applyTheme called with:", themeName);
     const body = document.body;
@@ -42,6 +47,103 @@ export function applyTheme(themeName) {
     body.dataset.theme = themeName; // Store the active theme name in a data attribute
     console.log("DEBUG: Body classes after applyTheme:", body.className);
     console.log("DEBUG: Body data-theme after applyTheme:", body.dataset.theme);
+}
+
+// Modified loadSettings to handle theme
+async function loadSettingsAndApplyTheme() {
+    console.log("DEBUG: Frontend: loadSettingsAndApplyTheme started.");
+    try {
+        const settingsJson = await GoLoadSettings(); // This should return the JSON string from Go
+        console.log("DEBUG: Frontend: Raw settingsJson received from GoLoadSettings:", settingsJson);
+
+        currentSettings = JSON.parse(settingsJson); // This parses the snake_case JSON into a JS object
+        console.log("DEBUG: Frontend: Parsed currentSettings object:", currentSettings);
+
+
+        // Apply theme on load - Use snake_case
+        const savedTheme = currentSettings.theme || 'default';
+        console.log("DEBUG: Frontend: Saved theme from settings:", savedTheme);
+        applyTheme(savedTheme);
+
+        // Set the custom theme dropdown's displayed value and hidden value
+        const themeSelectInput = document.getElementById('themeSelectInput');
+        const selectedThemeValue = document.getElementById('selectedThemeValue');
+        // Find the correct option element based on data-value
+        const themeOptionElement = document.querySelector(`#themeSelectList div[data-value="${savedTheme}"]`);
+        if (themeSelectInput && selectedThemeValue && themeOptionElement) {
+            themeSelectInput.value = themeOptionElement.textContent; // Display text
+            selectedThemeValue.value = savedTheme; // Hidden value
+            console.log(`DEBUG: Frontend: Theme dropdown set to: ${themeOptionElement.textContent} (${savedTheme})`);
+        } else {
+            console.warn("WARN: Frontend: Theme UI elements not found or theme option not found for:", savedTheme);
+            if (!themeSelectInput) console.warn("themeSelectInput not found.");
+            if (!selectedThemeValue) console.warn("selectedThemeValue not found.");
+            if (!themeOptionElement) console.warn(`themeOptionElement not found for data-value="${savedTheme}".`);
+        }
+
+
+        // Populate your existing settings fields - Use snake_case
+        document.getElementById('llamaPathInput').value = currentSettings.llama_cpp_dir || '';
+        document.getElementById('modelPathInput').value = currentSettings.models_dir || '';
+        document.getElementById('selectedModelPath').value = currentSettings.selected_model || '';
+        document.getElementById('chatModelSelectInput').value = currentSettings.selected_model ? currentSettings.selected_model.split('/').pop() : 'Select Model...';
+
+        // More robust handling for ModelArgs - Use snake_case
+        const modelArgsInput = document.getElementById('chatModelArgs');
+        if (modelArgsInput) {
+            const selectedModel = currentSettings.selected_model;
+            const modelArgs = currentSettings.model_args;
+            if (modelArgs && selectedModel && modelArgs[selectedModel] !== undefined) {
+                modelArgsInput.value = modelArgs[selectedModel];
+                console.log(`DEBUG: Frontend: chatModelArgs set for ${selectedModel}: ${modelArgs[selectedModel]}`);
+            } else {
+                modelArgsInput.value = '';
+                console.log(`DEBUG: Frontend: chatModelArgs cleared or not found for ${selectedModel}. ModelArgs:`, modelArgs);
+            }
+        } else {
+            console.warn("WARN: Frontend: chatModelArgs element not found.");
+        }
+
+
+        // Update model list for fuzzy search
+        const models = await window.go.main.App.GetModels(); // Assuming GetModels exists
+        initFuzzySearch(models.map(p => ({ name: p.split('/').pop(), path: p })));
+        console.log("DEBUG: Frontend: Models loaded for fuzzy search.");
+
+    } catch (error) {
+        console.error("ERROR: Frontend: Error loading settings and applying theme:", error);
+        applyTheme('default'); // Fallback to default theme on error
+    }
+    console.log("DEBUG: Frontend: loadSettingsAndApplyTheme finished.");
+}
+
+// Modified saveSettings to handle theme
+async function saveAllSettings() {
+    console.log("DEBUG: Frontend: saveAllSettings started.");
+    // Populate currentSettings with values from UI - Use snake_case
+    currentSettings.llama_cpp_dir = document.getElementById('llamaPathInput').value;
+    currentSettings.models_dir = document.getElementById('modelPathInput').value;
+    currentSettings.selected_model = document.getElementById('selectedModelPath').value;
+
+    if (!currentSettings.model_args) { // Use snake_case
+        currentSettings.model_args = {};
+    }
+    const currentModelPath = document.getElementById('selectedModelPath').value;
+    if (currentModelPath) {
+        currentSettings.model_args[currentModelPath] = document.getElementById('chatModelArgs').value; // Use snake_case
+    }
+
+    // Save the current theme from the body's data-theme attribute - Use snake_case
+    currentSettings.theme = document.body.dataset.theme || 'default';
+    console.log("DEBUG: Frontend: Settings object before saving:", currentSettings);
+
+    try {
+        await GoSaveSettings(JSON.stringify(currentSettings)); // Use aliased Go function
+        console.log("DEBUG: Frontend: Settings saved successfully.");
+    } catch (error) {
+        console.error("ERROR: Frontend: Error saving settings:", error);
+    }
+    console.log("DEBUG: Frontend: saveAllSettings finished.");
 }
 
 
@@ -88,6 +190,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectedSystemPrompt = '';
                 customSystemPrompt.value = '';
                 systemPromptSelectList.classList.add('select-hide');
+                // If there's an active session, update its prompt
+                if (currentSessionId) {
+                    runtime.LogInfo(`DEBUG: app.js: Updating system prompt for session ${currentSessionId} to 'Default' (empty string).`);
+                    UpdateChatSystemPrompt(currentSessionId, selectedSystemPrompt).catch(err => {
+                        console.error("Error updating system prompt for session:", err);
+                    });
+                }
             });
             systemPromptSelectList.appendChild(defaultOption);
             prompts.forEach(prompt => {
@@ -99,6 +208,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     GetPrompt(prompt).then(promptContent => {
                         selectedSystemPrompt = promptContent;
                         customSystemPrompt.value = promptContent;
+                        // If there's an active session, update its prompt
+                        if (currentSessionId) {
+                            runtime.LogInfo(`DEBUG: app.js: Updating system prompt for session ${currentSessionId} to prompt '${prompt}'.`);
+                            UpdateChatSystemPrompt(currentSessionId, selectedSystemPrompt).catch(err => {
+                                console.error("Error updating system prompt for session:", err);
+                            });
+                        }
                     });
                     systemPromptSelectList.classList.add('select-hide');
                 });
@@ -132,7 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
             themeSelectInput.value = themeText;
             selectedThemeValue.value = themeValue; // Update hidden input
             applyTheme(themeValue); // Apply the theme
-            saveAllSettings(); // Save theme preference immediately via the consolidated function
+            saveAllSettings(); // Save theme preference immediately
             themeSelectList.classList.add('select-hide'); // Hide dropdown
         });
     });
@@ -213,12 +329,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (part.type === 'thought') {
                     const detailsElement = document.createElement('details');
                     detailsElement.classList.add('thought-block');
+
                     const summaryElement = document.createElement('summary');
                     summaryElement.classList.add('thought-summary');
                     summaryElement.innerHTML = '<span class="inline-block mr-2">💡</span>Thinking Process';
-                    const contentElement = document.createElement('p'); // Corrected from document.classList.add
+
+                    const contentElement = document.createElement('p');
                     contentElement.classList.add('thought-content');
                     contentElement.textContent = part.content;
+
                     detailsElement.appendChild(summaryElement);
                     detailsElement.appendChild(contentElement);
                     partContainer.appendChild(detailsElement);
@@ -316,12 +435,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function handleSendMessage() {
+    async function handleSendMessage() { // Made async to await IsLLMLoaded
         if (isStreaming) return;
         const userMessageContent = messageInput.value.trim();
         if (userMessageContent === '' || currentSessionId === null) {
             return;
         }
+
+        // --- NEW: Check if LLM is loaded before sending message ---
+        const llmLoaded = await IsLLMLoaded();
+        if (!llmLoaded) {
+            console.warn("LLM model is not loaded. Please load a model first.");
+            addMessageToChatWindow('system', 'Please load an LLM model first before sending messages.');
+            return; // Prevent sending message if LLM is not loaded
+        }
+        // --- END NEW CHECK ---
 
         const contentToSend = userMessageContent; // System prompt is handled in Go backend
 
@@ -329,10 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
             role: 'user',
             rawContent: userMessageContent
         };
-        messages.push({
-            role: 'user',
-            content: userMessageContent
-        });
+        messages.push({ role: 'user', content: userMessageContent });
         addMessageToChatWindow('user', userMessageContent);
         messageInput.value = '';
 
@@ -341,10 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
         stopButton.style.display = 'block';
 
         let assistantResponse = '';
-        messages.push({
-            role: 'assistant',
-            content: ''
-        });
+        messages.push({ role: 'assistant', content: '' });
 
         sendMessage(currentSessionId, contentToSend).catch(error => {
             console.error("Error sending message:", error);
@@ -430,7 +552,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const summaryElement = document.createElement('summary');
                 summaryElement.classList.add('thought-summary');
                 summaryElement.innerHTML = '<span class="inline-block mr-2">💡</span>Thinking Process';
-                const contentElement = document.createElement('p'); // Corrected from document.classList.add
+                const contentElement = document.createElement('p');
                 contentElement.classList.add('thought-content');
                 contentElement.textContent = part.content;
                 detailsElement.appendChild(summaryElement);
@@ -460,7 +582,7 @@ document.addEventListener('DOMContentLoaded', () => {
         switchSession(parseInt(currentSessionId));
     }
     loadPrompts();
-    loadSettingsAndApplyTheme(); // Call the consolidated load function from settings.js
+    loadSettingsAndApplyTheme(); // Call the new load function
 
     const settingsToggleButton = document.getElementById('settingsToggleButton');
     const rightSidebar = document.querySelector('.sidebar-container.right');
