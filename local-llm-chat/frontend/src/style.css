@@ -1137,3 +1137,17 @@ body {
     border-radius: 5px;
     margin-top: 10px; /* Spacing between artifacts */
 }
+
+.artifact {
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-color);
+    padding: 1rem;
+    border-radius: 5px;
+}
+
+.artifact img,
+.artifact video {
+    max-width: 100%;
+    height: auto;
+    border-radius: 5px;
+}

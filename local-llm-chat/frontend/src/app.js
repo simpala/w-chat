@@ -589,6 +589,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     loadPrompts();
     loadSettingsAndApplyTheme(); // Call the new load function
+    renderArtifacts();
 
     const settingsToggleButton = document.getElementById('settingsToggleButton');
     const rightSidebar = document.querySelector('.sidebar-container.right');
@@ -700,11 +701,48 @@ document.addEventListener('DOMContentLoaded', () => {
                                 fileName: file.split('/').pop(),
                                 size: content.length
                             };
-                            window.go.main.App.ArtifactService.AddArtifact(artifactType, content, metadata, true);
+                            window.go.main.App.ArtifactService.AddArtifact("default-chat-session", artifactType, content, metadata, true);
                         }
                     });
                 });
             }
         });
     });
+
+    EventsOn("newArtifactAdded", (artifactId) => {
+        console.log("New artifact added:", artifactId);
+        renderArtifacts();
+    });
+
+    EventsOn("artifactDeleted", (artifactId) => {
+        console.log("Artifact deleted:", artifactId);
+        renderArtifacts();
+    });
+
+    function renderArtifacts() {
+        const artifactsContent = document.getElementById('artifactsContent');
+        artifactsContent.innerHTML = '';
+        window.go.main.App.ArtifactService.ListArtifacts("default-chat-session").then(artifacts => {
+            if (artifacts) {
+                artifacts.forEach(artifact => {
+                    const artifactElement = document.createElement('div');
+                    artifactElement.classList.add('artifact');
+                    if (artifact.type === 'image') {
+                        const img = document.createElement('img');
+                        img.src = "file://" + artifact.content_path;
+                        artifactElement.appendChild(img);
+                    } else if (artifact.type === 'video') {
+                        const video = document.createElement('video');
+                        video.src = "file://" + artifact.content_path;
+                        video.controls = true;
+                        artifactElement.appendChild(video);
+                    }
+                    const artifactName = document.createElement('p');
+                    artifactName.textContent = artifact.metadata.fileName;
+                    artifactElement.appendChild(artifactName);
+                    artifactsContent.appendChild(artifactElement);
+                });
+            }
+        });
+    }
 });
