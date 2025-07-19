@@ -5,6 +5,7 @@ go 1.23
 require (
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/wailsapp/wails/v2 v2.10.2
+	local-llm-chat/artifacts v0.0.0-00010101000000-000000000000
 )
 
 require (

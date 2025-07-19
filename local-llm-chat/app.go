@@ -119,7 +119,7 @@ func (a *App) startup(ctx context.Context) {
 	log.Printf("ArtifactService initialized. Artifacts directory: %s", artifactsDir)
 
 	// Defer cleanup for non-persistent artifacts
-	defer a.ArtifactService.CleanupNonPersistentArtifacts(sessionID)
+	defer a.ArtifactService.CleanupNonPersistentArtifacts("default-chat-session")
 	// --- End ArtifactService Initialization ---
 }
 

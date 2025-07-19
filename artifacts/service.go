@@ -3,6 +3,7 @@
 package artifacts
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -24,32 +25,29 @@ type ArtifactService struct {
 	artifacts    map[string]*Artifact
 	mu           sync.RWMutex
 	artifactsDir string
-	sessionID    string // Current session ID
-
-	// Wails runtime context for emitting events to the frontend.
-	ctx *runtime.Runtime
+	ctx          context.Context
 }
 
 // NewArtifactService creates a new instance of the ArtifactService.
-// It requires the base directory for storing artifact content, the current session ID,
-// and the Wails runtime context.
-func NewArtifactService(artifactsDir string, sessionID string, wailsRuntime *runtime.Runtime) (*ArtifactService, error) {
+// It requires the base directory for storing artifact content and the Wails runtime context.
+func NewArtifactService(ctx context.Context, artifactsDir string) *ArtifactService {
 	// Ensure the base artifacts directory exists.
 	if err := os.MkdirAll(artifactsDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create artifacts directory: %w", err)
+		log.Printf("Error creating artifacts directory: %v", err)
+		// By returning a service anyway, we allow the app to run but log the error.
+		// Operations requiring the directory will fail gracefully.
 	}
 
 	return &ArtifactService{
 		artifacts:    make(map[string]*Artifact),
 		artifactsDir: artifactsDir,
-		sessionID:    sessionID,
-		ctx:          wailsRuntime,
-	}, nil
+		ctx:          ctx,
+	}
 }
 
 // AddArtifact creates a new artifact, saves its content to disk if necessary,
 // stores its metadata in memory, and notifies the frontend.
-func (s *ArtifactService) AddArtifact(artifactType ArtifactType, content []byte, metadata map[string]interface{}, isPersistent bool) (string, error) {
+func (s *ArtifactService) AddArtifact(sessionID string, artifactType ArtifactType, content []byte, metadata map[string]interface{}, isPersistent bool) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -62,7 +60,7 @@ func (s *ArtifactService) AddArtifact(artifactType ArtifactType, content []byte,
 		switch artifactType {
 		case TypeImage, TypeVideo:
 			// Ensure the session-specific directory exists.
-			sessionArtifactsDir := filepath.Join(s.artifactsDir, s.sessionID)
+			sessionArtifactsDir := filepath.Join(s.artifactsDir, sessionID)
 			if err = os.MkdirAll(sessionArtifactsDir, 0755); err != nil {
 				return "", fmt.Errorf("failed to create session artifacts directory: %w", err)
 			}
@@ -90,7 +88,7 @@ func (s *ArtifactService) AddArtifact(artifactType ArtifactType, content []byte,
 
 	artifact := &Artifact{
 		ID:           artifactID,
-		SessionID:    s.sessionID,
+		SessionID:    sessionID,
 		Type:         artifactType,
 		ContentPath:  contentPath,
 		Metadata:     metadata,
@@ -104,7 +102,7 @@ func (s *ArtifactService) AddArtifact(artifactType ArtifactType, content []byte,
 
 	// Notify the frontend that a new artifact is available.
 	if s.ctx != nil {
-		runtime.EventsEmit(*s.ctx, "newArtifactAdded", artifactID)
+		runtime.EventsEmit(s.ctx, "newArtifactAdded", artifactID)
 	}
 
 	return artifactID, nil
@@ -147,7 +145,7 @@ func (s *ArtifactService) DeleteArtifact(id string) error {
 
 	// Notify the frontend of the deletion.
 	if s.ctx != nil {
-		runtime.EventsEmit(*s.ctx, "artifactDeleted", id)
+		runtime.EventsEmit(s.ctx, "artifactDeleted", id)
 	}
 
 	return nil
