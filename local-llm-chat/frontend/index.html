@@ -27,7 +27,21 @@
 <body>
     <div class="settings-toggle-container">
         <button id="settingsToggleButton" title="Toggle Settings Pane">⚙️</button>
-        <button id="mcpConfigButton" title="MCP Configuration">🌐</button>
+        <button id="mcpManagerButton" title="MCP Manager">🌐</button>
+    </div>
+    <div id="mcpManagerModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2>MCP Server Management</h2>
+            <div class="mcp-server-list"></div>
+            <div class="mcp-master-controls">
+                <label class="switch">
+                    <input type="checkbox" id="mcpMasterToggle">
+                    <span class="slider round"></span>
+                </label>
+                <label for="mcpMasterToggle">Connect/Disconnect All</label>
+            </div>
+        </div>
     </div>
     <div class="container">
         <div class="sidebar-container">

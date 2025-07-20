@@ -11,10 +11,12 @@ import {
     launchLLM
 } from './modules/llm.js';
 import {
-    getMcpSettings,
-    saveMcpSettings,
+    getMcpServers,
     connectMcp,
-    disconnectMcp
+    disconnectMcp,
+    getMcpConnectionState,
+    connectAllMcp,
+    disconnectAllMcp
 } from './modules/mcp.js';
 import {
     sendMessage
@@ -52,7 +54,6 @@ export const ArtifactType = {
     IMAGE: "IMAGE",
     VIDEO: "VIDEO",
     TOOL_NOTIFICATION: "TOOL_NOTIFICATION",
-    MCP_CONFIG: "MCP_CONFIG",
     // Add other types as you define them in Go
 };
 // --- END NEW: Artifact Type Constants ---
@@ -130,49 +131,6 @@ function renderArtifacts() {
             messageElement.style.fontStyle = 'italic';
             messageElement.style.color = 'var(--text-color-secondary)';
             artifactItem.appendChild(messageElement);
-        } else if (artifact.type === ArtifactType.MCP_CONFIG) {
-            const mcpConfigDiv = document.createElement('div');
-            mcpConfigDiv.innerHTML = `
-                <div class="mcp-config-form">
-                    <input type="text" id="mcpServerAddress" placeholder="Server Address" />
-                    <input type="text" id="mcpServerPort" placeholder="Port" />
-                    <button id="mcpConnectButton">Connect</button>
-                    <button id="mcpDisconnectButton">Disconnect</button>
-                </div>
-            `;
-            artifactItem.appendChild(mcpConfigDiv);
-
-            const mcpServerAddressInput = artifactItem.querySelector('#mcpServerAddress');
-            const mcpServerPortInput = artifactItem.querySelector('#mcpServerPort');
-            const mcpConnectButton = artifactItem.querySelector('#mcpConnectButton');
-            const mcpDisconnectButton = artifactItem.querySelector('#mcpDisconnectButton');
-
-            getMcpSettings().then(settings => {
-                if (settings.address) {
-                    mcpServerAddressInput.value = settings.address;
-                }
-                if (settings.port) {
-                    mcpServerPortInput.value = settings.port;
-                }
-            });
-
-            mcpConnectButton.addEventListener('click', async () => {
-                const address = mcpServerAddressInput.value;
-                const port = mcpServerPortInput.value;
-                if (address && port) {
-                    try {
-                        await connectMcp(address, port);
-                        addMessageToChatWindow('system', 'MCP client connected successfully.');
-                    } catch (error) {
-                        addMessageToChatWindow('system', `ERROR: MCP connection failed: ${error.message}`);
-                    }
-                }
-            });
-
-            mcpDisconnectButton.addEventListener('click', async () => {
-                await disconnectMcp();
-                addMessageToChatWindow('system', 'MCP client disconnected.');
-            });
         }
 
         artifactsListElement.appendChild(artifactItem);
@@ -818,7 +776,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setupArtifactEventListeners(); // <--- NEW: Setup artifact event listeners on DOMContentLoaded
 
     const settingsToggleButton = document.getElementById('settingsToggleButton');
-    const mcpConfigButton = document.getElementById('mcpConfigButton');
+    const mcpManagerButton = document.getElementById('mcpManagerButton');
+    const mcpManagerModal = document.getElementById('mcpManagerModal');
+    const mcpModalCloseButton = mcpManagerModal.querySelector('.close-button');
     const rightSidebar = document.querySelector('.sidebar-container.right');
     const artifactsPanel = document.getElementById('artifactsPanel');
     const toggleArtifactsPanelButton = document.getElementById('toggleArtifactsPanel');
@@ -846,8 +806,35 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if (mcpConfigButton) {
-        mcpConfigButton.addEventListener('click', createMcpConfigArtifact);
+    if (mcpManagerButton) {
+        mcpManagerButton.addEventListener('click', () => {
+            mcpManagerModal.style.display = 'block';
+            renderMcpServers();
+        });
+    }
+
+    if (mcpModalCloseButton) {
+        mcpModalCloseButton.addEventListener('click', () => {
+            mcpManagerModal.style.display = 'none';
+        });
+    }
+
+    window.addEventListener('click', (event) => {
+        if (event.target == mcpManagerModal) {
+            mcpManagerModal.style.display = 'none';
+        }
+    });
+
+    const mcpMasterToggle = document.getElementById('mcpMasterToggle');
+    if (mcpMasterToggle) {
+        mcpMasterToggle.addEventListener('change', async (event) => {
+            if (event.target.checked) {
+                await connectAllMcp();
+            } else {
+                await disconnectAllMcp();
+            }
+            await renderMcpServers();
+        });
     }
 
     if (toggleArtifactsPanelButton && artifactsPanel) {
@@ -959,24 +946,58 @@ async function handleFileUpload(event) {
 
     reader.readAsDataURL(file); // Read the file as a data URL (base64)
 }
-async function createMcpConfigArtifact() {
-    if (currentSessionId === null) {
-        addMessageToChatWindow('system', 'WARN: No current chat session. Please start a chat session before configuring MCP.');
-        return;
-    }
-
-    // Check if an MCP config artifact already exists
-    const mcpConfigExists = artifacts.some(a => a.type === ArtifactType.MCP_CONFIG);
-    if (mcpConfigExists) {
-        addMessageToChatWindow('system', 'INFO: MCP configuration UI already open.');
-        return;
-    }
+async function renderMcpServers() {
+    const serverList = document.querySelector('.mcp-server-list');
+    serverList.innerHTML = '';
 
     try {
-        await AddArtifact(String(currentSessionId), ArtifactType.MCP_CONFIG, "MCP Configuration", "");
+        const servers = await getMcpServers();
+
+        if (!servers || Object.keys(servers).length === 0) {
+            serverList.innerHTML = '<p>No MCP servers found in mcp.json.</p>';
+            return;
+        }
+
+        for (const serverName in servers) {
+            const server = servers[serverName];
+            const serverItem = document.createElement('div');
+            serverItem.classList.add('mcp-server-item');
+            serverItem.innerHTML = `
+                <div class="mcp-server-details">
+                    <h3>${serverName}</h3>
+                    <p>${server.description}</p>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" data-server-name="${serverName}" ${getMcpConnectionState(serverName) ? 'checked' : ''}>
+                    <span class="slider round"></span>
+                </label>
+            `;
+            serverList.appendChild(serverItem);
+
+            const toggle = serverItem.querySelector(`input[data-server-name="${serverName}"]`);
+            toggle.addEventListener('change', async (event) => {
+                const serverName = event.target.dataset.serverName;
+                const serverConfig = servers[serverName];
+                if (event.target.checked) {
+                    await spawnMcpServer(serverName, serverConfig);
+                    await connectMcp(serverName, serverConfig);
+                } else {
+                    await disconnectMcp(serverName);
+                }
+            });
+        }
     } catch (error) {
-        console.error("ERROR: Error creating MCP config artifact:", error);
-        addMessageToChatWindow('system', `ERROR: Failed to create MCP config artifact: ${error.message || error}`);
+        console.error("Error loading MCP servers:", error);
+        serverList.innerHTML = '<p>Error loading MCP servers.</p>';
+    }
+}
+
+async function spawnMcpServer(serverName, serverConfig) {
+    try {
+        const result = await window.go.main.App.SpawnMcpServer(serverName, serverConfig.command, serverConfig.args, serverConfig.env);
+        console.log(result);
+    } catch (error) {
+        console.error(`Error spawning MCP server ${serverName}:`, error);
     }
 }
 // --- END NEW: File Upload Handling Function ---

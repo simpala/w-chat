@@ -316,6 +316,67 @@ func (a *App) GetPrompts() ([]string, error) {
 	return prompts, nil
 }
 
+// McpServerConfig struct for individual server configurations
+type McpServerConfig struct {
+	Command     string            `json:"command"`
+	Args        []string          `json:"args"`
+	Description string            `json:"description"`
+	Token       string            `json:"token,omitempty"`
+	Env         map[string]string `json:"env,omitempty"`
+}
+
+// McpConfig struct for the top-level mcp.json structure
+type McpConfig struct {
+	McpServers map[string]McpServerConfig `json:"mcpServers"`
+}
+
+// GetMcpServers returns the contents of mcp.json
+func (a *App) GetMcpServers() (string, error) {
+	file, err := os.Open("mcp.json")
+	if err != nil {
+		if os.IsNotExist(err) {
+			runtime.LogInfo(a.ctx, "mcp.json does not exist. Returning empty server list.")
+			return "{}", nil
+		}
+		runtime.LogErrorf(a.ctx, "Error opening mcp.json: %s", err.Error())
+		return "", err
+	}
+	defer file.Close()
+
+	fileContentBytes, readErr := os.ReadFile("mcp.json")
+	if readErr != nil {
+		runtime.LogErrorf(a.ctx, "Error reading content from mcp.json: %s", readErr.Error())
+		return "", readErr
+	}
+	fileContent := string(fileContentBytes)
+	runtime.LogInfof(a.ctx, "Content read from mcp.json: %s", fileContent)
+
+	return fileContent, nil
+}
+
+// SpawnMcpServer spawns an MCP server process.
+func (a *App) SpawnMcpServer(serverName string, command string, args []string, env map[string]string) (string, error) {
+	cmd := exec.Command(command, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = os.Environ()
+	for key, value := range env {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
+	}
+
+	if err := cmd.Start(); err != nil {
+		return "", fmt.Errorf("failed to start MCP server %s: %w", serverName, err)
+	}
+
+	go func() {
+		if err := cmd.Wait(); err != nil {
+			runtime.LogErrorf(a.ctx, "MCP server %s exited with error: %v", serverName, err)
+		}
+	}()
+
+	return fmt.Sprintf("MCP server %s launched successfully!", serverName), nil
+}
+
 // GetPrompt returns the content of a specific prompt file.
 func (a *App) GetPrompt(promptName string) (string, error) {
 	exePath, err := os.Executable()

@@ -4,66 +4,71 @@ import {
 import {
     StreamableHTTPClientTransport
 } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import {
-    SaveSettings as GoSaveSettings,
-    LoadSettings as GoLoadSettings
-} from '../../wailsjs/go/main/App';
 
-let client;
-let transport;
+const clients = {};
+const transports = {};
+const connectionStates = {};
 
-export async function getMcpSettings() {
+export async function getMcpServers() {
     try {
-        const settingsJson = await GoLoadSettings();
-        const settings = JSON.parse(settingsJson);
-        return settings.mcp_settings || {};
+        const serversJson = await window.go.main.App.GetMcpServers();
+        const mcpConfig = JSON.parse(serversJson);
+        return mcpConfig.mcpServers || {};
     } catch (error) {
-        console.error("ERROR: Frontend: Error loading MCP settings:", error);
+        console.error("ERROR: Frontend: Error loading MCP servers:", error);
         return {};
     }
 }
 
-export async function saveMcpSettings(mcpSettings) {
-    try {
-        const settingsJson = await GoLoadSettings();
-        const settings = JSON.parse(settingsJson);
-        settings.mcp_settings = mcpSettings;
-        await GoSaveSettings(JSON.stringify(settings));
-        console.log("DEBUG: Frontend: MCP settings saved successfully.");
-    } catch (error) {
-        console.error("ERROR: Frontend: Error saving MCP settings:", error);
-    }
-}
-
-export async function connectMcp(address, port) {
-    if (client && client.isConnected()) {
-        console.log("MCP client is already connected.");
+export async function connectMcp(serverName, serverConfig) {
+    if (connectionStates[serverName]) {
+        console.log(`MCP client for ${serverName} is already connected.`);
         return;
     }
 
-    const url = `http://${address}:${port}/mcp`;
-    transport = new StreamableHTTPClientTransport(new URL(url));
-    client = new Client({
-        name: "local-llm-chat-client",
+    const url = `http://${serverConfig.host || 'localhost'}:${serverConfig.port}/mcp`;
+    transports[serverName] = new StreamableHTTPClientTransport(new URL(url));
+    clients[serverName] = new Client({
+        name: `local-llm-chat-client-${serverName}`,
         version: "1.0.0"
     });
 
     try {
-        await client.connect(transport);
-        console.log("MCP client connected successfully.");
-        await saveMcpSettings({
-            address,
-            port
-        });
+        await clients[serverName].connect(transports[serverName]);
+        connectionStates[serverName] = true;
+        console.log(`MCP client for ${serverName} connected successfully.`);
     } catch (error) {
-        console.error("ERROR: MCP client connection failed:", error);
+        console.error(`ERROR: MCP client connection for ${serverName} failed:`, error);
         throw error;
     }
 }
 
-export async function disconnectMcp() {
-    if (client && client.isConnected()) {
-        await client.close();
-        console.log("MCP client disconnected.");
+export async function disconnectMcp(serverName) {
+    if (clients[serverName] && connectionStates[serverName]) {
+        await clients[serverName].close();
+        connectionStates[serverName] = false;
+        console.log(`MCP client for ${serverName} disconnected.`);
+    }
+}
+
+export function getMcpConnectionState(serverName) {
+    return connectionStates[serverName] || false;
+}
+
+export async function connectAllMcp() {
+    const servers = await getMcpServers();
+    for (const serverName in servers) {
+        const serverConfig = servers[serverName];
+        if (!connectionStates[serverName]) {
+            await connectMcp(serverName, serverConfig);
+        }
+    }
+}
+
+export async function disconnectAllMcp() {
+    for (const serverName in clients) {
+        if (connectionStates[serverName]) {
+            await disconnectMcp(serverName);
+        }
     }
 }
