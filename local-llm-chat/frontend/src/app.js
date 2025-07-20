@@ -24,7 +24,12 @@ import {
     SaveSettings as GoSaveSettings, // Alias to avoid conflict with local saveSettings
     LoadSettings as GoLoadSettings, // Alias to avoid conflict with local loadSettings
     UpdateChatSystemPrompt, // Import the new Go function for updating system prompt
-    IsLLMLoaded // <--- NEW: Import IsLLMLoaded
+    IsLLMLoaded, // <--- NEW: Import IsLLMLoaded
+    // --- NEW: Artifacts Imports ---
+    AddArtifact,
+    ListArtifacts,
+    DeleteArtifact
+    // --- END NEW Artifacts Imports ---
 } from '../wailsjs/go/main/App';
 import {
     EventsOn
@@ -33,6 +38,139 @@ import * as runtime from '../wailsjs/runtime';
 
 // Define currentSettings globally
 let currentSettings = {};
+let currentSessionId = localStorage.getItem('currentSessionId') ? parseInt(localStorage.getItem('currentSessionId'), 10) : null; // Ensure this is accessible globally and parsed as int
+
+
+// --- NEW: Artifact Type Constants (Mirroring Go) ---
+export const ArtifactType = {
+    IMAGE: "IMAGE",
+    VIDEO: "VIDEO",
+    TOOL_NOTIFICATION: "TOOL_NOTIFICATION",
+    // Add other types as you define them in Go
+};
+// --- END NEW: Artifact Type Constants ---
+
+// --- NEW: Artifacts State and UI Management ---
+let artifacts = []; // Array to hold artifacts for the current session
+
+function getArtifactsListElement() {
+    return document.getElementById('artifactsContent'); // Assumes an element with this ID within artifactsPanel
+}
+
+function renderArtifacts() {
+    const artifactsListElement = document.getElementById('artifactsContent');
+    if (!artifactsListElement) {
+        console.error("Artifacts list element not found (id='artifactsContent').");
+        return;
+    }
+
+    artifactsListElement.innerHTML = ''; // Clear existing
+    if (artifacts.length === 0) {
+        artifactsListElement.innerHTML = '<p style="text-align: center; color: #888;">No artifacts for this session.</p>';
+        return;
+    }
+
+    artifacts.forEach(artifact => {
+        const artifactItem = document.createElement('div');
+        artifactItem.classList.add('artifact-item');
+        artifactItem.dataset.id = artifact.id; // Store ID for easy access
+
+        // Delete button
+        const deleteButton = document.createElement('button');
+        deleteButton.classList.add('delete-artifact-button');
+        deleteButton.textContent = '×'; // Unicode 'times' character
+        deleteButton.title = 'Delete Artifact';
+        deleteButton.addEventListener('click', async (e) => {
+            const artifactID = artifact.id; // Get ID directly from closure
+            if (confirm(`Are you sure you want to delete artifact: ${artifact.metadata.file_name || artifact.id}?`)) {
+                await DeleteArtifact(artifactID); // Call Go backend
+            }
+        });
+        artifactItem.appendChild(deleteButton);
+
+
+        const nameElement = document.createElement('p');
+        nameElement.innerHTML = `<strong>Name:</strong> ${artifact.metadata ? artifact.metadata.file_name || artifact.name : artifact.name}`;
+        nameElement.style.fontSize = '0.9em';
+        nameElement.style.fontWeight = 'bold';
+        artifactItem.appendChild(nameElement);
+
+        if (artifact.url) { // For IMAGE or VIDEO
+            if (artifact.type === ArtifactType.IMAGE) {
+                const img = document.createElement('img');
+                img.src = artifact.url;
+                img.alt = artifact.name || 'Generated Image';
+                img.classList.add('artifact-thumbnail');
+                img.onerror = () => { // Add error handler for image loading
+                    console.error(`ERROR: Failed to load image artifact: ${artifact.url}`);
+                    img.src = 'https://placehold.co/150x100/FF0000/FFFFFF?text=Error'; // Placeholder on error
+                };
+                artifactItem.appendChild(img);
+            } else if (artifact.type === ArtifactType.VIDEO) {
+                const video = document.createElement('video');
+                video.src = artifact.url;
+                video.controls = true;
+                video.classList.add('artifact-thumbnail');
+                video.onerror = () => { // Add error handler for video loading
+                    console.error(`ERROR: Failed to load video artifact: ${artifact.url}`);
+                    // You might add a placeholder or message for video errors too
+                };
+                artifactItem.appendChild(video);
+            }
+        } else if (artifact.type === ArtifactType.TOOL_NOTIFICATION && artifact.metadata && artifact.metadata.message) {
+            const messageElement = document.createElement('p');
+            messageElement.innerHTML = `<strong>Message:</strong> ${artifact.metadata.message}`;
+            messageElement.style.fontStyle = 'italic';
+            messageElement.style.color = 'var(--text-color-secondary)';
+            artifactItem.appendChild(messageElement);
+        }
+
+        artifactsListElement.appendChild(artifactItem);
+    });
+}
+
+// Function to handle artifact added event from Go
+function handleArtifactAdded(newArtifact) {
+    if (String(newArtifact.session_id) === String(currentSessionId)) {
+        if (!artifacts.some(a => a.id === newArtifact.id)) {
+            artifacts.push(newArtifact);
+            renderArtifacts();
+        }
+    }
+}
+
+// Function to handle artifact deleted event from Go
+function handleArtifactDeleted(deletedArtifactID) {
+    artifacts = artifacts.filter(art => art.id !== deletedArtifactID);
+    renderArtifacts();
+}
+
+// Setup Wails Event Listeners for artifacts
+function setupArtifactEventListeners() {
+    EventsOn("artifactAdded", handleArtifactAdded);
+    EventsOn("artifactDeleted", handleArtifactDeleted);
+    console.log("DEBUG: Artifact event listeners setup.");
+}
+
+// Function to load artifacts for the current session
+async function loadArtifactsForCurrentSession() {
+    if (currentSessionId) {
+        try {
+            const fetchedArtifacts = await ListArtifacts(String(currentSessionId)); // Convert to string
+            artifacts = fetchedArtifacts || [];
+            renderArtifacts();
+        } catch (error) {
+            console.error("ERROR: Frontend: Error loading artifacts for session:", error);
+            artifacts = [];
+            renderArtifacts();
+        }
+    } else {
+        artifacts = [];
+        renderArtifacts();
+    }
+}
+// --- END NEW: Artifacts State and UI Management ---
+
 
 // Function to apply the theme
 export function applyTheme(themeName) {
@@ -174,7 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const themeSelectList = document.getElementById('themeSelectList');
     const selectedThemeValue = document.getElementById('selectedThemeValue'); // Hidden input for value
 
-    let currentSessionId = localStorage.getItem('currentSessionId') || null;
+
     let messages = [];
     let isStreaming = false;
     let selectedSystemPrompt = '';
@@ -329,15 +467,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (part.type === 'thought') {
                     const detailsElement = document.createElement('details');
                     detailsElement.classList.add('thought-block');
-
                     const summaryElement = document.createElement('summary');
                     summaryElement.classList.add('thought-summary');
                     summaryElement.innerHTML = '<span class="inline-block mr-2">💡</span>Thinking Process';
-
                     const contentElement = document.createElement('p');
                     contentElement.classList.add('thought-content');
                     contentElement.textContent = part.content;
-
                     detailsElement.appendChild(summaryElement);
                     detailsElement.appendChild(contentElement);
                     partContainer.appendChild(detailsElement);
@@ -416,10 +551,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log("DEBUG: History is null or undefined, clearing messages.");
             }
             renderMessages();
+            loadArtifactsForCurrentSession(); // <--- NEW: Load artifacts when switching sessions
         }).catch(error => {
             console.error("DEBUG: Error loading chat history:", error);
             messages = [];
             renderMessages();
+            loadArtifactsForCurrentSession(); // <--- NEW: Load artifacts even if chat history fails
         });
         updateActiveSessionButton();
     }
@@ -576,6 +713,14 @@ document.addEventListener('DOMContentLoaded', () => {
         scrollToBottom();
     }
 
+    function scrollToBottom() {
+        const chatWindow = document.querySelector('.messages-container');
+        if (chatWindow) {
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+    }
+
+
     // Initial setup
     loadSessions();
     if (currentSessionId) {
@@ -583,11 +728,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     loadPrompts();
     loadSettingsAndApplyTheme(); // Call the new load function
+    setupArtifactEventListeners(); // <--- NEW: Setup artifact event listeners on DOMContentLoaded
 
     const settingsToggleButton = document.getElementById('settingsToggleButton');
     const rightSidebar = document.querySelector('.sidebar-container.right');
     const artifactsPanel = document.getElementById('artifactsPanel');
     const toggleArtifactsPanelButton = document.getElementById('toggleArtifactsPanel');
+
+    // --- NEW: Upload Artifact Button and File Input ---
+    const uploadArtifactButton = document.getElementById('uploadArtifactButton');
+    const fileUploadInput = document.getElementById('fileUploadInput');
+
+    if (uploadArtifactButton && fileUploadInput) {
+        uploadArtifactButton.addEventListener('click', () => {
+            fileUploadInput.click(); // Programmatically click the hidden file input
+        });
+
+        fileUploadInput.addEventListener('change', handleFileUpload); // Attach the new handleFileUpload function
+    } else {
+        // Fallback message if elements are not found, assuming addMessageToChatWindow is safe to call
+        addMessageToChatWindow('system', "ERROR: File upload UI elements not found. Please check index.html.");
+    }
+    // --- END NEW: Upload Artifact Button and File Input ---
+
 
     if (settingsToggleButton && rightSidebar) {
         settingsToggleButton.addEventListener('click', () => {
@@ -619,13 +782,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('chatModelSelectInput').addEventListener('input', (e) => {
         const query = e.target.value;
         const chatModelSelectList = document.getElementById('chatModelSelectList');
-        
+
         runtime.LogInfo(`DEBUG: app.js: Fuzzy search input query: '${query}'`);
-        
+
         if (query && fuse) { // Use the fuse instance from settings.js
             const results = fuse.search(query);
             runtime.LogInfo(`DEBUG: app.js: Fuzzy search results count for query '${query}': ${results.length}`);
-            
+
             const items = results.map(result => result.item);
             chatModelSelectList.innerHTML = '';
             items.forEach(item => {
@@ -660,3 +823,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // initFuzzySearch([]) is no longer needed here as it's handled by loadSettingsAndApplyTheme
 });
+
+// --- NEW: File Upload Handling Function ---
+async function handleFileUpload(event) {
+    const files = event.target.files;
+    if (files.length === 0) {
+        return;
+    }
+
+    const file = files[0];
+
+    const reader = new FileReader();
+
+    reader.onload = async (e) => {
+        const base64Content = e.target.result.split(',')[1]; // Get base64 part
+        let artifactType = ArtifactType.TOOL_NOTIFICATION; // Default to notification for unknown types
+
+        if (file.type.startsWith('image/')) {
+            artifactType = ArtifactType.IMAGE;
+        } else if (file.type.startsWith('video/')) {
+            artifactType = ArtifactType.VIDEO;
+        }
+        // You can add more type checks here if needed
+
+        if (currentSessionId !== null) { // Ensure a session is active
+            try {
+                const artifact = await AddArtifact(String(currentSessionId), artifactType, file.name, base64Content);
+                // The 'artifactAdded' event from Go will trigger handleArtifactAdded()
+            } catch (error) {
+                console.error("ERROR: Error uploading artifact via AddArtifact:", error);
+                addMessageToChatWindow('system', `ERROR: Failed to upload file to backend: ${error.message || error}`);
+            }
+        } else {
+            addMessageToChatWindow('system', 'WARN: No current chat session. Please start a chat session before uploading files.');
+        }
+        event.target.value = ''; // Clear the input so same file can be selected again (important!)
+    };
+
+    reader.onerror = (e) => {
+        console.error("ERROR: FileReader error:", e);
+        addMessageToChatWindow('system', `ERROR: Error reading file: ${e.message || e}`);
+    };
+
+    reader.readAsDataURL(file); // Read the file as a data URL (base64)
+}
+// --- END NEW: File Upload Handling Function ---

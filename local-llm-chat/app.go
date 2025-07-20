@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -14,16 +15,19 @@ import (
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+
+	"local-llm-chat/artifacts"
 )
 
 // App struct
 type App struct {
-	ctx           context.Context
-	config        Config
-	db            *Database
-	llmCmd        *exec.Cmd // This holds the command for the LLM process
-	conversations map[int64]*Conversation
-	mu            sync.Mutex
+	ctx             context.Context
+	config          Config
+	db              *Database
+	llmCmd          *exec.Cmd // This holds the command for the LLM process
+	conversations   map[int64]*Conversation
+	mu              sync.Mutex
+	ArtifactService *artifacts.ArtifactService
 }
 
 // Config struct - Add the Theme field here
@@ -32,18 +36,17 @@ type Config struct {
 	ModelsDir     string            `json:"models_dir"`
 	SelectedModel string            `json:"selected_model"`
 	ModelArgs     map[string]string `json:"model_args"`
-	Theme         string            `json:"theme"` // Add this line for theme persistence
+	Theme         string            `json:"theme"`
 }
 
 // Conversation struct to hold the state of a single chat session
 type Conversation struct {
 	messages     []ChatMessage
-	systemPrompt string // Add this line
+	systemPrompt string
 	httpResp     *http.Response
 	mu           sync.Mutex
 }
 
-// NewApp creates a new App application struct
 func NewApp() *App {
 	return &App{
 		conversations: make(map[int64]*Conversation),
@@ -53,6 +56,7 @@ func NewApp() *App {
 // startup is called when the app starts.
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	log.Println("App startup initiated.")
 	db, err := NewDatabase("chat.db")
 	if err != nil {
 		runtime.LogErrorf(a.ctx, "Error opening database: %s", err.Error())
@@ -65,7 +69,15 @@ func (a *App) startup(ctx context.Context) {
 		return
 	}
 
-	// Log the expected path of config.json
+	userConfigDir, err := os.UserConfigDir()
+	if err != nil {
+		runtime.LogErrorf(a.ctx, "App Startup: Failed to get user config directory for artifacts: %v", err)
+		a.ArtifactService = artifacts.NewArtifactService(nil, "")
+	} else {
+		artifactDataDir := filepath.Join(userConfigDir, "local-llm-chat", "artifacts")
+		a.ArtifactService = artifacts.NewArtifactService(ctx, artifactDataDir)
+	}
+
 	exePath, err := os.Executable()
 	if err == nil {
 		configFilePath := filepath.Join(filepath.Dir(exePath), "config.json")
@@ -74,8 +86,6 @@ func (a *App) startup(ctx context.Context) {
 		runtime.LogErrorf(a.ctx, "Could not determine executable path for config.json logging: %v", err)
 	}
 
-	// This block for loading settings was previously confirmed to work.
-	// It loads into a.config AND returns a string.
 	settings, err := a.LoadSettings()
 	if err != nil {
 		runtime.LogErrorf(a.ctx, "Error loading config: %s", err.Error())
@@ -83,9 +93,6 @@ func (a *App) startup(ctx context.Context) {
 		runtime.LogInfof(a.ctx, "Raw settings loaded from config.json: %s", settings)
 	}
 
-	// The returned string is then unmarshalled into a local config variable
-	// and then assigned back to a.config. While redundant, this sequence
-	// was stable for settings loading.
 	var config Config
 	err = json.Unmarshal([]byte(settings), &config)
 	if err != nil {
@@ -97,21 +104,22 @@ func (a *App) startup(ctx context.Context) {
 	if config.ModelArgs == nil {
 		config.ModelArgs = make(map[string]string)
 	}
-	a.config = config // Assign local config back to a.config
+	a.config = config
+	log.Println("App startup complete.")
 	runtime.LogInfof(a.ctx, "Final a.config state after startup: %+v", a.config)
 }
 
 // NewChat creates a new chat session.
-func (a *App) NewChat(systemPrompt string) (int64, error) { // Modified signature
+func (a *App) NewChat(systemPrompt string) (int64, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	id, err := a.db.NewChatSession(systemPrompt) // Pass systemPrompt here
+	id, err := a.db.NewChatSession(systemPrompt)
 	if err != nil {
 		return 0, err
 	}
 	a.conversations[id] = &Conversation{
 		messages:     make([]ChatMessage, 0),
-		systemPrompt: systemPrompt, // Store the system prompt in the in-memory conversation
+		systemPrompt: systemPrompt,
 	}
 	runtime.LogInfof(a.ctx, "New chat session %d created with system prompt: '%s'", id, systemPrompt)
 	return id, nil
@@ -142,10 +150,10 @@ func (a *App) UpdateChatSystemPrompt(sessionID int64, newSystemPrompt string) er
 	}
 
 	conv.mu.Lock()
-	conv.systemPrompt = newSystemPrompt // Update in-memory struct
+	conv.systemPrompt = newSystemPrompt
 	conv.mu.Unlock()
 
-	err := a.db.UpdateChatSessionSystemPrompt(sessionID, newSystemPrompt) // Update in database
+	err := a.db.UpdateChatSessionSystemPrompt(sessionID, newSystemPrompt)
 	if err != nil {
 		runtime.LogErrorf(a.ctx, "UpdateChatSystemPrompt: Error updating system prompt in DB for session %d: %s", sessionID, err.Error())
 		return err
@@ -156,14 +164,7 @@ func (a *App) UpdateChatSystemPrompt(sessionID int64, newSystemPrompt string) er
 
 // IsLLMLoaded checks if the LLM process is currently running.
 func (a *App) IsLLMLoaded() bool {
-	// Check if llmCmd exists and its process is not nil and has not exited
-	// Note: cmd.ProcessState will be nil if the command hasn't started or finished.
-	// We want to check if the process is actively running.
 	if a.llmCmd != nil && a.llmCmd.Process != nil && a.llmCmd.ProcessState == nil {
-		// Further check if the process is still alive by sending a signal 0
-		// which checks existence without killing. This is OS-specific.
-		// For simplicity and cross-platform compatibility with Wails,
-		// checking llmCmd.ProcessState == nil is often sufficient for "running".
 		runtime.LogDebugf(a.ctx, "IsLLMLoaded: LLM process appears to be running (PID: %d).", a.llmCmd.Process.Pid)
 		return true
 	}
@@ -182,20 +183,19 @@ func (a *App) SaveSettings(settings string) error {
 	}
 	runtime.LogInfof(a.ctx, "Config struct after unmarshalling in SaveSettings: %+v", config)
 
-	// Preserve existing ModelArgs if not provided in the new settings string
 	if a.config.ModelArgs == nil {
 		a.config.ModelArgs = make(map[string]string)
 	}
-	if config.ModelArgs == nil { // If the incoming config doesn't have ModelArgs, use existing
+	if config.ModelArgs == nil {
 		config.ModelArgs = a.config.ModelArgs
-	} else { // Merge or overwrite ModelArgs
+	} else {
 		for model, args := range a.config.ModelArgs {
 			if _, ok := config.ModelArgs[model]; !ok {
 				config.ModelArgs[model] = args
 			}
 		}
 	}
-	a.config = config // Update the app's config
+	a.config = config
 	runtime.LogInfof(a.ctx, "a.config state before saving to file: %+v", a.config)
 
 	file, err := os.Create("config.json")
@@ -205,7 +205,7 @@ func (a *App) SaveSettings(settings string) error {
 	}
 	defer file.Close()
 	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ") // Pretty print JSON
+	encoder.SetIndent("", "  ")
 	encodeErr := encoder.Encode(a.config)
 	if encodeErr != nil {
 		runtime.LogErrorf(a.ctx, "Error encoding config to JSON file: %s", encodeErr.Error())
@@ -221,17 +221,14 @@ func (a *App) LoadSettings() (string, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			runtime.LogInfo(a.ctx, "config.json does not exist. Initializing with default config.")
-			a.config = Config{} // Initialize with default empty config
-			// Set a default theme if config.json doesn't exist yet
+			a.config = Config{}
 			a.config.Theme = "default"
-			// Save the default config to create the file
-			// Note: Calling SaveSettings here will trigger its own logging.
 			saveErr := a.SaveSettings(`{"theme":"default"}`)
 			if saveErr != nil {
 				runtime.LogErrorf(a.ctx, "Error saving default config.json: %s", saveErr.Error())
 				return "", saveErr
 			}
-			return `{"theme":"default"}`, nil // Return default theme in JSON
+			return `{"theme":"default"}`, nil
 		}
 		runtime.LogErrorf(a.ctx, "Error opening config.json: %s", err.Error())
 		return "", err
@@ -246,13 +243,12 @@ func (a *App) LoadSettings() (string, error) {
 	fileContent := string(fileContentBytes)
 	runtime.LogInfof(a.ctx, "Content read from config.json: %s", fileContent)
 
-	decoder := json.NewDecoder(strings.NewReader(fileContent)) // Use strings.NewReader for decoding
-	err = decoder.Decode(&a.config)                            // This directly decodes into a.config
+	decoder := json.NewDecoder(strings.NewReader(fileContent))
+	err = decoder.Decode(&a.config)
 	if err != nil {
 		runtime.LogErrorf(a.ctx, "Error decoding config.json content into Config struct: %s", err.Error())
 		return "", err
 	}
-	// Ensure Theme is set if it's missing from loaded config (e.g., old config file)
 	if a.config.Theme == "" {
 		a.config.Theme = "default"
 		runtime.LogInfo(a.ctx, "Theme was empty, defaulted to 'default'.")
@@ -273,13 +269,12 @@ func (a *App) GetModels() ([]string, error) {
 	var models []string
 	modelsDir := a.config.ModelsDir
 	if modelsDir == "" {
-		return []string{}, nil // Return empty if no models directory is set
+		return []string{}, nil
 	}
 	err := filepath.Walk(modelsDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			// Log the error but continue walking if possible
 			runtime.LogErrorf(a.ctx, "Error accessing path %s: %v", path, err)
-			return nil // Return nil to continue walking
+			return nil
 		}
 		if !info.IsDir() && (strings.HasSuffix(info.Name(), ".gguf") || strings.HasSuffix(info.Name(), ".GGUF")) {
 			models = append(models, path)
@@ -287,7 +282,6 @@ func (a *App) GetModels() ([]string, error) {
 		return nil
 	})
 	if err != nil {
-		// Only return error if the initial walk failed (e.g., directory doesn't exist)
 		if os.IsNotExist(err) {
 			return []string{}, nil
 		}
@@ -397,10 +391,16 @@ func (a *App) ShutdownLLM() error {
 	return nil
 }
 
+// --- MODIFIED: Call ArtifactService.Shutdown() during app shutdown ---
 func (a *App) shutdown(ctx context.Context) bool {
 	a.ShutdownLLM()
+	if a.ArtifactService != nil {
+		a.ArtifactService.Shutdown() // Call the new Shutdown method
+	}
 	return false
 }
+
+// --- END MODIFIED ---
 
 // ChatMessage struct for API communication.
 type ChatMessage struct {
@@ -428,12 +428,9 @@ func (a *App) LoadChatHistory(sessionId int64) ([]ChatMessage, error) {
 	}
 	runtime.LogInfof(a.ctx, "Loaded %d messages from db for session %d. Content: %+v", len(history), sessionId, history)
 
-	// Fetch the chat session to get the system prompt
-	session, err := a.db.GetChatSession(sessionId) // Call the new GetChatSession from database.go
+	session, err := a.db.GetChatSession(sessionId)
 	if err != nil {
 		runtime.LogErrorf(a.ctx, "Error getting chat session from db: %s", err.Error())
-		// You might want to handle this more gracefully, e.g., proceed without a system prompt
-		// if the session itself is somehow missing, but its messages are present.
 		return nil, err
 	}
 
@@ -446,7 +443,7 @@ func (a *App) LoadChatHistory(sessionId int64) ([]ChatMessage, error) {
 	}
 	conv.mu.Lock()
 	conv.messages = history
-	conv.systemPrompt = session.SystemPrompt // Assign the loaded system prompt
+	conv.systemPrompt = session.SystemPrompt
 	conv.mu.Unlock()
 	runtime.LogInfof(a.ctx, "Updated conversation in memory for session %d. System Prompt: '%s'", sessionId, conv.systemPrompt)
 
@@ -465,35 +462,31 @@ func (a *App) HandleChat(sessionId int64, message string) {
 		return
 	}
 	conv.mu.Lock()
-	defer conv.mu.Unlock() // Ensure mutex is unlocked at the end of the function
+	defer conv.mu.Unlock()
 
 	userMessage := ChatMessage{Role: "user", Content: message}
 
-	// Construct messages for the LLM API call, including the system prompt
-	var messagesForLLM []ChatMessage                                                                        // Corrected variable name
-	runtime.LogInfof(a.ctx, "HandleChat: System Prompt for session %d: '%s'", sessionId, conv.systemPrompt) // NEW LOG
+	var messagesForLLM []ChatMessage
+	runtime.LogInfof(a.ctx, "HandleChat: System Prompt for session %d: '%s'", sessionId, conv.systemPrompt)
 	if conv.systemPrompt != "" {
-		messagesForLLM = append(messagesForLLM, ChatMessage{Role: "system", Content: conv.systemPrompt}) // Add system prompt first
+		messagesForLLM = append(messagesForLLM, ChatMessage{Role: "system", Content: conv.systemPrompt})
 	}
-	messagesForLLM = append(messagesForLLM, conv.messages...) // Add existing chat history
-	messagesForLLM = append(messagesForLLM, userMessage)      // Add the current user message
+	messagesForLLM = append(messagesForLLM, conv.messages...)
+	messagesForLLM = append(messagesForLLM, userMessage)
 
-	// Log the full message payload being sent to the LLM
 	messagesJson, err := json.Marshal(messagesForLLM)
 	if err != nil {
 		runtime.LogErrorf(a.ctx, "HandleChat: Error marshalling messagesForLLM for logging: %v", err)
 	} else {
-		runtime.LogInfof(a.ctx, "HandleChat: Full message payload to LLM for session %d: %s", sessionId, string(messagesJson)) // NEW LOG
+		runtime.LogInfof(a.ctx, "HandleChat: Full message payload to LLM for session %d: %s", sessionId, string(messagesJson))
 	}
 
-	// Update the in-memory conversation with the new user message
 	conv.messages = append(conv.messages, userMessage)
 	if err := a.db.SaveChatMessage(sessionId, "user", message); err != nil {
 		runtime.LogErrorf(a.ctx, "Error saving user message: %s", err.Error())
-		return // Return early if saving fails
+		return
 	}
 
-	// Use messagesForLLM for the request body
 	reqBody := ChatCompletionRequest{Messages: messagesForLLM, Stream: true, NPredict: -1}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
@@ -506,8 +499,7 @@ func (a *App) HandleChat(sessionId int64, message string) {
 		runtime.LogErrorf(a.ctx, "Error making POST request to LLM: %s", err.Error())
 		return
 	}
-	conv.httpResp = resp // Store the http.Response for potential StopStream
-	// No need to unlock/relock around this if using defer conv.mu.Unlock()
+	conv.httpResp = resp
 
 	go a.streamHandler(sessionId, resp)
 }
@@ -522,56 +514,47 @@ type ChatCompletionChunk struct {
 }
 
 func (a *App) streamHandler(sessionID int64, resp *http.Response) {
-	defer resp.Body.Close() // Ensure the HTTP response body is closed
+	defer resp.Body.Close()
 	scanner := bufio.NewScanner(resp.Body)
 
-	// Retrieve the conversation. This mutex is important for protecting conv.messages.
 	conv, ok := a.getConversation(sessionID)
 	if !ok {
 		runtime.LogErrorf(a.ctx, "Conversation with ID %d not found.", sessionID)
-		// It's good practice to signal the end of the stream to the frontend
-		// even if an error occurs early.
 		runtime.EventsEmit(a.ctx, "chat-stream", nil)
 		return
 	}
 
-	// --- Batching mechanism variables ---
-	var mu sync.Mutex                       // Mutex to protect `currentChunkBuffer` as it's accessed by two goroutines
-	var currentChunkBuffer strings.Builder  // Accumulates small content chunks before sending to frontend
-	var fullResponseBuilder strings.Builder // Accumulates *all* content for saving to DB at the end
+	var mu sync.Mutex
+	var currentChunkBuffer strings.Builder
+	var fullResponseBuilder strings.Builder
 
-	// Configure batching parameters. Adjust these values to fine-tune performance vs. real-time feel.
-	const batchInterval = 50 * time.Millisecond // How often to send accumulated chunks (e.g., 50ms)
-	const maxBatchChars = 80                    // Send immediately if buffer grows beyond this many characters
+	const batchInterval = 50 * time.Millisecond
+	const maxBatchChars = 80
 
-	ticker := time.NewTicker(batchInterval) // Create a ticker for time-based flushing
-	defer ticker.Stop()                     // Ensure ticker is stopped when streamHandler exits
+	ticker := time.NewTicker(batchInterval)
+	defer ticker.Stop()
 
-	// --- Goroutine for Time-Based Flushing ---
-	// This goroutine runs in the background and periodically sends whatever is in the buffer.
 	go func() {
-		defer runtime.LogDebugf(a.ctx, "Batch sender goroutine for session %d exited.", sessionID) // For debugging
-		for range ticker.C {                                                                       // This loop runs every 'batchInterval'
-			mu.Lock() // Lock to safely access the shared buffer
+		defer runtime.LogDebugf(a.ctx, "Batch sender goroutine for session %d exited.", sessionID)
+		for range ticker.C {
+			mu.Lock()
 			if currentChunkBuffer.Len() > 0 {
-				chunkToSend := currentChunkBuffer.String()            // Get content from buffer
-				currentChunkBuffer.Reset()                            // Clear the buffer
-				mu.Unlock()                                           // Unlock before emitting (emission might block)
-				runtime.EventsEmit(a.ctx, "chat-stream", chunkToSend) // Send to frontend
+				chunkToSend := currentChunkBuffer.String()
+				currentChunkBuffer.Reset()
+				mu.Unlock()
+				runtime.EventsEmit(a.ctx, "chat-stream", chunkToSend)
 			} else {
-				mu.Unlock() // Unlock even if buffer is empty
+				mu.Unlock()
 			}
 		}
 	}()
-	// --- End Goroutine for Time-Based Flushing ---
 
-	// --- Main Loop: Process incoming LLM stream chunks ---
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.HasPrefix(line, "data: ") {
 			data := strings.TrimPrefix(line, "data: ")
 			if data == "[DONE]" {
-				break // Signal from LLM that the stream is complete
+				break
 			}
 
 			var chunk ChatCompletionChunk
@@ -580,48 +563,37 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 				continue
 			}
 
-			// Check if there's actual content in the chunk
 			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
 				content := chunk.Choices[0].Delta.Content
 
-				mu.Lock()                                // Lock before writing to shared buffers
-				currentChunkBuffer.WriteString(content)  // Add to buffer for frontend
-				fullResponseBuilder.WriteString(content) // Add to full response for DB
+				mu.Lock()
+				currentChunkBuffer.WriteString(content)
+				fullResponseBuilder.WriteString(content)
 
-				// --- Character-Based Flushing ---
-				// If the buffer gets large enough, send it immediately without waiting for the ticker.
 				if currentChunkBuffer.Len() >= maxBatchChars {
 					chunkToSend := currentChunkBuffer.String()
 					currentChunkBuffer.Reset()
-					mu.Unlock() // Unlock before emitting
+					mu.Unlock()
 					runtime.EventsEmit(a.ctx, "chat-stream", chunkToSend)
 				} else {
-					mu.Unlock() // Unlock if not sending immediately
+					mu.Unlock()
 				}
-				// --- End Character-Based Flushing ---
 			}
 		}
 	}
 
-	// Handle any errors that occurred during scanning the response body
 	if err := scanner.Err(); err != nil {
 		runtime.LogErrorf(a.ctx, "Error reading stream for session %d: %s", sessionID, err)
 	}
 
-	// --- Final Flush at End of Stream ---
-	// After the main loop finishes (either by breaking or scanner.Err()),
-	// ensure any remaining content in the buffer is sent to the frontend.
 	mu.Lock()
 	if currentChunkBuffer.Len() > 0 {
 		runtime.EventsEmit(a.ctx, "chat-stream", currentChunkBuffer.String())
-		// No need to reset currentChunkBuffer here as the function is about to exit.
 	}
 	mu.Unlock()
-	// --- End Final Flush ---
 
-	// --- Save the full, accumulated response to the database ---
-	conv.mu.Lock()         // Lock the conversation mutex before modifying its state
-	defer conv.mu.Unlock() // Ensure conversation mutex is unlocked when leaving this block
+	conv.mu.Lock()
+	defer conv.mu.Unlock()
 
 	assistantMessage := ChatMessage{Role: "assistant", Content: fullResponseBuilder.String()}
 	conv.messages = append(conv.messages, assistantMessage)
@@ -629,9 +601,6 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 		runtime.LogErrorf(a.ctx, "Error saving assistant message: %s", err.Error())
 	}
 
-	// --- Signal End of Stream to Frontend --
-	// Send a nil (or special empty string) to the frontend to signal the end of the stream.
-	// Your JavaScript `EventsOn("chat-stream")` listener already expects `data === null` for this.
 	runtime.EventsEmit(a.ctx, "chat-stream", nil)
 }
 
@@ -654,4 +623,26 @@ func (a *App) getConversation(sessionID int64) (*Conversation, bool) {
 	defer a.mu.Unlock()
 	conv, ok := a.conversations[sessionID]
 	return conv, ok
+}
+
+// Existing methods for artifacts should now delegate to the service:
+func (a *App) AddArtifact(sessionID string, artifactType artifacts.ArtifactType, name string, contentBase64 string) (*artifacts.Artifact, error) {
+	if a.ArtifactService == nil {
+		return nil, fmt.Errorf("artifact service not initialized")
+	}
+	return a.ArtifactService.AddArtifact(sessionID, artifactType, name, contentBase64)
+}
+
+func (a *App) ListArtifacts(sessionID string) ([]*artifacts.Artifact, error) {
+	if a.ArtifactService == nil {
+		return nil, fmt.Errorf("artifact service not initialized")
+	}
+	return a.ArtifactService.ListArtifacts(sessionID)
+}
+
+func (a *App) DeleteArtifact(artifactID string) error {
+	if a.ArtifactService == nil {
+		return fmt.Errorf("artifact service not initialized")
+	}
+	return a.ArtifactService.DeleteArtifact(artifactID)
 }

@@ -16,10 +16,15 @@
     --text-placeholder: #a0aec0; /* placeholder text */
     --text-thought-summary: #a0aec0; /* thought summary text */
     --text-thought-content: #cbd5e0; /* thought content text */
+    --text-color-primary: var(--text-primary); /* Alias for clarity */
+    --text-color-secondary: var(--text-placeholder); /* Alias for clarity */
+    --text-color-strong: white; /* For strong tags in artifact names */
+
 
     /* Borders */
     --border-color: #34495e; /* select-items, select-items div border */
     --border-thought-block: #718096; /* thought block border */
+    --border-color-light: #4a5568; /* Lighter border for artifact items */
 
     /* Scrollbar */
     --scrollbar-thumb: #555;
@@ -31,6 +36,12 @@
     --button-text: white; /* Default button text */
     --button-hover-bg: #3f5e7e; /* Default button hover */
     --active-session-bg: #3f5e7e; /* Active chat session button */
+
+    /* Artifacts specific */
+    --background-color-panel: var(--bg-secondary); /* Background for the entire artifacts panel */
+    --background-color-light: #3a4b60; /* Lighter background for individual artifact items */
+    --header-background-color: var(--bg-primary); /* Header background for artifacts panel */
+    --header-text-color: var(--text-primary); /* Header text color for artifacts panel */
 }
 
 html {
@@ -1032,12 +1043,6 @@ body {
 
 .artifacts-content .code-artifact::-webkit-scrollbar {
     height: 0; /* Make horizontal scrollbar invisible */
-}
-
-.artifacts-content .code-artifact pre {
-    margin: 0; /* Remove default pre margins */
-    background-color: transparent; /* Inherit from .code-artifact */
-    padding: 0; /* Remove default pre padding */
 }
 
 .artifacts-content .code-artifact code {
