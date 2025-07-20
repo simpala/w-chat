@@ -26,7 +26,7 @@ export async function connectMcp(serverName, serverConfig) {
         return;
     }
 
-    const url = `http://${serverConfig.host || 'localhost'}:${serverConfig.port}/mcp`;
+    const url = `http://${serverConfig.host || 'localhost'}:${serverConfig.port || 8080}/mcp`;
     transports[serverName] = new StreamableHTTPClientTransport(new URL(url));
     clients[serverName] = new Client({
         name: `local-llm-chat-client-${serverName}`,
@@ -60,6 +60,7 @@ export async function connectAllMcp() {
     for (const serverName in servers) {
         const serverConfig = servers[serverName];
         if (!connectionStates[serverName]) {
+            await spawnMcpServer(serverName, serverConfig);
             await connectMcp(serverName, serverConfig);
         }
     }
@@ -70,5 +71,14 @@ export async function disconnectAllMcp() {
         if (connectionStates[serverName]) {
             await disconnectMcp(serverName);
         }
+    }
+}
+
+async function spawnMcpServer(serverName, serverConfig) {
+    try {
+        const result = await window.go.main.App.SpawnMcpServer(serverName, serverConfig.command, serverConfig.args, serverConfig.env);
+        console.log(result);
+    } catch (error) {
+        console.error(`Error spawning MCP server ${serverName}:`, error);
     }
 }

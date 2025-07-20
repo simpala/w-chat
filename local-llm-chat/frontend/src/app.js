@@ -54,6 +54,7 @@ export const ArtifactType = {
     IMAGE: "IMAGE",
     VIDEO: "VIDEO",
     TOOL_NOTIFICATION: "TOOL_NOTIFICATION",
+    MCP_MANAGER: "MCP_MANAGER",
     // Add other types as you define them in Go
 };
 // --- END NEW: Artifact Type Constants ---
@@ -131,6 +132,22 @@ function renderArtifacts() {
             messageElement.style.fontStyle = 'italic';
             messageElement.style.color = 'var(--text-color-secondary)';
             artifactItem.appendChild(messageElement);
+        } else if (artifact.type === ArtifactType.MCP_MANAGER) {
+            const mcpManagerDiv = document.createElement('div');
+            mcpManagerDiv.innerHTML = `
+                <div class="mcp-manager">
+                    <div class="mcp-master-controls">
+                        <label class="switch">
+                            <input type="checkbox" id="mcpMasterToggle">
+                            <span class="slider round"></span>
+                        </label>
+                        <label for="mcpMasterToggle">Connect/Disconnect All</label>
+                    </div>
+                    <div class="mcp-server-list"></div>
+                </div>
+            `;
+            artifactItem.appendChild(mcpManagerDiv);
+            renderMcpServers();
         }
 
         artifactsListElement.appendChild(artifactItem);
@@ -777,8 +794,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const settingsToggleButton = document.getElementById('settingsToggleButton');
     const mcpManagerButton = document.getElementById('mcpManagerButton');
-    const mcpManagerModal = document.getElementById('mcpManagerModal');
-    const mcpModalCloseButton = mcpManagerModal.querySelector('.close-button');
     const rightSidebar = document.querySelector('.sidebar-container.right');
     const artifactsPanel = document.getElementById('artifactsPanel');
     const toggleArtifactsPanelButton = document.getElementById('toggleArtifactsPanel');
@@ -807,34 +822,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (mcpManagerButton) {
-        mcpManagerButton.addEventListener('click', () => {
-            mcpManagerModal.style.display = 'block';
-            renderMcpServers();
-        });
-    }
-
-    if (mcpModalCloseButton) {
-        mcpModalCloseButton.addEventListener('click', () => {
-            mcpManagerModal.style.display = 'none';
-        });
-    }
-
-    window.addEventListener('click', (event) => {
-        if (event.target == mcpManagerModal) {
-            mcpManagerModal.style.display = 'none';
-        }
-    });
-
-    const mcpMasterToggle = document.getElementById('mcpMasterToggle');
-    if (mcpMasterToggle) {
-        mcpMasterToggle.addEventListener('change', async (event) => {
-            if (event.target.checked) {
-                await connectAllMcp();
-            } else {
-                await disconnectAllMcp();
-            }
-            await renderMcpServers();
-        });
+        mcpManagerButton.addEventListener('click', createMcpManagerArtifact);
     }
 
     if (toggleArtifactsPanelButton && artifactsPanel) {
@@ -946,8 +934,31 @@ async function handleFileUpload(event) {
 
     reader.readAsDataURL(file); // Read the file as a data URL (base64)
 }
+async function createMcpManagerArtifact() {
+    if (currentSessionId === null) {
+        addMessageToChatWindow('system', 'WARN: No current chat session. Please start a chat session before opening the MCP manager.');
+        return;
+    }
+
+    // Check if an MCP manager artifact already exists
+    const mcpManagerExists = artifacts.some(a => a.type === ArtifactType.MCP_MANAGER);
+    if (mcpManagerExists) {
+        addMessageToChatWindow('system', 'INFO: MCP manager is already open.');
+        return;
+    }
+
+    try {
+        await AddArtifact(String(currentSessionId), ArtifactType.MCP_MANAGER, "MCP Manager", "");
+    } catch (error) {
+        console.error("ERROR: Error creating MCP manager artifact:", error);
+        addMessageToChatWindow('system', `ERROR: Failed to create MCP manager artifact: ${error.message || error}`);
+    }
+}
+
 async function renderMcpServers() {
     const serverList = document.querySelector('.mcp-server-list');
+    if (!serverList) return;
+
     serverList.innerHTML = '';
 
     try {
@@ -979,25 +990,27 @@ async function renderMcpServers() {
                 const serverName = event.target.dataset.serverName;
                 const serverConfig = servers[serverName];
                 if (event.target.checked) {
-                    await spawnMcpServer(serverName, serverConfig);
                     await connectMcp(serverName, serverConfig);
                 } else {
                     await disconnectMcp(serverName);
                 }
             });
         }
+
+        const masterToggle = document.getElementById('mcpMasterToggle');
+        if (masterToggle) {
+            masterToggle.addEventListener('change', async (event) => {
+                if (event.target.checked) {
+                    await connectAllMcp();
+                } else {
+                    await disconnectAllMcp();
+                }
+                await renderMcpServers();
+            });
+        }
     } catch (error) {
         console.error("Error loading MCP servers:", error);
         serverList.innerHTML = '<p>Error loading MCP servers.</p>';
-    }
-}
-
-async function spawnMcpServer(serverName, serverConfig) {
-    try {
-        const result = await window.go.main.App.SpawnMcpServer(serverName, serverConfig.command, serverConfig.args, serverConfig.env);
-        console.log(result);
-    } catch (error) {
-        console.error(`Error spawning MCP server ${serverName}:`, error);
     }
 }
 // --- END NEW: File Upload Handling Function ---
