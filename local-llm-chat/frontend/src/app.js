@@ -449,7 +449,10 @@ document.addEventListener('DOMContentLoaded', () => {
             addMessageToChatWindow(message.role, message.content);
         });
         if (typeof hljs !== 'undefined') {
-            hljs.highlightAll();
+            chatWindow.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+            });
+            addCopyButtonsToCodeBlocks(chatWindow);
         } else {
             runtime.LogError("ERROR: hljs.highlightAll() called in renderMessages but hljs is not defined.");
         }
@@ -489,6 +492,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         chatWindow.appendChild(messageElement);
+        if (sender === 'assistant') {
+            addCopyButtonsToCodeBlocks(messageElement);
+        }
         chatWindow.scrollTop = chatWindow.scrollHeight;
         return messageElement;
     }
@@ -708,11 +714,16 @@ document.addEventListener('DOMContentLoaded', () => {
             lastMessageBubble.querySelectorAll('pre code').forEach((block) => {
                 hljs.highlightElement(block);
             });
+            addCopyButtonsToCodeBlocks(lastMessageBubble);
         } else {
             console.warn("highlight.js not available, code blocks will not be highlighted.");
         }
 
-        lastMessageBubble.querySelectorAll('pre').forEach(preElement => {
+        scrollToBottom();
+    }
+
+    function addCopyButtonsToCodeBlocks(container) {
+        container.querySelectorAll('pre').forEach(preElement => {
             if (preElement.parentNode.classList.contains('code-block-wrapper')) {
                 return;
             }
@@ -737,8 +748,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
         });
-
-        scrollToBottom();
     }
 
     function scrollToBottom() {
