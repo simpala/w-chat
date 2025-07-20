@@ -705,10 +705,38 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (typeof hljs !== 'undefined') {
-            hljs.highlightAll();
+            lastMessageBubble.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+            });
         } else {
             console.warn("highlight.js not available, code blocks will not be highlighted.");
         }
+
+        lastMessageBubble.querySelectorAll('pre').forEach(preElement => {
+            if (preElement.parentNode.classList.contains('code-block-wrapper')) {
+                return;
+            }
+
+            const wrapper = document.createElement('div');
+            wrapper.classList.add('code-block-wrapper');
+            preElement.parentNode.insertBefore(wrapper, preElement);
+            wrapper.appendChild(preElement);
+
+            const copyButton = document.createElement('button');
+            copyButton.classList.add('copy-code-button');
+            copyButton.textContent = 'Copy';
+            wrapper.appendChild(copyButton);
+
+            copyButton.addEventListener('click', () => {
+                const codeToCopy = preElement.textContent;
+                runtime.ClipboardSetText(codeToCopy).then(() => {
+                    copyButton.textContent = 'Copied!';
+                    setTimeout(() => {
+                        copyButton.textContent = 'Copy';
+                    }, 2000);
+                });
+            });
+        });
 
         scrollToBottom();
     }
