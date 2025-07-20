@@ -11,6 +11,12 @@ import {
     launchLLM
 } from './modules/llm.js';
 import {
+    getMcpSettings,
+    saveMcpSettings,
+    connectMcp,
+    disconnectMcp
+} from './modules/mcp.js';
+import {
     sendMessage
 } from './modules/chat.js';
 import {
@@ -46,6 +52,7 @@ export const ArtifactType = {
     IMAGE: "IMAGE",
     VIDEO: "VIDEO",
     TOOL_NOTIFICATION: "TOOL_NOTIFICATION",
+    MCP_CONFIG: "MCP_CONFIG",
     // Add other types as you define them in Go
 };
 // --- END NEW: Artifact Type Constants ---
@@ -123,6 +130,49 @@ function renderArtifacts() {
             messageElement.style.fontStyle = 'italic';
             messageElement.style.color = 'var(--text-color-secondary)';
             artifactItem.appendChild(messageElement);
+        } else if (artifact.type === ArtifactType.MCP_CONFIG) {
+            const mcpConfigDiv = document.createElement('div');
+            mcpConfigDiv.innerHTML = `
+                <div class="mcp-config-form">
+                    <input type="text" id="mcpServerAddress" placeholder="Server Address" />
+                    <input type="text" id="mcpServerPort" placeholder="Port" />
+                    <button id="mcpConnectButton">Connect</button>
+                    <button id="mcpDisconnectButton">Disconnect</button>
+                </div>
+            `;
+            artifactItem.appendChild(mcpConfigDiv);
+
+            const mcpServerAddressInput = artifactItem.querySelector('#mcpServerAddress');
+            const mcpServerPortInput = artifactItem.querySelector('#mcpServerPort');
+            const mcpConnectButton = artifactItem.querySelector('#mcpConnectButton');
+            const mcpDisconnectButton = artifactItem.querySelector('#mcpDisconnectButton');
+
+            getMcpSettings().then(settings => {
+                if (settings.address) {
+                    mcpServerAddressInput.value = settings.address;
+                }
+                if (settings.port) {
+                    mcpServerPortInput.value = settings.port;
+                }
+            });
+
+            mcpConnectButton.addEventListener('click', async () => {
+                const address = mcpServerAddressInput.value;
+                const port = mcpServerPortInput.value;
+                if (address && port) {
+                    try {
+                        await connectMcp(address, port);
+                        addMessageToChatWindow('system', 'MCP client connected successfully.');
+                    } catch (error) {
+                        addMessageToChatWindow('system', `ERROR: MCP connection failed: ${error.message}`);
+                    }
+                }
+            });
+
+            mcpDisconnectButton.addEventListener('click', async () => {
+                await disconnectMcp();
+                addMessageToChatWindow('system', 'MCP client disconnected.');
+            });
         }
 
         artifactsListElement.appendChild(artifactItem);
@@ -768,6 +818,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupArtifactEventListeners(); // <--- NEW: Setup artifact event listeners on DOMContentLoaded
 
     const settingsToggleButton = document.getElementById('settingsToggleButton');
+    const mcpConfigButton = document.getElementById('mcpConfigButton');
     const rightSidebar = document.querySelector('.sidebar-container.right');
     const artifactsPanel = document.getElementById('artifactsPanel');
     const toggleArtifactsPanelButton = document.getElementById('toggleArtifactsPanel');
@@ -793,6 +844,10 @@ document.addEventListener('DOMContentLoaded', () => {
         settingsToggleButton.addEventListener('click', () => {
             rightSidebar.classList.toggle('sidebar-hidden');
         });
+    }
+
+    if (mcpConfigButton) {
+        mcpConfigButton.addEventListener('click', createMcpConfigArtifact);
     }
 
     if (toggleArtifactsPanelButton && artifactsPanel) {
@@ -903,5 +958,25 @@ async function handleFileUpload(event) {
     };
 
     reader.readAsDataURL(file); // Read the file as a data URL (base64)
+}
+async function createMcpConfigArtifact() {
+    if (currentSessionId === null) {
+        addMessageToChatWindow('system', 'WARN: No current chat session. Please start a chat session before configuring MCP.');
+        return;
+    }
+
+    // Check if an MCP config artifact already exists
+    const mcpConfigExists = artifacts.some(a => a.type === ArtifactType.MCP_CONFIG);
+    if (mcpConfigExists) {
+        addMessageToChatWindow('system', 'INFO: MCP configuration UI already open.');
+        return;
+    }
+
+    try {
+        await AddArtifact(String(currentSessionId), ArtifactType.MCP_CONFIG, "MCP Configuration", "");
+    } catch (error) {
+        console.error("ERROR: Error creating MCP config artifact:", error);
+        addMessageToChatWindow('system', `ERROR: Failed to create MCP config artifact: ${error.message || error}`);
+    }
 }
 // --- END NEW: File Upload Handling Function ---

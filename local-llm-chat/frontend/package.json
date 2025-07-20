@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.16.0",
     "fuse.js": "^7.1.0",
     "svelte-select": "4.4.7",
     "vite": "^3.0.7"
