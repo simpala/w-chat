@@ -26,6 +26,8 @@ export async function connectMcp(serverName, serverConfig) {
         return;
     }
 
+    await spawnMcpServer(serverName, serverConfig);
+
     const url = `http://${serverConfig.host || 'localhost'}:${serverConfig.port || 8080}/mcp`;
     transports[serverName] = new StreamableHTTPClientTransport(new URL(url));
     clients[serverName] = new Client({
@@ -55,20 +57,27 @@ export function getMcpConnectionState(serverName) {
     return connectionStates[serverName] || false;
 }
 
+export async function toggleMcpConnection(serverName, serverConfig) {
+    if (getMcpConnectionState(serverName)) {
+        await disconnectMcp(serverName);
+    } else {
+        await connectMcp(serverName, serverConfig);
+    }
+}
+
 export async function connectAllMcp() {
     const servers = await getMcpServers();
     for (const serverName in servers) {
-        const serverConfig = servers[serverName];
-        if (!connectionStates[serverName]) {
-            await spawnMcpServer(serverName, serverConfig);
-            await connectMcp(serverName, serverConfig);
+        if (!getMcpConnectionState(serverName)) {
+            await connectMcp(serverName, servers[serverName]);
         }
     }
 }
 
 export async function disconnectAllMcp() {
-    for (const serverName in clients) {
-        if (connectionStates[serverName]) {
+    const servers = await getMcpServers();
+    for (const serverName in servers) {
+        if (getMcpConnectionState(serverName)) {
             await disconnectMcp(serverName);
         }
     }

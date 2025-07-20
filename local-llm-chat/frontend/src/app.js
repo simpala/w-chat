@@ -12,8 +12,7 @@ import {
 } from './modules/llm.js';
 import {
     getMcpServers,
-    connectMcp,
-    disconnectMcp,
+    toggleMcpConnection,
     getMcpConnectionState,
     connectAllMcp,
     disconnectAllMcp
@@ -987,13 +986,8 @@ async function renderMcpServers() {
 
             const toggle = serverItem.querySelector(`input[data-server-name="${serverName}"]`);
             toggle.addEventListener('change', async (event) => {
-                const serverName = event.target.dataset.serverName;
-                const serverConfig = servers[serverName];
-                if (event.target.checked) {
-                    await connectMcp(serverName, serverConfig);
-                } else {
-                    await disconnectMcp(serverName);
-                }
+                await toggleMcpConnection(serverName, server);
+                await renderMcpServers();
             });
         }
 
