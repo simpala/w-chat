@@ -11,6 +11,10 @@ import {
     launchLLM
 } from './modules/llm.js';
 import {
+    mcpManager,
+    MCP_CONNECTION_STATUS
+} from './modules/mcp-manager.js';
+import {
     sendMessage
 } from './modules/chat.js';
 import {
@@ -771,9 +775,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     loadPrompts();
     loadSettingsAndApplyTheme(); // Call the new load function
+    mcpManager.initialize().then(() => {
+        renderMcpServers();
+        mcpManager.addEventListener('state-change', () => {
+            renderMcpServers();
+        });
+    });
     setupArtifactEventListeners(); // <--- NEW: Setup artifact event listeners on DOMContentLoaded
 
     const settingsToggleButton = document.getElementById('settingsToggleButton');
+    const mcpManagerButton = document.getElementById('mcpManagerButton');
     const rightSidebar = document.querySelector('.sidebar-container.right');
     const artifactsPanel = document.getElementById('artifactsPanel');
     const toggleArtifactsPanelButton = document.getElementById('toggleArtifactsPanel');
@@ -799,6 +810,10 @@ document.addEventListener('DOMContentLoaded', () => {
         settingsToggleButton.addEventListener('click', () => {
             rightSidebar.classList.toggle('sidebar-hidden');
         });
+    }
+
+    if (mcpManagerButton) {
+        mcpManagerButton.addEventListener('click', createMcpManagerArtifact);
     }
 
     if (toggleArtifactsPanelButton && artifactsPanel) {
@@ -911,4 +926,87 @@ async function handleFileUpload(event) {
     reader.readAsDataURL(file); // Read the file as a data URL (base64)
 }
 
+async function createMcpManagerArtifact() {
+    if (currentSessionId === null) {
+        addMessageToChatWindow('system', 'WARN: No current chat session. Please start a chat session before opening the MCP manager.');
+        return;
+    }
+
+    // Check if an MCP manager artifact already exists
+    const mcpManagerExists = artifacts.some(a => a.type === ArtifactType.MCP_MANAGER);
+    if (mcpManagerExists) {
+        addMessageToChatWindow('system', 'INFO: MCP manager is already open.');
+        return;
+    }
+
+    try {
+        await AddArtifact(String(currentSessionId), ArtifactType.MCP_MANAGER, "MCP Manager", "");
+    } catch (error) {
+        console.error("ERROR: Error creating MCP manager artifact:", error);
+        addMessageToChatWindow('system', `ERROR: Failed to create MCP manager artifact: ${error.message || error}`);
+    }
+}
+
+async function renderMcpServers() {
+    const serverList = document.querySelector('.mcp-server-list');
+    if (!serverList) return;
+
+    serverList.innerHTML = '';
+
+    try {
+        const servers = mcpManager.servers;
+
+        if (!servers || Object.keys(servers).length === 0) {
+            serverList.innerHTML = '<p>No MCP servers found in mcp.json.</p>';
+            return;
+        }
+
+        for (const serverName in servers) {
+            const server = servers[serverName];
+            const connectionState = mcpManager.getConnectionState(serverName);
+            const serverItem = document.createElement('div');
+            serverItem.classList.add('mcp-server-item');
+
+            let statusIndicator;
+            switch (connectionState.status) {
+                case MCP_CONNECTION_STATUS.CONNECTED:
+                    statusIndicator = '<span class="status-indicator connected"></span>';
+                    break;
+                case MCP_CONNECTION_STATUS.DISCONNECTED:
+                    statusIndicator = '<span class="status-indicator disconnected"></span>';
+                    break;
+                case MCP_CONNECTION_STATUS.CONNECTING:
+                    statusIndicator = '<span class="status-indicator connecting"></span>';
+                    break;
+                case MCP_CONNECTION_STATUS.ERROR:
+                    statusIndicator = '<span class="status-indicator error"></span>';
+                    break;
+            }
+
+            serverItem.innerHTML = `
+                <div class="mcp-server-details">
+                    <h3>${serverName}</h3>
+                    <p class="status">${statusIndicator} ${connectionState.status}</p>
+                    ${connectionState.error ? `<p class="error-message">${connectionState.error.message}</p>` : ''}
+                </div>
+                <button class="button" data-server-name="${serverName}" ${connectionState.status === MCP_CONNECTION_STATUS.CONNECTING ? 'disabled' : ''}>
+                    ${connectionState.status === MCP_CONNECTION_STATUS.CONNECTED ? 'Disconnect' : 'Connect'}
+                </button>
+            `;
+            serverList.appendChild(serverItem);
+
+            const button = serverItem.querySelector(`button[data-server-name="${serverName}"]`);
+            button.addEventListener('click', async () => {
+                if (connectionState.status === MCP_CONNECTION_STATUS.CONNECTED) {
+                    await mcpManager.disconnect(serverName);
+                } else {
+                    await mcpManager.connect(serverName);
+                }
+            });
+        }
+    } catch (error) {
+        console.error("Error loading MCP servers:", error);
+        serverList.innerHTML = '<p>Error loading MCP servers.</p>';
+    }
+}
 // --- END NEW: File Upload Handling Function ---
