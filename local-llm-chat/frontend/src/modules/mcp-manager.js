@@ -5,11 +5,11 @@ import {
     StreamableHTTPClientTransport
 } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {
-    StdioClientTransport
-} from '@modelcontextprotocol/sdk/client/stdio.js';
-import {
     getMcpServers
 } from './mcp.js';
+import {
+    StartMcpServerProxy
+} from '../../wailsjs/go/main/App';
 
 const MCP_CONNECTION_STATUS = {
     DISCONNECTED: 'Disconnected',
@@ -70,22 +70,20 @@ class MCPConnectionManager {
             const isRemoteByArg = serverConfig.args.includes('mcp-remote');
             const isRemoteByHost = !!serverConfig.host;
 
+            let url;
             if (isRemoteByArg) {
                 const urlIndex = serverConfig.args.indexOf('mcp-remote') + 1;
-                const url = serverConfig.args[urlIndex];
-                this.transports[serverName] = new StreamableHTTPClientTransport(new URL(url));
+                url = serverConfig.args[urlIndex];
             } else if (isRemoteByHost) {
                 const host = serverConfig.host;
                 const port = serverConfig.port || 8080;
-                const url = `http://${host}:${port}/mcp`;
-                this.transports[serverName] = new StreamableHTTPClientTransport(new URL(url));
+                url = `http://${host}:${port}/mcp`;
             } else {
-                this.transports[serverName] = new StdioClientTransport({
-                    command: serverConfig.command,
-                    args: serverConfig.args,
-                    env: serverConfig.env,
-                });
+                const port = await StartMcpServerProxy(serverName, serverConfig.command, serverConfig.args, serverConfig.env);
+                url = `ws://localhost:${port}`;
             }
+
+            this.transports[serverName] = new StreamableHTTPClientTransport(new URL(url));
 
             this.clients[serverName] = new Client({
                 name: `local-llm-chat-client-${serverName}`,

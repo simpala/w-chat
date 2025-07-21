@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -14,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"local-llm-chat/artifacts"
@@ -25,6 +27,7 @@ type App struct {
 	config          Config
 	db              *Database
 	llmCmd          *exec.Cmd // This holds the command for the LLM process
+	mcpProxies      map[string]*http.Server
 	conversations   map[int64]*Conversation
 	mu              sync.Mutex
 	ArtifactService *artifacts.ArtifactService
@@ -51,7 +54,92 @@ type Conversation struct {
 func NewApp() *App {
 	return &App{
 		conversations: make(map[int64]*Conversation),
+		mcpProxies:    make(map[string]*http.Server),
 	}
+}
+
+// StartMcpServerProxy starts a proxy for a local MCP server.
+func (a *App) StartMcpServerProxy(serverName string, command string, args []string, env map[string]string) (int, error) {
+	if _, ok := a.mcpProxies[serverName]; ok {
+		return 0, fmt.Errorf("proxy for MCP server %s is already running", serverName)
+	}
+
+	cmd := exec.Command(command, args...)
+	cmd.Env = os.Environ()
+	for key, value := range env {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
+	}
+
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return 0, err
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return 0, err
+	}
+
+	if err := cmd.Start(); err != nil {
+		return 0, fmt.Errorf("failed to start MCP server %s: %w", serverName, err)
+	}
+
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		return 0, err
+	}
+
+	port := listener.Addr().(*net.TCPAddr).Port
+
+	proxy := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			conn, err := upgrader.Upgrade(w, r, nil)
+			if err != nil {
+				log.Printf("Failed to upgrade connection: %v", err)
+				return
+			}
+			defer conn.Close()
+
+			go func() {
+				for {
+					_, p, err := conn.ReadMessage()
+					if err != nil {
+						return
+					}
+					if _, err := stdin.Write(p); err != nil {
+						return
+					}
+				}
+			}()
+
+			buf := make([]byte, 1024)
+			for {
+				n, err := stdout.Read(buf)
+				if err != nil {
+					return
+				}
+				if err := conn.WriteMessage(websocket.BinaryMessage, buf[:n]); err != nil {
+					return
+				}
+			}
+		}),
+	}
+
+	a.mcpProxies[serverName] = proxy
+
+	go func() {
+		if err := proxy.Serve(listener); err != http.ErrServerClosed {
+			runtime.LogErrorf(a.ctx, "MCP server proxy for %s exited with error: %v", serverName, err)
+		}
+		delete(a.mcpProxies, serverName)
+	}()
+
+	return port, nil
+}
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
 }
 
 // startup is called when the app starts.
@@ -456,6 +544,11 @@ func (a *App) ShutdownLLM() error {
 // --- MODIFIED: Call ArtifactService.Shutdown() during app shutdown ---
 func (a *App) shutdown(ctx context.Context) bool {
 	a.ShutdownLLM()
+	for _, proxy := range a.mcpProxies {
+		if err := proxy.Shutdown(context.Background()); err != nil {
+			runtime.LogErrorf(a.ctx, "Failed to shutdown MCP server proxy: %v", err)
+		}
+	}
 	if a.ArtifactService != nil {
 		a.ArtifactService.Shutdown() // Call the new Shutdown method
 	}
