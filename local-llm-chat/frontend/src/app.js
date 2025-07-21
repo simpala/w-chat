@@ -14,8 +14,6 @@ import {
     getMcpServers,
     toggleMcpConnection,
     getMcpConnectionState,
-    connectAllMcp,
-    disconnectAllMcp,
     loadMcpConnectionStates
 } from './modules/mcp.js';
 import {
@@ -134,20 +132,8 @@ function renderArtifacts() {
             artifactItem.appendChild(messageElement);
         } else if (artifact.type === ArtifactType.MCP_MANAGER) {
             const mcpManagerDiv = document.createElement('div');
-            mcpManagerDiv.innerHTML = `
-                <div class="mcp-manager">
-                    <div class="mcp-master-controls">
-                        <label class="switch">
-                            <input type="checkbox" id="mcpMasterToggle">
-                            <span class="slider round"></span>
-                        </label>
-                        <label for="mcpMasterToggle">Connect/Disconnect All</label>
-                    </div>
-                    <div class="mcp-server-list"></div>
-                </div>
-            `;
+            mcpManagerDiv.innerHTML = `<div class="mcp-server-list"></div>`;
             artifactItem.appendChild(mcpManagerDiv);
-            // Use a timeout to ensure the DOM is updated before calling renderMcpServers
             setTimeout(renderMcpServers, 0);
         }
 
@@ -791,7 +777,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     loadPrompts();
     loadSettingsAndApplyTheme(); // Call the new load function
-    loadMcpConnectionStates(); // Load MCP connection states
+    loadMcpConnectionStates();
     setupArtifactEventListeners(); // <--- NEW: Setup artifact event listeners on DOMContentLoaded
 
     const settingsToggleButton = document.getElementById('settingsToggleButton');
@@ -959,9 +945,7 @@ async function createMcpManagerArtifact() {
 
 async function renderMcpServers() {
     const serverList = document.querySelector('.mcp-server-list');
-    if (!serverList) {
-        return;
-    }
+    if (!serverList) return;
 
     serverList.innerHTML = '';
 
@@ -980,7 +964,6 @@ async function renderMcpServers() {
             serverItem.innerHTML = `
                 <div class="mcp-server-details">
                     <h3>${serverName}</h3>
-                    <p>${server.description}</p>
                 </div>
                 <label class="switch">
                     <input type="checkbox" data-server-name="${serverName}" ${getMcpConnectionState(serverName) ? 'checked' : ''}>
@@ -992,21 +975,6 @@ async function renderMcpServers() {
             const toggle = serverItem.querySelector(`input[data-server-name="${serverName}"]`);
             toggle.addEventListener('change', async () => {
                 await toggleMcpConnection(serverName, server);
-                renderMcpServers();
-            });
-        }
-
-        const masterToggle = document.getElementById('mcpMasterToggle');
-        if (masterToggle) {
-            const allConnected = Object.values(servers).every(server => getMcpConnectionState(server.name));
-            masterToggle.checked = allConnected;
-
-            masterToggle.addEventListener('change', async (event) => {
-                if (event.target.checked) {
-                    await connectAllMcp();
-                } else {
-                    await disconnectAllMcp();
-                }
                 renderMcpServers();
             });
         }

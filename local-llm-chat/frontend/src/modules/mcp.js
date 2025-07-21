@@ -46,6 +46,8 @@ export async function connectMcp(serverName, serverConfig) {
         console.log(`MCP client for ${serverName} connected successfully.`);
     } catch (error) {
         console.error(`ERROR: MCP client connection for ${serverName} failed:`, error);
+        connectionStates[serverName] = false;
+        await saveMcpConnectionStates();
         throw error;
     }
 }
@@ -68,24 +70,6 @@ export async function toggleMcpConnection(serverName, serverConfig) {
         await disconnectMcp(serverName);
     } else {
         await connectMcp(serverName, serverConfig);
-    }
-}
-
-export async function connectAllMcp() {
-    const servers = await getMcpServers();
-    for (const serverName in servers) {
-        if (!getMcpConnectionState(serverName)) {
-            await connectMcp(serverName, servers[serverName]);
-        }
-    }
-}
-
-export async function disconnectAllMcp() {
-    const servers = await getMcpServers();
-    for (const serverName in servers) {
-        if (getMcpConnectionState(serverName)) {
-            await disconnectMcp(serverName);
-        }
     }
 }
 
