@@ -13,12 +13,3 @@ export async function getMcpServers() {
         return {};
     }
 }
-
-export async function spawnMcpServer(serverName, serverConfig) {
-    try {
-        const result = await window.go.main.App.SpawnMcpServer(serverName, serverConfig.command, serverConfig.args, serverConfig.env);
-        console.log(result);
-    } catch (error) {
-        console.error(`Error spawning MCP server ${serverName}:`, error);
-    }
-}

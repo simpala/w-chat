@@ -7,9 +7,6 @@ import {
 import {
     getMcpServers
 } from './mcp.js';
-import {
-    ConnectMcpServer
-} from '../../wailsjs/go/main/App';
 
 const MCP_CONNECTION_STATUS = {
     DISCONNECTED: 'Disconnected',
@@ -80,7 +77,14 @@ class MCPConnectionManager {
                 const url = `http://${host}:${port}/mcp`;
                 this.transports[serverName] = new StreamableHTTPClientTransport(new URL(url));
             } else {
-                await ConnectMcpServer(serverName, serverConfig.command, serverConfig.args, serverConfig.env);
+                const {
+                    StdioClientTransport
+                } = await import('./stdio-transport.js');
+                this.transports[serverName] = new StdioClientTransport({
+                    command: serverConfig.command,
+                    args: serverConfig.args,
+                    env: serverConfig.env,
+                });
             }
 
             this.clients[serverName] = new Client({
