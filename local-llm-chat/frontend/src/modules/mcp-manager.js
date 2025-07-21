@@ -66,11 +66,17 @@ class MCPConnectionManager {
             const serverConfig = this.servers[serverName];
             await spawnMcpServer(serverName, serverConfig);
 
-            const isRemote = serverConfig.args.includes('mcp-remote');
+            const isRemoteByArg = serverConfig.args.includes('mcp-remote');
+            const isRemoteByHost = !!serverConfig.host;
 
-            if (isRemote) {
+            if (isRemoteByArg) {
                 const urlIndex = serverConfig.args.indexOf('mcp-remote') + 1;
                 const url = serverConfig.args[urlIndex];
+                this.transports[serverName] = new StreamableHTTPClientTransport(new URL(url));
+            } else if (isRemoteByHost) {
+                const host = serverConfig.host;
+                const port = serverConfig.port || 8080;
+                const url = `http://${host}:${port}/mcp`;
                 this.transports[serverName] = new StreamableHTTPClientTransport(new URL(url));
             }
 
