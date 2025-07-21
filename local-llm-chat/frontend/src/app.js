@@ -11,11 +11,12 @@ import {
     launchLLM
 } from './modules/llm.js';
 import {
-    getMcpServers,
-    toggleMcpConnection,
-    getMcpConnectionState,
-    loadMcpConnectionStates
+    getMcpServers
 } from './modules/mcp.js';
+import {
+    mcpManager,
+    MCP_CONNECTION_STATUS
+} from './modules/mcp-manager.js';
 import {
     sendMessage
 } from './modules/chat.js';
@@ -777,7 +778,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     loadPrompts();
     loadSettingsAndApplyTheme(); // Call the new load function
-    loadMcpConnectionStates();
+    mcpManager.initialize().then(() => {
+        renderMcpServers();
+        mcpManager.addEventListener('state-change', () => {
+            renderMcpServers();
+        });
+    });
     setupArtifactEventListeners(); // <--- NEW: Setup artifact event listeners on DOMContentLoaded
 
     const settingsToggleButton = document.getElementById('settingsToggleButton');
@@ -950,7 +956,7 @@ async function renderMcpServers() {
     serverList.innerHTML = '';
 
     try {
-        const servers = await getMcpServers();
+        const servers = mcpManager.servers;
 
         if (!servers || Object.keys(servers).length === 0) {
             serverList.innerHTML = '<p>No MCP servers found in mcp.json.</p>';
@@ -959,23 +965,45 @@ async function renderMcpServers() {
 
         for (const serverName in servers) {
             const server = servers[serverName];
+            const connectionState = mcpManager.getConnectionState(serverName);
             const serverItem = document.createElement('div');
             serverItem.classList.add('mcp-server-item');
+
+            let statusIndicator;
+            switch (connectionState.status) {
+                case MCP_CONNECTION_STATUS.CONNECTED:
+                    statusIndicator = '<span class="status-indicator connected"></span>';
+                    break;
+                case MCP_CONNECTION_STATUS.DISCONNECTED:
+                    statusIndicator = '<span class="status-indicator disconnected"></span>';
+                    break;
+                case MCP_CONNECTION_STATUS.CONNECTING:
+                    statusIndicator = '<span class="status-indicator connecting"></span>';
+                    break;
+                case MCP_CONNECTION_STATUS.ERROR:
+                    statusIndicator = '<span class="status-indicator error"></span>';
+                    break;
+            }
+
             serverItem.innerHTML = `
                 <div class="mcp-server-details">
                     <h3>${serverName}</h3>
+                    <p class="status">${statusIndicator} ${connectionState.status}</p>
+                    ${connectionState.error ? `<p class="error-message">${connectionState.error.message}</p>` : ''}
                 </div>
-                <label class="switch">
-                    <input type="checkbox" data-server-name="${serverName}" ${getMcpConnectionState(serverName) ? 'checked' : ''}>
-                    <span class="slider round"></span>
-                </label>
+                <button class="button" data-server-name="${serverName}" ${connectionState.status === MCP_CONNECTION_STATUS.CONNECTING ? 'disabled' : ''}>
+                    ${connectionState.status === MCP_CONNECTION_STATUS.CONNECTED ? 'Disconnect' : 'Connect'}
+                </button>
             `;
             serverList.appendChild(serverItem);
 
-            const toggle = serverItem.querySelector(`input[data-server-name="${serverName}"]`);
-            toggle.addEventListener('change', async () => {
-                await toggleMcpConnection(serverName, server);
-                renderMcpServers();
+            const button = serverItem.querySelector(`button[data-server-name="${serverName}"]`);
+            button.addEventListener('click', async () => {
+                if (connectionState.status === MCP_CONNECTION_STATUS.CONNECTED) {
+                    await mcpManager.disconnect(serverName);
+                } else {
+                    await mcpManager.connect(serverName);
+                }
             });
         }
     } catch (error) {
