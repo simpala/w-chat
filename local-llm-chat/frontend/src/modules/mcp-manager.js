@@ -1,14 +1,6 @@
 import {
-    Client
-} from '@modelcontextprotocol/sdk/client/index.js';
-import {
-    StreamableHTTPClientTransport
-} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import {
-    getMcpServers
-} from './mcp.js';
-import {
-    StartMcpServerProxy
+    ConnectMcpClient,
+    DisconnectMcpClient,
 } from '../../wailsjs/go/main/App';
 
 const MCP_CONNECTION_STATUS = {
@@ -22,8 +14,6 @@ class MCPConnectionManager {
     constructor() {
         this.servers = {};
         this.connectionStates = {};
-        this.clients = {};
-        this.transports = {};
         this.eventListeners = {
             'state-change': [],
         };
@@ -57,7 +47,7 @@ class MCPConnectionManager {
     }
 
     async connect(serverName) {
-        if (this.clients[serverName] && this.connectionStates[serverName].status === MCP_CONNECTION_STATUS.CONNECTED) {
+        if (this.connectionStates[serverName].status === MCP_CONNECTION_STATUS.CONNECTED) {
             console.log(`MCP client for ${serverName} is already connected.`);
             return;
         }
@@ -66,33 +56,8 @@ class MCPConnectionManager {
 
         try {
             const serverConfig = this.servers[serverName];
-
-            const isRemoteByArg = serverConfig.args.includes('mcp-remote');
-            const isRemoteByHost = !!serverConfig.host;
-
-            let url;
-            if (isRemoteByArg) {
-                const urlIndex = serverConfig.args.indexOf('mcp-remote') + 1;
-                url = serverConfig.args[urlIndex];
-            } else if (isRemoteByHost) {
-                const host = serverConfig.host;
-                const port = serverConfig.port || 8080;
-                url = `http://${host}:${port}/mcp`;
-            } else {
-                const port = await StartMcpServerProxy(serverName, serverConfig.command, serverConfig.args, serverConfig.env);
-                url = `ws://localhost:${port}`;
-            }
-
-            this.transports[serverName] = new StreamableHTTPClientTransport(new URL(url));
-
-            this.clients[serverName] = new Client({
-                name: `local-llm-chat-client-${serverName}`,
-                version: "1.0.0"
-            });
-
-            await this.clients[serverName].connect(this.transports[serverName]);
+            await ConnectMcpClient(serverName, serverConfig.command, serverConfig.args);
             this.updateConnectionState(serverName, MCP_CONNECTION_STATUS.CONNECTED);
-            this.monitorConnection(serverName);
         } catch (error) {
             console.error(`ERROR: MCP client connection for ${serverName} failed:`, error);
             this.updateConnectionState(serverName, MCP_CONNECTION_STATUS.ERROR, error);
@@ -100,19 +65,10 @@ class MCPConnectionManager {
     }
 
     async disconnect(serverName) {
-        if (this.clients[serverName]) {
-            await this.clients[serverName].close();
-            delete this.clients[serverName];
+        if (this.connectionStates[serverName].status !== MCP_CONNECTION_STATUS.DISCONNECTED) {
+            await DisconnectMcpClient(serverName);
             this.updateConnectionState(serverName, MCP_CONNECTION_STATUS.DISCONNECTED);
         }
-    }
-
-    monitorConnection(serverName) {
-        const client = this.clients[serverName];
-        if (!client) return;
-
-        // For now, we'll rely on the SDK's internal connection state.
-        // A more robust implementation would involve periodic pings.
     }
 
     updateConnectionState(serverName, status, error = null) {
@@ -131,3 +87,14 @@ export const mcpManager = new MCPConnectionManager();
 export {
     MCP_CONNECTION_STATUS
 };
+
+async function getMcpServers() {
+    try {
+        const serversJson = await window.go.main.App.GetMcpServers();
+        const mcpConfig = JSON.parse(serversJson);
+        return mcpConfig.mcpServers || {};
+    } catch (error) {
+        console.error("ERROR: Frontend: Error loading MCP servers:", error);
+        return {};
+    }
+}
