@@ -15,7 +15,8 @@ import {
     toggleMcpConnection,
     getMcpConnectionState,
     connectAllMcp,
-    disconnectAllMcp
+    disconnectAllMcp,
+    loadMcpConnectionStates
 } from './modules/mcp.js';
 import {
     sendMessage
@@ -789,6 +790,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     loadPrompts();
     loadSettingsAndApplyTheme(); // Call the new load function
+    loadMcpConnectionStates(); // Load MCP connection states
     setupArtifactEventListeners(); // <--- NEW: Setup artifact event listeners on DOMContentLoaded
 
     const settingsToggleButton = document.getElementById('settingsToggleButton');
@@ -985,21 +987,24 @@ async function renderMcpServers() {
             serverList.appendChild(serverItem);
 
             const toggle = serverItem.querySelector(`input[data-server-name="${serverName}"]`);
-            toggle.addEventListener('change', async (event) => {
+            toggle.addEventListener('change', async () => {
                 await toggleMcpConnection(serverName, server);
-                await renderMcpServers();
+                renderMcpServers();
             });
         }
 
         const masterToggle = document.getElementById('mcpMasterToggle');
         if (masterToggle) {
+            const allConnected = Object.values(servers).every(server => getMcpConnectionState(server.name));
+            masterToggle.checked = allConnected;
+
             masterToggle.addEventListener('change', async (event) => {
                 if (event.target.checked) {
                     await connectAllMcp();
                 } else {
                     await disconnectAllMcp();
                 }
-                await renderMcpServers();
+                renderMcpServers();
             });
         }
     } catch (error) {

@@ -4,10 +4,14 @@ import {
 import {
     StreamableHTTPClientTransport
 } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import {
+    SaveSettings as GoSaveSettings,
+    LoadSettings as GoLoadSettings
+} from '../../wailsjs/go/main/App';
 
 const clients = {};
 const transports = {};
-const connectionStates = {};
+let connectionStates = {};
 
 export async function getMcpServers() {
     try {
@@ -38,6 +42,7 @@ export async function connectMcp(serverName, serverConfig) {
     try {
         await clients[serverName].connect(transports[serverName]);
         connectionStates[serverName] = true;
+        await saveMcpConnectionStates();
         console.log(`MCP client for ${serverName} connected successfully.`);
     } catch (error) {
         console.error(`ERROR: MCP client connection for ${serverName} failed:`, error);
@@ -49,6 +54,7 @@ export async function disconnectMcp(serverName) {
     if (clients[serverName] && connectionStates[serverName]) {
         await clients[serverName].close();
         connectionStates[serverName] = false;
+        await saveMcpConnectionStates();
         console.log(`MCP client for ${serverName} disconnected.`);
     }
 }
@@ -89,5 +95,28 @@ async function spawnMcpServer(serverName, serverConfig) {
         console.log(result);
     } catch (error) {
         console.error(`Error spawning MCP server ${serverName}:`, error);
+    }
+}
+
+async function saveMcpConnectionStates() {
+    try {
+        const settingsJson = await GoLoadSettings();
+        const settings = JSON.parse(settingsJson);
+        settings.mcp_connection_states = connectionStates;
+        await GoSaveSettings(JSON.stringify(settings));
+        console.log("DEBUG: Frontend: MCP connection states saved successfully.");
+    } catch (error) {
+        console.error("ERROR: Frontend: Error saving MCP connection states:", error);
+    }
+}
+
+export async function loadMcpConnectionStates() {
+    try {
+        const settingsJson = await GoLoadSettings();
+        const settings = JSON.parse(settingsJson);
+        connectionStates = settings.mcp_connection_states || {};
+        console.log("DEBUG: Frontend: MCP connection states loaded successfully.");
+    } catch (error) {
+        console.error("ERROR: Frontend: Error loading MCP connection states:", error);
     }
 }

@@ -32,11 +32,12 @@ type App struct {
 
 // Config struct - Add the Theme field here
 type Config struct {
-	LlamaCppDir   string            `json:"llama_cpp_dir"`
-	ModelsDir     string            `json:"models_dir"`
-	SelectedModel string            `json:"selected_model"`
-	ModelArgs     map[string]string `json:"model_args"`
-	Theme         string            `json:"theme"`
+	LlamaCppDir         string            `json:"llama_cpp_dir"`
+	ModelsDir           string            `json:"models_dir"`
+	SelectedModel       string            `json:"selected_model"`
+	ModelArgs           map[string]string `json:"model_args"`
+	Theme               string            `json:"theme"`
+	McpConnectionStates map[string]bool   `json:"mcp_connection_states"`
 }
 
 // Conversation struct to hold the state of a single chat session
