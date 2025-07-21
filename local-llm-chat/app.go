@@ -51,7 +51,6 @@ type Conversation struct {
 func NewApp() *App {
 	return &App{
 		conversations: make(map[int64]*Conversation),
-		mcpCmds:       make(map[string]*exec.Cmd),
 	}
 }
 
