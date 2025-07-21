@@ -5,6 +5,9 @@ import {
     StreamableHTTPClientTransport
 } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {
+    StdioClientTransport
+} from '@modelcontextprotocol/sdk/client/stdio.js';
+import {
     getMcpServers,
     spawnMcpServer
 } from './mcp.js';
@@ -64,7 +67,7 @@ class MCPConnectionManager {
 
         try {
             const serverConfig = this.servers[serverName];
-            await spawnMcpServer(serverName, serverConfig);
+            const process = await spawnMcpServer(serverName, serverConfig);
 
             const isRemoteByArg = serverConfig.args.includes('mcp-remote');
             const isRemoteByHost = !!serverConfig.host;
@@ -78,6 +81,8 @@ class MCPConnectionManager {
                 const port = serverConfig.port || 8080;
                 const url = `http://${host}:${port}/mcp`;
                 this.transports[serverName] = new StreamableHTTPClientTransport(new URL(url));
+            } else {
+                this.transports[serverName] = new StdioClientTransport();
             }
 
             this.clients[serverName] = new Client({
