@@ -66,11 +66,13 @@ class MCPConnectionManager {
             const serverConfig = this.servers[serverName];
             await spawnMcpServer(serverName, serverConfig);
 
-            const host = serverConfig.host || 'localhost';
-            const port = serverConfig.port || 8080;
-            const url = `http://${host}:${port}/mcp`;
+            if (serverConfig.host) {
+                const host = serverConfig.host || 'localhost';
+                const port = serverConfig.port || 8080;
+                const url = `http://${host}:${port}/mcp`;
+                this.transports[serverName] = new StreamableHTTPClientTransport(new URL(url));
+            }
 
-            this.transports[serverName] = new StreamableHTTPClientTransport(new URL(url));
             this.clients[serverName] = new Client({
                 name: `local-llm-chat-client-${serverName}`,
                 version: "1.0.0"
