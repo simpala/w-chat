@@ -957,13 +957,18 @@ async function createMcpManagerArtifact() {
 }
 
 async function renderMcpServers() {
+    console.log("DEBUG: renderMcpServers called");
     const serverList = document.querySelector('.mcp-server-list');
-    if (!serverList) return;
+    if (!serverList) {
+        console.log("DEBUG: serverList not found");
+        return;
+    }
 
     serverList.innerHTML = '';
 
     try {
         const servers = await getMcpServers();
+        console.log("DEBUG: servers:", servers);
 
         if (!servers || Object.keys(servers).length === 0) {
             serverList.innerHTML = '<p>No MCP servers found in mcp.json.</p>';
