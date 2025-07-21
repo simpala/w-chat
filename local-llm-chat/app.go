@@ -25,6 +25,7 @@ type App struct {
 	config          Config
 	db              *Database
 	llmCmd          *exec.Cmd // This holds the command for the LLM process
+	mcpCmds         map[string]*exec.Cmd
 	conversations   map[int64]*Conversation
 	mu              sync.Mutex
 	ArtifactService *artifacts.ArtifactService
@@ -51,7 +52,38 @@ type Conversation struct {
 func NewApp() *App {
 	return &App{
 		conversations: make(map[int64]*Conversation),
+		mcpCmds:       make(map[string]*exec.Cmd),
 	}
+}
+
+// ConnectMcpServer connects to a local MCP server.
+func (a *App) ConnectMcpServer(serverName string, command string, args []string, env map[string]string) (string, error) {
+	if _, ok := a.mcpCmds[serverName]; ok {
+		return fmt.Sprintf("MCP server %s is already running.", serverName), nil
+	}
+
+	cmd := exec.Command(command, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = os.Environ()
+	for key, value := range env {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
+	}
+
+	if err := cmd.Start(); err != nil {
+		return "", fmt.Errorf("failed to start MCP server %s: %w", serverName, err)
+	}
+
+	a.mcpCmds[serverName] = cmd
+
+	go func() {
+		if err := cmd.Wait(); err != nil {
+			runtime.LogErrorf(a.ctx, "MCP server %s exited with error: %v", serverName, err)
+		}
+		delete(a.mcpCmds, serverName)
+	}()
+
+	return fmt.Sprintf("MCP server %s connected successfully!", serverName), nil
 }
 
 // startup is called when the app starts.
@@ -456,6 +488,13 @@ func (a *App) ShutdownLLM() error {
 // --- MODIFIED: Call ArtifactService.Shutdown() during app shutdown ---
 func (a *App) shutdown(ctx context.Context) bool {
 	a.ShutdownLLM()
+	for _, cmd := range a.mcpCmds {
+		if cmd != nil && cmd.Process != nil {
+			if err := cmd.Process.Kill(); err != nil {
+				runtime.LogErrorf(a.ctx, "Failed to kill MCP server process: %v", err)
+			}
+		}
+	}
 	if a.ArtifactService != nil {
 		a.ArtifactService.Shutdown() // Call the new Shutdown method
 	}

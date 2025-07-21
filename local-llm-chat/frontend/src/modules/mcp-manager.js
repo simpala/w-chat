@@ -5,12 +5,11 @@ import {
     StreamableHTTPClientTransport
 } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {
-    StdioClientTransport
-} from './stdio-transport.js';
-import {
-    getMcpServers,
-    spawnMcpServer
+    getMcpServers
 } from './mcp.js';
+import {
+    ConnectMcpServer
+} from '../../wailsjs/go/main/App';
 
 const MCP_CONNECTION_STATUS = {
     DISCONNECTED: 'Disconnected',
@@ -67,7 +66,6 @@ class MCPConnectionManager {
 
         try {
             const serverConfig = this.servers[serverName];
-            const process = await spawnMcpServer(serverName, serverConfig);
 
             const isRemoteByArg = serverConfig.args.includes('mcp-remote');
             const isRemoteByHost = !!serverConfig.host;
@@ -82,7 +80,7 @@ class MCPConnectionManager {
                 const url = `http://${host}:${port}/mcp`;
                 this.transports[serverName] = new StreamableHTTPClientTransport(new URL(url));
             } else {
-                this.transports[serverName] = new StdioClientTransport();
+                await ConnectMcpServer(serverName, serverConfig.command, serverConfig.args, serverConfig.env);
             }
 
             this.clients[serverName] = new Client({
