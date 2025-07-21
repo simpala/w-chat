@@ -5,6 +5,9 @@ import {
     StreamableHTTPClientTransport
 } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {
+    StdioClientTransport
+} from './stdio-transport.js';
+import {
     getMcpServers,
     spawnMcpServer
 } from './mcp.js';
@@ -79,14 +82,7 @@ class MCPConnectionManager {
                 const url = `http://${host}:${port}/mcp`;
                 this.transports[serverName] = new StreamableHTTPClientTransport(new URL(url));
             } else {
-                if (typeof window === 'undefined') {
-                    const {
-                        StdioClientTransport
-                    } = await import('@modelcontextprotocol/sdk/client/stdio.js');
-                    this.transports[serverName] = new StdioClientTransport();
-                } else {
-                    throw new Error('StdioClientTransport is not supported in the browser.');
-                }
+                this.transports[serverName] = new StdioClientTransport();
             }
 
             this.clients[serverName] = new Client({
