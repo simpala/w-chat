@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -14,9 +15,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"local-llm-chat/artifacts"
+	"local-llm-chat/mcpclient"
 )
 
 // App struct
@@ -25,6 +28,7 @@ type App struct {
 	config          Config
 	db              *Database
 	llmCmd          *exec.Cmd // This holds the command for the LLM process
+	mcpClients      map[string]*mcpclient.McpClient
 	conversations   map[int64]*Conversation
 	mu              sync.Mutex
 	ArtifactService *artifacts.ArtifactService
@@ -32,11 +36,12 @@ type App struct {
 
 // Config struct - Add the Theme field here
 type Config struct {
-	LlamaCppDir   string            `json:"llama_cpp_dir"`
-	ModelsDir     string            `json:"models_dir"`
-	SelectedModel string            `json:"selected_model"`
-	ModelArgs     map[string]string `json:"model_args"`
-	Theme         string            `json:"theme"`
+	LlamaCppDir         string            `json:"llama_cpp_dir"`
+	ModelsDir           string            `json:"models_dir"`
+	SelectedModel       string            `json:"selected_model"`
+	ModelArgs           map[string]string `json:"model_args"`
+	Theme               string            `json:"theme"`
+	McpConnectionStates map[string]bool   `json:"mcp_connection_states"`
 }
 
 // Conversation struct to hold the state of a single chat session
@@ -50,6 +55,7 @@ type Conversation struct {
 func NewApp() *App {
 	return &App{
 		conversations: make(map[int64]*Conversation),
+		mcpClients:    make(map[string]*mcpclient.McpClient),
 	}
 }
 
@@ -316,6 +322,67 @@ func (a *App) GetPrompts() ([]string, error) {
 	return prompts, nil
 }
 
+// McpServerConfig struct for individual server configurations
+type McpServerConfig struct {
+	Command     string            `json:"command"`
+	Args        []string          `json:"args"`
+	Description string            `json:"description"`
+	Token       string            `json:"token,omitempty"`
+	Env         map[string]string `json:"env,omitempty"`
+}
+
+// McpConfig struct for the top-level mcp.json structure
+type McpConfig struct {
+	McpServers map[string]McpServerConfig `json:"mcpServers"`
+}
+
+// GetMcpServers returns the contents of mcp.json
+func (a *App) GetMcpServers() (string, error) {
+	file, err := os.Open("mcp.json")
+	if err != nil {
+		if os.IsNotExist(err) {
+			runtime.LogInfo(a.ctx, "mcp.json does not exist. Returning empty server list.")
+			return "{}", nil
+		}
+		runtime.LogErrorf(a.ctx, "Error opening mcp.json: %s", err.Error())
+		return "", err
+	}
+	defer file.Close()
+
+	fileContentBytes, readErr := os.ReadFile("mcp.json")
+	if readErr != nil {
+		runtime.LogErrorf(a.ctx, "Error reading content from mcp.json: %s", readErr.Error())
+		return "", readErr
+	}
+	fileContent := string(fileContentBytes)
+	runtime.LogInfof(a.ctx, "Content read from mcp.json: %s", fileContent)
+
+	return fileContent, nil
+}
+
+// SpawnMcpServer spawns an MCP server process.
+func (a *App) SpawnMcpServer(serverName string, command string, args []string, env map[string]string) (string, error) {
+	cmd := exec.Command(command, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = os.Environ()
+	for key, value := range env {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
+	}
+
+	if err := cmd.Start(); err != nil {
+		return "", fmt.Errorf("failed to start MCP server %s: %w", serverName, err)
+	}
+
+	go func() {
+		if err := cmd.Wait(); err != nil {
+			runtime.LogErrorf(a.ctx, "MCP server %s exited with error: %v", serverName, err)
+		}
+	}()
+
+	return fmt.Sprintf("MCP server %s launched successfully!", serverName), nil
+}
+
 // GetPrompt returns the content of a specific prompt file.
 func (a *App) GetPrompt(promptName string) (string, error) {
 	exePath, err := os.Executable()
@@ -394,6 +461,9 @@ func (a *App) ShutdownLLM() error {
 // --- MODIFIED: Call ArtifactService.Shutdown() during app shutdown ---
 func (a *App) shutdown(ctx context.Context) bool {
 	a.ShutdownLLM()
+	for _, client := range a.mcpClients {
+		client.Disconnect()
+	}
 	if a.ArtifactService != nil {
 		a.ArtifactService.Shutdown() // Call the new Shutdown method
 	}
@@ -401,6 +471,35 @@ func (a *App) shutdown(ctx context.Context) bool {
 }
 
 // --- END MODIFIED ---
+
+// ConnectMcpClient connects to an MCP server.
+func (a *App) ConnectMcpClient(serverName string, command string, args []string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if _, ok := a.mcpClients[serverName]; ok {
+		return fmt.Errorf("client for server %s is already connected", serverName)
+	}
+
+	client := mcpclient.NewMcpClient()
+	if err := client.Connect(command, args); err != nil {
+		return err
+	}
+
+	a.mcpClients[serverName] = client
+	return nil
+}
+
+// DisconnectMcpClient disconnects from an MCP server.
+func (a *App) DisconnectMcpClient(serverName string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if client, ok := a.mcpClients[serverName]; ok {
+		client.Disconnect()
+		delete(a.mcpClients, serverName)
+	}
+}
 
 // ChatMessage struct for API communication.
 type ChatMessage struct {

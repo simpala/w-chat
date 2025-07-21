@@ -1142,3 +1142,47 @@ body {
     border-radius: 5px;
     margin-top: 10px; /* Spacing between artifacts */
 }
+
+.mcp-server-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.mcp-server-details .status {
+    display: flex;
+    align-items: center;
+    font-size: 0.9em;
+    color: var(--text-color-secondary);
+}
+
+.status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+    display: inline-block;
+}
+
+.status-indicator.connected {
+    background-color: #4caf50;
+}
+
+.status-indicator.disconnected {
+    background-color: #f44336;
+}
+
+.status-indicator.connecting {
+    background-color: #ff9800;
+}
+
+.status-indicator.error {
+    background-color: #f44336;
+}
+
+.error-message {
+    color: #f44336;
+    font-size: 0.8em;
+    margin-top: 0.5rem;
+}
