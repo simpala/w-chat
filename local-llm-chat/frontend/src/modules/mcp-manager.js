@@ -58,8 +58,8 @@ class MCPConnectionManager {
         this.updateConnectionState(serverName, MCP_CONNECTION_STATUS.CONNECTING);
 
         try {
-            const serverConfig = this.servers[serverName];
-            await ConnectMcpClient(serverName, serverConfig.command, serverConfig.args);
+            // const serverConfig = this.servers[serverName];
+            // await ConnectMcpClient(serverName, serverConfig.command, serverConfig.args);
             this.updateConnectionState(serverName, MCP_CONNECTION_STATUS.CONNECTED);
         } catch (error) {
             console.error(`ERROR: MCP client connection for ${serverName} failed:`, error);

@@ -19,7 +19,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"local-llm-chat/artifacts"
-	"local-llm-chat/mcpclient"
+	// "local-llm-chat/mcpclient"
 )
 
 // App struct
@@ -362,25 +362,7 @@ func (a *App) GetMcpServers() (string, error) {
 
 // SpawnMcpServer spawns an MCP server process.
 func (a *App) SpawnMcpServer(serverName string, command string, args []string, env map[string]string) (string, error) {
-	cmd := exec.Command(command, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Env = os.Environ()
-	for key, value := range env {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
-	}
-
-	if err := cmd.Start(); err != nil {
-		return "", fmt.Errorf("failed to start MCP server %s: %w", serverName, err)
-	}
-
-	go func() {
-		if err := cmd.Wait(); err != nil {
-			runtime.LogErrorf(a.ctx, "MCP server %s exited with error: %v", serverName, err)
-		}
-	}()
-
-	return fmt.Sprintf("MCP server %s launched successfully!", serverName), nil
+	return "Spawning has been disabled in this version.", nil
 }
 
 // GetPrompt returns the content of a specific prompt file.
@@ -481,12 +463,12 @@ func (a *App) ConnectMcpClient(serverName string, command string, args []string)
 		return fmt.Errorf("client for server %s is already connected", serverName)
 	}
 
-	client := mcpclient.NewMcpClient()
-	if err := client.Connect(command, args); err != nil {
-		return err
-	}
+	// client := mcpclient.NewMcpClient()
+	// if err := client.Connect(command, args); err != nil {
+	// 	return err
+	// }
 
-	a.mcpClients[serverName] = client
+	// a.mcpClients[serverName] = client
 	return nil
 }
 
