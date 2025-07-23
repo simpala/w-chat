@@ -5,9 +5,15 @@ import {main} from '../models';
 
 export function AddArtifact(arg1:string,arg2:artifacts.ArtifactType,arg3:string,arg4:string):Promise<artifacts.Artifact>;
 
+export function ConnectMcpClient(arg1:string,arg2:string,arg3:Array<string>):Promise<void>;
+
 export function DeleteArtifact(arg1:string):Promise<void>;
 
 export function DeleteChatSession(arg1:number):Promise<void>;
+
+export function DisconnectMcpClient(arg1:string):Promise<void>;
+
+export function GetMcpServers():Promise<string>;
 
 export function GetModels():Promise<Array<string>>;
 
@@ -36,6 +42,8 @@ export function NewChat(arg1:string):Promise<number>;
 export function SaveSettings(arg1:string):Promise<void>;
 
 export function ShutdownLLM():Promise<void>;
+
+export function SpawnMcpServer(arg1:string,arg2:string,arg3:Array<string>,arg4:Record<string, string>):Promise<string>;
 
 export function StopStream(arg1:number):Promise<void>;
 

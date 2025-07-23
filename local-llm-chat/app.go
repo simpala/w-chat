@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -15,10 +14,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"local-llm-chat/artifacts"
+	"local-llm-chat/mcpclient"
 	// "local-llm-chat/mcpclient"
 )
 

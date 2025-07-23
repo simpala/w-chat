@@ -6,12 +6,24 @@ export function AddArtifact(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['AddArtifact'](arg1, arg2, arg3, arg4);
 }
 
+export function ConnectMcpClient(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ConnectMcpClient'](arg1, arg2, arg3);
+}
+
 export function DeleteArtifact(arg1) {
   return window['go']['main']['App']['DeleteArtifact'](arg1);
 }
 
 export function DeleteChatSession(arg1) {
   return window['go']['main']['App']['DeleteChatSession'](arg1);
+}
+
+export function DisconnectMcpClient(arg1) {
+  return window['go']['main']['App']['DisconnectMcpClient'](arg1);
+}
+
+export function GetMcpServers() {
+  return window['go']['main']['App']['GetMcpServers']();
 }
 
 export function GetModels() {
@@ -68,6 +80,10 @@ export function SaveSettings(arg1) {
 
 export function ShutdownLLM() {
   return window['go']['main']['App']['ShutdownLLM']();
+}
+
+export function SpawnMcpServer(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['SpawnMcpServer'](arg1, arg2, arg3, arg4);
 }
 
 export function StopStream(arg1) {
