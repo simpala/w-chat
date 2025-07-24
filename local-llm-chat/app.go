@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"local-llm-chat/artifacts"
 	"local-llm-chat/mcpclient"
@@ -64,19 +64,19 @@ func (a *App) startup(ctx context.Context) {
 	log.Println("App startup initiated.")
 	db, err := NewDatabase("chat.db")
 	if err != nil {
-		runtime.LogErrorf(a.ctx, "Error opening database: %s", err.Error())
+		wailsruntime.LogErrorf(a.ctx, "Error opening database: %s", err.Error())
 		return
 	}
 	a.db = db
 	err = a.db.Initialize()
 	if err != nil {
-		runtime.LogErrorf(a.ctx, "Error initializing database: %s", err.Error())
+		wailsruntime.LogErrorf(a.ctx, "Error initializing database: %s", err.Error())
 		return
 	}
 
 	userConfigDir, err := os.UserConfigDir()
 	if err != nil {
-		runtime.LogErrorf(a.ctx, "App Startup: Failed to get user config directory for artifacts: %v", err)
+		wailsruntime.LogErrorf(a.ctx, "App Startup: Failed to get user config directory for artifacts: %v", err)
 		a.ArtifactService = artifacts.NewArtifactService(nil, "")
 	} else {
 		artifactDataDir := filepath.Join(userConfigDir, "local-llm-chat", "artifacts")
@@ -86,24 +86,24 @@ func (a *App) startup(ctx context.Context) {
 	exePath, err := os.Executable()
 	if err == nil {
 		configFilePath := filepath.Join(filepath.Dir(exePath), "config.json")
-		runtime.LogInfof(a.ctx, "Expected config.json path: %s", configFilePath)
+		wailsruntime.LogInfof(a.ctx, "Expected config.json path: %s", configFilePath)
 	} else {
-		runtime.LogErrorf(a.ctx, "Could not determine executable path for config.json logging: %v", err)
+		wailsruntime.LogErrorf(a.ctx, "Could not determine executable path for config.json logging: %v", err)
 	}
 
 	settings, err := a.LoadSettings()
 	if err != nil {
-		runtime.LogErrorf(a.ctx, "Error loading config: %s", err.Error())
+		wailsruntime.LogErrorf(a.ctx, "Error loading config: %s", err.Error())
 	} else {
-		runtime.LogInfof(a.ctx, "Raw settings loaded from config.json: %s", settings)
+		wailsruntime.LogInfof(a.ctx, "Raw settings loaded from config.json: %s", settings)
 	}
 
 	var config Config
 	err = json.Unmarshal([]byte(settings), &config)
 	if err != nil {
-		runtime.LogErrorf(a.ctx, "Error unmarshalling settings string into Config struct: %s", err.Error())
+		wailsruntime.LogErrorf(a.ctx, "Error unmarshalling settings string into Config struct: %s", err.Error())
 	} else {
-		runtime.LogInfof(a.ctx, "Unmarshalled Config struct in startup: %+v", config)
+		wailsruntime.LogInfof(a.ctx, "Unmarshalled Config struct in startup: %+v", config)
 	}
 
 	if config.ModelArgs == nil {
@@ -111,7 +111,7 @@ func (a *App) startup(ctx context.Context) {
 	}
 	a.config = config
 	log.Println("App startup complete.")
-	runtime.LogInfof(a.ctx, "Final a.config state after startup: %+v", a.config)
+	wailsruntime.LogInfof(a.ctx, "Final a.config state after startup: %+v", a.config)
 }
 
 // NewChat creates a new chat session.
@@ -126,7 +126,7 @@ func (a *App) NewChat(systemPrompt string) (int64, error) {
 		messages:     make([]ChatMessage, 0),
 		systemPrompt: systemPrompt,
 	}
-	runtime.LogInfof(a.ctx, "New chat session %d created with system prompt: '%s'", id, systemPrompt)
+	wailsruntime.LogInfof(a.ctx, "New chat session %d created with system prompt: '%s'", id, systemPrompt)
 	return id, nil
 }
 
@@ -150,7 +150,7 @@ func (a *App) UpdateChatSystemPrompt(sessionID int64, newSystemPrompt string) er
 
 	conv, ok := a.conversations[sessionID]
 	if !ok {
-		runtime.LogErrorf(a.ctx, "UpdateChatSystemPrompt: Conversation with ID %d not found in memory.", sessionID)
+		wailsruntime.LogErrorf(a.ctx, "UpdateChatSystemPrompt: Conversation with ID %d not found in memory.", sessionID)
 		return fmt.Errorf("conversation not found")
 	}
 
@@ -160,33 +160,33 @@ func (a *App) UpdateChatSystemPrompt(sessionID int64, newSystemPrompt string) er
 
 	err := a.db.UpdateChatSessionSystemPrompt(sessionID, newSystemPrompt)
 	if err != nil {
-		runtime.LogErrorf(a.ctx, "UpdateChatSystemPrompt: Error updating system prompt in DB for session %d: %s", sessionID, err.Error())
+		wailsruntime.LogErrorf(a.ctx, "UpdateChatSystemPrompt: Error updating system prompt in DB for session %d: %s", sessionID, err.Error())
 		return err
 	}
-	runtime.LogInfof(a.ctx, "UpdateChatSystemPrompt: System prompt for session %d updated to: '%s'", sessionID, newSystemPrompt)
+	wailsruntime.LogInfof(a.ctx, "UpdateChatSystemPrompt: System prompt for session %d updated to: '%s'", sessionID, newSystemPrompt)
 	return nil
 }
 
 // IsLLMLoaded checks if the LLM process is currently running.
 func (a *App) IsLLMLoaded() bool {
 	if a.llmCmd != nil && a.llmCmd.Process != nil && a.llmCmd.ProcessState == nil {
-		runtime.LogDebugf(a.ctx, "IsLLMLoaded: LLM process appears to be running (PID: %d).", a.llmCmd.Process.Pid)
+		wailsruntime.LogDebugf(a.ctx, "IsLLMLoaded: LLM process appears to be running (PID: %d).", a.llmCmd.Process.Pid)
 		return true
 	}
-	runtime.LogDebugf(a.ctx, "IsLLMLoaded: LLM process is not running.")
+	wailsruntime.LogDebugf(a.ctx, "IsLLMLoaded: LLM process is not running.")
 	return false
 }
 
 // SaveSettings saves the configuration to a JSON file.
 func (a *App) SaveSettings(settings string) error {
-	runtime.LogInfof(a.ctx, "SaveSettings called with raw settings string: %s", settings)
+	wailsruntime.LogInfof(a.ctx, "SaveSettings called with raw settings string: %s", settings)
 	var config Config
 	err := json.Unmarshal([]byte(settings), &config)
 	if err != nil {
-		runtime.LogErrorf(a.ctx, "Error unmarshalling settings string in SaveSettings: %s", err.Error())
+		wailsruntime.LogErrorf(a.ctx, "Error unmarshalling settings string in SaveSettings: %s", err.Error())
 		return err
 	}
-	runtime.LogInfof(a.ctx, "Config struct after unmarshalling in SaveSettings: %+v", config)
+	wailsruntime.LogInfof(a.ctx, "Config struct after unmarshalling in SaveSettings: %+v", config)
 
 	if a.config.ModelArgs == nil {
 		a.config.ModelArgs = make(map[string]string)
@@ -201,11 +201,11 @@ func (a *App) SaveSettings(settings string) error {
 		}
 	}
 	a.config = config
-	runtime.LogInfof(a.ctx, "a.config state before saving to file: %+v", a.config)
+	wailsruntime.LogInfof(a.ctx, "a.config state before saving to file: %+v", a.config)
 
 	file, err := os.Create("config.json")
 	if err != nil {
-		runtime.LogErrorf(a.ctx, "Error creating config.json file: %s", err.Error())
+		wailsruntime.LogErrorf(a.ctx, "Error creating config.json file: %s", err.Error())
 		return err
 	}
 	defer file.Close()
@@ -213,10 +213,10 @@ func (a *App) SaveSettings(settings string) error {
 	encoder.SetIndent("", "  ")
 	encodeErr := encoder.Encode(a.config)
 	if encodeErr != nil {
-		runtime.LogErrorf(a.ctx, "Error encoding config to JSON file: %s", encodeErr.Error())
+		wailsruntime.LogErrorf(a.ctx, "Error encoding config to JSON file: %s", encodeErr.Error())
 		return encodeErr
 	}
-	runtime.LogInfo(a.ctx, "Config saved to config.json successfully.")
+	wailsruntime.LogInfo(a.ctx, "Config saved to config.json successfully.")
 	return nil
 }
 
@@ -225,47 +225,47 @@ func (a *App) LoadSettings() (string, error) {
 	file, err := os.Open("config.json")
 	if err != nil {
 		if os.IsNotExist(err) {
-			runtime.LogInfo(a.ctx, "config.json does not exist. Initializing with default config.")
+			wailsruntime.LogInfo(a.ctx, "config.json does not exist. Initializing with default config.")
 			a.config = Config{}
 			a.config.Theme = "default"
 			saveErr := a.SaveSettings(`{"theme":"default"}`)
 			if saveErr != nil {
-				runtime.LogErrorf(a.ctx, "Error saving default config.json: %s", saveErr.Error())
+				wailsruntime.LogErrorf(a.ctx, "Error saving default config.json: %s", saveErr.Error())
 				return "", saveErr
 			}
 			return `{"theme":"default"}`, nil
 		}
-		runtime.LogErrorf(a.ctx, "Error opening config.json: %s", err.Error())
+		wailsruntime.LogErrorf(a.ctx, "Error opening config.json: %s", err.Error())
 		return "", err
 	}
 	defer file.Close()
 
 	fileContentBytes, readErr := os.ReadFile("config.json")
 	if readErr != nil {
-		runtime.LogErrorf(a.ctx, "Error reading content from config.json: %s", readErr.Error())
+		wailsruntime.LogErrorf(a.ctx, "Error reading content from config.json: %s", readErr.Error())
 		return "", readErr
 	}
 	fileContent := string(fileContentBytes)
-	runtime.LogInfof(a.ctx, "Content read from config.json: %s", fileContent)
+	wailsruntime.LogInfof(a.ctx, "Content read from config.json: %s", fileContent)
 
 	decoder := json.NewDecoder(strings.NewReader(fileContent))
 	err = decoder.Decode(&a.config)
 	if err != nil {
-		runtime.LogErrorf(a.ctx, "Error decoding config.json content into Config struct: %s", err.Error())
+		wailsruntime.LogErrorf(a.ctx, "Error decoding config.json content into Config struct: %s", err.Error())
 		return "", err
 	}
 	if a.config.Theme == "" {
 		a.config.Theme = "default"
-		runtime.LogInfo(a.ctx, "Theme was empty, defaulted to 'default'.")
+		wailsruntime.LogInfo(a.ctx, "Theme was empty, defaulted to 'default'.")
 	}
-	runtime.LogInfof(a.ctx, "a.config state after loading and decoding: %+v", a.config)
+	wailsruntime.LogInfof(a.ctx, "a.config state after loading and decoding: %+v", a.config)
 
 	configBytes, err := json.Marshal(a.config)
 	if err != nil {
-		runtime.LogErrorf(a.ctx, "Error marshalling a.config to JSON string for frontend: %s", err.Error())
+		wailsruntime.LogErrorf(a.ctx, "Error marshalling a.config to JSON string for frontend: %s", err.Error())
 		return "", err
 	}
-	runtime.LogInfof(a.ctx, "Returning config JSON string to frontend: %s", string(configBytes))
+	wailsruntime.LogInfof(a.ctx, "Returning config JSON string to frontend: %s", string(configBytes))
 	return string(configBytes), nil
 }
 
@@ -278,7 +278,7 @@ func (a *App) GetModels() ([]string, error) {
 	}
 	err := filepath.Walk(modelsDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			runtime.LogErrorf(a.ctx, "Error accessing path %s: %v", path, err)
+			wailsruntime.LogErrorf(a.ctx, "Error accessing path %s: %v", path, err)
 			return nil
 		}
 		if !info.IsDir() && (strings.HasSuffix(info.Name(), ".gguf") || strings.HasSuffix(info.Name(), ".GGUF")) {
@@ -340,21 +340,21 @@ func (a *App) GetMcpServers() (string, error) {
 	file, err := os.Open("mcp.json")
 	if err != nil {
 		if os.IsNotExist(err) {
-			runtime.LogInfo(a.ctx, "mcp.json does not exist. Returning empty server list.")
+			wailsruntime.LogInfo(a.ctx, "mcp.json does not exist. Returning empty server list.")
 			return "{}", nil
 		}
-		runtime.LogErrorf(a.ctx, "Error opening mcp.json: %s", err.Error())
+		wailsruntime.LogErrorf(a.ctx, "Error opening mcp.json: %s", err.Error())
 		return "", err
 	}
 	defer file.Close()
 
 	fileContentBytes, readErr := os.ReadFile("mcp.json")
 	if readErr != nil {
-		runtime.LogErrorf(a.ctx, "Error reading content from mcp.json: %s", readErr.Error())
+		wailsruntime.LogErrorf(a.ctx, "Error reading content from mcp.json: %s", readErr.Error())
 		return "", readErr
 	}
 	fileContent := string(fileContentBytes)
-	runtime.LogInfof(a.ctx, "Content read from mcp.json: %s", fileContent)
+	wailsruntime.LogInfof(a.ctx, "Content read from mcp.json: %s", fileContent)
 
 	return fileContent, nil
 }
@@ -381,9 +381,9 @@ func (a *App) GetPrompt(promptName string) (string, error) {
 // LaunchLLM launches the LLM server in the background.
 func (a *App) LaunchLLM(command string) (string, error) {
 	if a.llmCmd != nil && a.llmCmd.Process != nil {
-		runtime.LogInfo(a.ctx, "Terminating existing LLM server process...")
+		wailsruntime.LogInfo(a.ctx, "Terminating existing LLM server process...")
 		if err := a.llmCmd.Process.Kill(); err != nil {
-			runtime.LogErrorf(a.ctx, "Failed to terminate existing LLM server: %v", err)
+			wailsruntime.LogErrorf(a.ctx, "Failed to terminate existing LLM server: %v", err)
 		}
 	}
 	cmdParts := strings.Fields(command)
@@ -393,13 +393,16 @@ func (a *App) LaunchLLM(command string) (string, error) {
 	cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+
+	setHideWindow(cmd)
+
 	if err := cmd.Start(); err != nil {
 		return "", fmt.Errorf("failed to start LLM server: %w", err)
 	}
 	a.llmCmd = cmd
 	go func() {
 		if err := cmd.Wait(); err != nil {
-			runtime.LogErrorf(a.ctx, "LLM server exited with error: %v", err)
+			wailsruntime.LogErrorf(a.ctx, "LLM server exited with error: %v", err)
 		}
 		a.llmCmd = nil
 	}()
@@ -427,11 +430,11 @@ func (a *App) HealthCheck() (string, error) {
 // ShutdownLLM attempts to gracefully shut down the LLM server.
 func (a *App) ShutdownLLM() error {
 	if a.llmCmd != nil && a.llmCmd.Process != nil {
-		runtime.LogInfo(a.ctx, "Attempting to shut down LLM server...")
+		wailsruntime.LogInfo(a.ctx, "Attempting to shut down LLM server...")
 		if err := a.llmCmd.Process.Signal(os.Interrupt); err != nil {
-			runtime.LogErrorf(a.ctx, "Failed to send SIGTERM to LLM server: %v. Attempting to kill.", err)
+			wailsruntime.LogErrorf(a.ctx, "Failed to send SIGTERM to LLM server: %v. Attempting to kill.", err)
 			if err := a.llmCmd.Process.Kill(); err != nil {
-				runtime.LogErrorf(a.ctx, "Failed to kill LLM server: %v", err)
+				wailsruntime.LogErrorf(a.ctx, "Failed to kill LLM server: %v", err)
 				return err
 			}
 		}
@@ -499,18 +502,18 @@ type ChatCompletionRequest struct {
 func (a *App) LoadChatHistory(sessionId int64) ([]ChatMessage, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	runtime.LogInfof(a.ctx, "Loading chat history for session %d", sessionId)
+	wailsruntime.LogInfof(a.ctx, "Loading chat history for session %d", sessionId)
 
 	history, err := a.db.GetChatMessages(sessionId)
 	if err != nil {
-		runtime.LogErrorf(a.ctx, "Error getting chat messages from db: %s", err.Error())
+		wailsruntime.LogErrorf(a.ctx, "Error getting chat messages from db: %s", err.Error())
 		return nil, err
 	}
-	runtime.LogInfof(a.ctx, "Loaded %d messages from db for session %d. Content: %+v", len(history), sessionId, history)
+	wailsruntime.LogInfof(a.ctx, "Loaded %d messages from db for session %d. Content: %+v", len(history), sessionId, history)
 
 	session, err := a.db.GetChatSession(sessionId)
 	if err != nil {
-		runtime.LogErrorf(a.ctx, "Error getting chat session from db: %s", err.Error())
+		wailsruntime.LogErrorf(a.ctx, "Error getting chat session from db: %s", err.Error())
 		return nil, err
 	}
 
@@ -525,7 +528,7 @@ func (a *App) LoadChatHistory(sessionId int64) ([]ChatMessage, error) {
 	conv.messages = history
 	conv.systemPrompt = session.SystemPrompt
 	conv.mu.Unlock()
-	runtime.LogInfof(a.ctx, "Updated conversation in memory for session %d. System Prompt: '%s'", sessionId, conv.systemPrompt)
+	wailsruntime.LogInfof(a.ctx, "Updated conversation in memory for session %d. System Prompt: '%s'", sessionId, conv.systemPrompt)
 
 	if history == nil {
 		return []ChatMessage{}, nil
@@ -538,7 +541,7 @@ func (a *App) LoadChatHistory(sessionId int64) ([]ChatMessage, error) {
 func (a *App) HandleChat(sessionId int64, message string) {
 	conv, ok := a.getConversation(sessionId)
 	if !ok {
-		runtime.LogErrorf(a.ctx, "Conversation with ID %d not found.", sessionId)
+		wailsruntime.LogErrorf(a.ctx, "Conversation with ID %d not found.", sessionId)
 		return
 	}
 	conv.mu.Lock()
@@ -547,7 +550,7 @@ func (a *App) HandleChat(sessionId int64, message string) {
 	userMessage := ChatMessage{Role: "user", Content: message}
 
 	var messagesForLLM []ChatMessage
-	runtime.LogInfof(a.ctx, "HandleChat: System Prompt for session %d: '%s'", sessionId, conv.systemPrompt)
+	wailsruntime.LogInfof(a.ctx, "HandleChat: System Prompt for session %d: '%s'", sessionId, conv.systemPrompt)
 	if conv.systemPrompt != "" {
 		messagesForLLM = append(messagesForLLM, ChatMessage{Role: "system", Content: conv.systemPrompt})
 	}
@@ -556,27 +559,27 @@ func (a *App) HandleChat(sessionId int64, message string) {
 
 	messagesJson, err := json.Marshal(messagesForLLM)
 	if err != nil {
-		runtime.LogErrorf(a.ctx, "HandleChat: Error marshalling messagesForLLM for logging: %v", err)
+		wailsruntime.LogErrorf(a.ctx, "HandleChat: Error marshalling messagesForLLM for logging: %v", err)
 	} else {
-		runtime.LogInfof(a.ctx, "HandleChat: Full message payload to LLM for session %d: %s", sessionId, string(messagesJson))
+		wailsruntime.LogInfof(a.ctx, "HandleChat: Full message payload to LLM for session %d: %s", sessionId, string(messagesJson))
 	}
 
 	conv.messages = append(conv.messages, userMessage)
 	if err := a.db.SaveChatMessage(sessionId, "user", message); err != nil {
-		runtime.LogErrorf(a.ctx, "Error saving user message: %s", err.Error())
+		wailsruntime.LogErrorf(a.ctx, "Error saving user message: %s", err.Error())
 		return
 	}
 
 	reqBody := ChatCompletionRequest{Messages: messagesForLLM, Stream: true, NPredict: -1}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
-		runtime.LogErrorf(a.ctx, "Error marshalling request body: %s", err.Error())
+		wailsruntime.LogErrorf(a.ctx, "Error marshalling request body: %s", err.Error())
 		return
 	}
 
 	resp, err := http.Post("http://localhost:8080/v1/chat/completions", "application/json", strings.NewReader(string(jsonBody)))
 	if err != nil {
-		runtime.LogErrorf(a.ctx, "Error making POST request to LLM: %s", err.Error())
+		wailsruntime.LogErrorf(a.ctx, "Error making POST request to LLM: %s", err.Error())
 		return
 	}
 	conv.httpResp = resp
@@ -599,8 +602,8 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 
 	conv, ok := a.getConversation(sessionID)
 	if !ok {
-		runtime.LogErrorf(a.ctx, "Conversation with ID %d not found.", sessionID)
-		runtime.EventsEmit(a.ctx, "chat-stream", nil)
+		wailsruntime.LogErrorf(a.ctx, "Conversation with ID %d not found.", sessionID)
+		wailsruntime.EventsEmit(a.ctx, "chat-stream", nil)
 		return
 	}
 
@@ -615,14 +618,14 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 	defer ticker.Stop()
 
 	go func() {
-		defer runtime.LogDebugf(a.ctx, "Batch sender goroutine for session %d exited.", sessionID)
+		defer wailsruntime.LogDebugf(a.ctx, "Batch sender goroutine for session %d exited.", sessionID)
 		for range ticker.C {
 			mu.Lock()
 			if currentChunkBuffer.Len() > 0 {
 				chunkToSend := currentChunkBuffer.String()
 				currentChunkBuffer.Reset()
 				mu.Unlock()
-				runtime.EventsEmit(a.ctx, "chat-stream", chunkToSend)
+				wailsruntime.EventsEmit(a.ctx, "chat-stream", chunkToSend)
 			} else {
 				mu.Unlock()
 			}
@@ -639,7 +642,7 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 
 			var chunk ChatCompletionChunk
 			if err := json.Unmarshal([]byte(data), &chunk); err != nil {
-				runtime.LogErrorf(a.ctx, "Error unmarshalling stream data: %s", err.Error())
+				wailsruntime.LogErrorf(a.ctx, "Error unmarshalling stream data: %s", err.Error())
 				continue
 			}
 
@@ -654,7 +657,7 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 					chunkToSend := currentChunkBuffer.String()
 					currentChunkBuffer.Reset()
 					mu.Unlock()
-					runtime.EventsEmit(a.ctx, "chat-stream", chunkToSend)
+					wailsruntime.EventsEmit(a.ctx, "chat-stream", chunkToSend)
 				} else {
 					mu.Unlock()
 				}
@@ -663,12 +666,12 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		runtime.LogErrorf(a.ctx, "Error reading stream for session %d: %s", sessionID, err)
+		wailsruntime.LogErrorf(a.ctx, "Error reading stream for session %d: %s", sessionID, err)
 	}
 
 	mu.Lock()
 	if currentChunkBuffer.Len() > 0 {
-		runtime.EventsEmit(a.ctx, "chat-stream", currentChunkBuffer.String())
+		wailsruntime.EventsEmit(a.ctx, "chat-stream", currentChunkBuffer.String())
 	}
 	mu.Unlock()
 
@@ -678,17 +681,17 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 	assistantMessage := ChatMessage{Role: "assistant", Content: fullResponseBuilder.String()}
 	conv.messages = append(conv.messages, assistantMessage)
 	if err := a.db.SaveChatMessage(sessionID, "assistant", fullResponseBuilder.String()); err != nil {
-		runtime.LogErrorf(a.ctx, "Error saving assistant message: %s", err.Error())
+		wailsruntime.LogErrorf(a.ctx, "Error saving assistant message: %s", err.Error())
 	}
 
-	runtime.EventsEmit(a.ctx, "chat-stream", nil)
+	wailsruntime.EventsEmit(a.ctx, "chat-stream", nil)
 }
 
 // StopStream stops the current chat stream.
 func (a *App) StopStream(sessionID int64) {
 	conv, ok := a.getConversation(sessionID)
 	if !ok {
-		runtime.LogErrorf(a.ctx, "Conversation with ID %d not found.", sessionID)
+		wailsruntime.LogErrorf(a.ctx, "Conversation with ID %d not found.", sessionID)
 		return
 	}
 	conv.mu.Lock()

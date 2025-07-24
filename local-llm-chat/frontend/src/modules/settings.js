@@ -7,9 +7,8 @@ import {
 } from '../../wailsjs/go/main/App';
 import Fuse from 'fuse.js';
 import * as runtime from '../../wailsjs/runtime'; // Import runtime for logging
-import {
-    applyTheme
-} from '../app'; // Import applyTheme from app.js
+import { getModelName } from './path-utils.js';
+import { applyTheme } from '../app'; // Import applyTheme from app.js
 
 
 export let fuse;
@@ -50,7 +49,7 @@ export async function populateModelList(models) {
     const chatModelSelectList = document.getElementById('chatModelSelectList');
     chatModelSelectList.innerHTML = '';
     models.forEach(model => {
-        const modelName = model.split('/').pop();
+        const modelName = getModelName(model);
         const option = document.createElement('div');
         option.textContent = modelName;
         option.setAttribute('data-path', model);
@@ -147,7 +146,7 @@ export async function loadSettingsAndApplyTheme() {
                 // Set the hidden input with the full path
                 selectedModelPathHidden.value = currentSettings.selected_model;
                 // Set the display input with just the model name (last part of the path)
-                chatModelSelectInput.value = currentSettings.selected_model.split('/').pop();
+                chatModelSelectInput.value = getModelName(currentSettings.selected_model);
                 runtime.LogInfo(`DEBUG: settings.js: Selected Model UI set to: ${chatModelSelectInput.value} (Path: ${selectedModelPathHidden.value})`);
             } else {
                 chatModelSelectInput.value = 'Select Model...';
@@ -186,7 +185,7 @@ export async function loadSettingsAndApplyTheme() {
                 runtime.LogInfo("DEBUG: settings.js: Models received from Go for fuzzy search:", models);
                 populateModelList(models); // Populate the custom dropdown
                 initFuzzySearch(models.map(p => ({
-                    name: p.split('/').pop(),
+                    name: getModelName(p),
                     path: p
                 })));
             } catch (error) {

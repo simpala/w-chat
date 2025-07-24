@@ -39,6 +39,7 @@ import {
     EventsOn
 } from '../wailsjs/runtime';
 import * as runtime from '../wailsjs/runtime';
+import { getModelName } from './modules/path-utils.js';
 
 // Define currentSettings globally
 let currentSettings = {};
@@ -234,7 +235,7 @@ async function loadSettingsAndApplyTheme() {
         document.getElementById('llamaPathInput').value = currentSettings.llama_cpp_dir || '';
         document.getElementById('modelPathInput').value = currentSettings.models_dir || '';
         document.getElementById('selectedModelPath').value = currentSettings.selected_model || '';
-        document.getElementById('chatModelSelectInput').value = currentSettings.selected_model ? currentSettings.selected_model.split('/').pop() : 'Select Model...';
+        document.getElementById('chatModelSelectInput').value = currentSettings.selected_model ? getModelName(currentSettings.selected_model) : 'Select Model...';
 
         // More robust handling for ModelArgs - Use snake_case
         const modelArgsInput = document.getElementById('chatModelArgs');
@@ -255,7 +256,7 @@ async function loadSettingsAndApplyTheme() {
 
         // Update model list for fuzzy search
         const models = await window.go.main.App.GetModels(); // Assuming GetModels exists
-        initFuzzySearch(models.map(p => ({ name: p.split('/').pop(), path: p })));
+        initFuzzySearch(models.map(p => ({ name: getModelName(p), path: p })));
         console.log("DEBUG: Frontend: Models loaded for fuzzy search.");
 
     } catch (error) {
@@ -536,6 +537,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     chatSessionList.appendChild(sessionButton);
                 });
             }
+            updateChatInputState();
         });
     }
 
@@ -575,6 +577,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loadArtifactsForCurrentSession(); // <--- NEW: Load artifacts even if chat history fails
         });
         updateActiveSessionButton();
+        updateChatInputState();
     }
 
     function updateActiveSessionButton() {
@@ -586,6 +589,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 button.classList.remove('active');
             }
         });
+        updateChatInputState();
+    }
+
+    function updateChatInputState() {
+        if (currentSessionId === null) {
+            messageInput.disabled = true;
+            messageInput.placeholder = 'Please select a chat session.';
+        } else {
+            messageInput.disabled = false;
+            messageInput.placeholder = 'Type your message...';
+        }
     }
 
     async function handleSendMessage() { // Made async to await IsLLMLoaded
@@ -638,6 +652,13 @@ document.addEventListener('DOMContentLoaded', () => {
     sendButton.addEventListener('click', (e) => {
         e.preventDefault();
         handleSendMessage();
+    });
+
+    messageInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.shiftKey) {
+            e.preventDefault();
+            handleSendMessage();
+        }
     });
 
     stopButton.addEventListener('click', (e) => {
@@ -782,6 +803,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     setupArtifactEventListeners(); // <--- NEW: Setup artifact event listeners on DOMContentLoaded
+    updateChatInputState();
 
     const settingsToggleButton = document.getElementById('settingsToggleButton');
     const mcpManagerButton = document.getElementById('mcpManagerButton');
