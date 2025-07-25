@@ -1,8 +1,15 @@
 //go:build !windows
+
 package main
 
-import "os/exec"
+import (
+	"os/exec"
+	"syscall"
+)
 
 func setHideWindow(cmd *exec.Cmd) {
-	// No-op for non-Windows systems
+	if cmd.SysProcAttr == nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+	}
+	cmd.SysProcAttr.Setpgid = true
 }
