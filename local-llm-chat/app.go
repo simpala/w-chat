@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -431,8 +432,11 @@ func (a *App) HealthCheck() (string, error) {
 func (a *App) ShutdownLLM() error {
 	if a.llmCmd != nil && a.llmCmd.Process != nil {
 		wailsruntime.LogInfo(a.ctx, "Attempting to shut down LLM server...")
-		if err := a.llmCmd.Process.Signal(os.Interrupt); err != nil {
-			wailsruntime.LogErrorf(a.ctx, "Failed to send SIGTERM to LLM server: %v. Attempting to kill.", err)
+		// On non-windows system we can kill the whole process group by sending a signal to -PID
+		pid := a.llmCmd.Process.Pid
+		wailsruntime.LogInfof(a.ctx, "LLM server PID: %d", pid)
+		if err := syscall.Kill(-pid, syscall.SIGTERM); err != nil {
+			wailsruntime.LogErrorf(a.ctx, "Failed to send SIGTERM to LLM server process group: %v. Attempting to kill.", err)
 			if err := a.llmCmd.Process.Kill(); err != nil {
 				wailsruntime.LogErrorf(a.ctx, "Failed to kill LLM server: %v", err)
 				return err
