@@ -139,6 +139,12 @@ func (d *Database) SaveChatMessage(sessionID int64, sender, message string) erro
 	return err
 }
 
+// ChatMessage struct for database interaction.
+type ChatMessage struct {
+	Role    string
+	Content string
+}
+
 // GetChatMessages retrieves all chat messages for a given session, ordered by creation time.
 func (d *Database) GetChatMessages(sessionID int64) ([]ChatMessage, error) {
 	rows, err := d.db.Query("SELECT sender, message FROM chat_messages WHERE session_id = ? ORDER BY created_at ASC", sessionID)

@@ -1,10 +1,11 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -15,11 +16,11 @@ import (
 	"syscall"
 	"time"
 
+	openai "github.com/sashabaranov/go-openai"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"local-llm-chat/artifacts"
 	"local-llm-chat/mcpclient"
-	// "local-llm-chat/mcpclient"
 )
 
 // App struct
@@ -46,9 +47,9 @@ type Config struct {
 
 // Conversation struct to hold the state of a single chat session
 type Conversation struct {
-	messages     []ChatMessage
+	messages     []openai.ChatCompletionMessage
 	systemPrompt string
-	httpResp     *http.Response
+	stream       *openai.ChatCompletionStream
 	mu           sync.Mutex
 }
 
@@ -124,7 +125,7 @@ func (a *App) NewChat(systemPrompt string) (int64, error) {
 		return 0, err
 	}
 	a.conversations[id] = &Conversation{
-		messages:     make([]ChatMessage, 0),
+		messages:     make([]openai.ChatCompletionMessage, 0),
 		systemPrompt: systemPrompt,
 	}
 	wailsruntime.LogInfof(a.ctx, "New chat session %d created with system prompt: '%s'", id, systemPrompt)
@@ -489,21 +490,8 @@ func (a *App) DisconnectMcpClient(serverName string) {
 	}
 }
 
-// ChatMessage struct for API communication.
-type ChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-// ChatCompletionRequest struct for API communication.
-type ChatCompletionRequest struct {
-	Messages []ChatMessage `json:"messages"`
-	Stream   bool          `json:"stream"`
-	NPredict int           `json:"N_precdict,omitempty"` // This will send as "max_tokens" in JSON
-}
-
 // LoadChatHistory loads the chat history for a given session into memory.
-func (a *App) LoadChatHistory(sessionId int64) ([]ChatMessage, error) {
+func (a *App) LoadChatHistory(sessionId int64) ([]openai.ChatCompletionMessage, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	wailsruntime.LogInfof(a.ctx, "Loading chat history for session %d", sessionId)
@@ -524,21 +512,38 @@ func (a *App) LoadChatHistory(sessionId int64) ([]ChatMessage, error) {
 	conv, ok := a.conversations[sessionId]
 	if !ok {
 		conv = &Conversation{
-			messages: make([]ChatMessage, 0),
+			messages: make([]openai.ChatCompletionMessage, 0),
 		}
 		a.conversations[sessionId] = conv
 	}
 	conv.mu.Lock()
-	conv.messages = history
+
+	conv.messages = make([]openai.ChatCompletionMessage, len(history))
+	for i, msg := range history {
+		conv.messages[i] = openai.ChatCompletionMessage{
+			Role:    msg.Role,
+			Content: msg.Content,
+		}
+	}
+
 	conv.systemPrompt = session.SystemPrompt
 	conv.mu.Unlock()
 	wailsruntime.LogInfof(a.ctx, "Updated conversation in memory for session %d. System Prompt: '%s'", sessionId, conv.systemPrompt)
 
 	if history == nil {
-		return []ChatMessage{}, nil
+		return []openai.ChatCompletionMessage{}, nil
 	}
 
-	return history, nil
+	// Convert history to []openai.ChatCompletionMessage before returning
+	var chatHistory []openai.ChatCompletionMessage
+	for _, msg := range history {
+		chatHistory = append(chatHistory, openai.ChatCompletionMessage{
+			Role:    msg.Role,
+			Content: msg.Content,
+		})
+	}
+
+	return chatHistory, nil
 }
 
 // HandleChat is the main entry point for handling a user's message.
@@ -551,12 +556,12 @@ func (a *App) HandleChat(sessionId int64, message string) {
 	conv.mu.Lock()
 	defer conv.mu.Unlock()
 
-	userMessage := ChatMessage{Role: "user", Content: message}
+	userMessage := openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: message}
 
-	var messagesForLLM []ChatMessage
+	var messagesForLLM []openai.ChatCompletionMessage
 	wailsruntime.LogInfof(a.ctx, "HandleChat: System Prompt for session %d: '%s'", sessionId, conv.systemPrompt)
 	if conv.systemPrompt != "" {
-		messagesForLLM = append(messagesForLLM, ChatMessage{Role: "system", Content: conv.systemPrompt})
+		messagesForLLM = append(messagesForLLM, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleSystem, Content: conv.systemPrompt})
 	}
 	messagesForLLM = append(messagesForLLM, conv.messages...)
 	messagesForLLM = append(messagesForLLM, userMessage)
@@ -574,35 +579,29 @@ func (a *App) HandleChat(sessionId int64, message string) {
 		return
 	}
 
-	reqBody := ChatCompletionRequest{Messages: messagesForLLM, Stream: true, NPredict: -1}
-	jsonBody, err := json.Marshal(reqBody)
-	if err != nil {
-		wailsruntime.LogErrorf(a.ctx, "Error marshalling request body: %s", err.Error())
-		return
+	config := openai.DefaultConfig("")
+	config.BaseURL = "http://localhost:8080/v1"
+	client := openai.NewClientWithConfig(config)
+
+	req := openai.ChatCompletionRequest{
+		Model:     "LLaMA_CPP",
+		MaxTokens: 2048,
+		Messages:  messagesForLLM,
+		Stream:    true,
 	}
 
-	resp, err := http.Post("http://localhost:8080/v1/chat/completions", "application/json", strings.NewReader(string(jsonBody)))
+	stream, err := client.CreateChatCompletionStream(a.ctx, req)
 	if err != nil {
-		wailsruntime.LogErrorf(a.ctx, "Error making POST request to LLM: %s", err.Error())
+		wailsruntime.LogErrorf(a.ctx, "ChatCompletionStream error: %v\n", err)
 		return
 	}
-	conv.httpResp = resp
+	conv.stream = stream
 
-	go a.streamHandler(sessionId, resp)
+	go a.streamHandler(sessionId, stream)
 }
 
-// ChatCompletionChunk models a chunk from the LLM stream.
-type ChatCompletionChunk struct {
-	Choices []struct {
-		Delta struct {
-			Content string `json:"content"`
-		} `json:"delta"`
-	} `json:"choices"`
-}
-
-func (a *App) streamHandler(sessionID int64, resp *http.Response) {
-	defer resp.Body.Close()
-	scanner := bufio.NewScanner(resp.Body)
+func (a *App) streamHandler(sessionID int64, stream *openai.ChatCompletionStream) {
+	defer stream.Close()
 
 	conv, ok := a.getConversation(sessionID)
 	if !ok {
@@ -636,41 +635,31 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 		}
 	}()
 
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "data: ") {
-			data := strings.TrimPrefix(line, "data: ")
-			if data == "[DONE]" {
-				break
-			}
-
-			var chunk ChatCompletionChunk
-			if err := json.Unmarshal([]byte(data), &chunk); err != nil {
-				wailsruntime.LogErrorf(a.ctx, "Error unmarshalling stream data: %s", err.Error())
-				continue
-			}
-
-			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
-				content := chunk.Choices[0].Delta.Content
-
-				mu.Lock()
-				currentChunkBuffer.WriteString(content)
-				fullResponseBuilder.WriteString(content)
-
-				if currentChunkBuffer.Len() >= maxBatchChars {
-					chunkToSend := currentChunkBuffer.String()
-					currentChunkBuffer.Reset()
-					mu.Unlock()
-					wailsruntime.EventsEmit(a.ctx, "chat-stream", chunkToSend)
-				} else {
-					mu.Unlock()
-				}
-			}
+	for {
+		response, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			wailsruntime.LogInfof(a.ctx, "\nStream finished for session %d", sessionID)
+			break
 		}
-	}
 
-	if err := scanner.Err(); err != nil {
-		wailsruntime.LogErrorf(a.ctx, "Error reading stream for session %d: %s", sessionID, err)
+		if err != nil {
+			wailsruntime.LogErrorf(a.ctx, "\nStream error for session %d: %v\n", sessionID, err)
+			break
+		}
+
+		content := response.Choices[0].Delta.Content
+		mu.Lock()
+		currentChunkBuffer.WriteString(content)
+		fullResponseBuilder.WriteString(content)
+
+		if currentChunkBuffer.Len() >= maxBatchChars {
+			chunkToSend := currentChunkBuffer.String()
+			currentChunkBuffer.Reset()
+			mu.Unlock()
+			wailsruntime.EventsEmit(a.ctx, "chat-stream", chunkToSend)
+		} else {
+			mu.Unlock()
+		}
 	}
 
 	mu.Lock()
@@ -682,7 +671,7 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 	conv.mu.Lock()
 	defer conv.mu.Unlock()
 
-	assistantMessage := ChatMessage{Role: "assistant", Content: fullResponseBuilder.String()}
+	assistantMessage := openai.ChatCompletionMessage{Role: "assistant", Content: fullResponseBuilder.String()}
 	conv.messages = append(conv.messages, assistantMessage)
 	if err := a.db.SaveChatMessage(sessionID, "assistant", fullResponseBuilder.String()); err != nil {
 		wailsruntime.LogErrorf(a.ctx, "Error saving assistant message: %s", err.Error())
@@ -700,8 +689,8 @@ func (a *App) StopStream(sessionID int64) {
 	}
 	conv.mu.Lock()
 	defer conv.mu.Unlock()
-	if conv.httpResp != nil && conv.httpResp.Body != nil {
-		conv.httpResp.Body.Close()
+	if conv.stream != nil {
+		conv.stream.Close()
 	}
 }
 
