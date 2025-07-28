@@ -303,6 +303,14 @@ document.addEventListener('DOMContentLoaded', () => {
     mermaid.initialize({ startOnLoad: true });
 
     if (typeof marked !== 'undefined') {
+        const renderer = new marked.Renderer();
+        renderer.code = (code, language) => {
+            if (language === 'mermaid') {
+                return `<div class="mermaid">${code}</div>`;
+            }
+            return `<pre><code>${code}</code></pre>`;
+        };
+        marked.setOptions({ renderer });
         console.log("DEBUG: 'marked' is defined and loaded.");
         runtime.LogInfo("DEBUG: 'marked' is defined and loaded.");
     } else {
