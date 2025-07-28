@@ -300,6 +300,8 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("DEBUG: DOMContentLoaded event fired.");
     runtime.LogInfo("DEBUG: Frontend DOMContentLoaded event fired, attempting to log via Go runtime.");
 
+    mermaid.initialize({ startOnLoad: true });
+
     if (typeof marked !== 'undefined') {
         console.log("DEBUG: 'marked' is defined and loaded.");
         runtime.LogInfo("DEBUG: 'marked' is defined and loaded.");
@@ -505,6 +507,9 @@ document.addEventListener('DOMContentLoaded', () => {
         chatWindow.appendChild(messageElement);
         if (sender === 'assistant') {
             addCopyButtonsToCodeBlocks(messageElement);
+            mermaid.run({
+                nodes: messageElement.querySelectorAll('.mermaid')
+            });
         }
         chatWindow.scrollTop = chatWindow.scrollHeight;
         return messageElement;
@@ -749,6 +754,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             console.warn("highlight.js not available, code blocks will not be highlighted.");
         }
+
+        mermaid.run({
+            nodes: lastMessageBubble.querySelectorAll('.mermaid')
+        });
 
         scrollToBottom();
     }
