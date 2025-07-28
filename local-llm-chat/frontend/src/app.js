@@ -300,7 +300,22 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("DEBUG: DOMContentLoaded event fired.");
     runtime.LogInfo("DEBUG: Frontend DOMContentLoaded event fired, attempting to log via Go runtime.");
 
+    mermaid.initialize({ startOnLoad: true });
+
     if (typeof marked !== 'undefined') {
+        const renderer = new marked.Renderer();
+        renderer.code = (code, language) => {
+            if (language === 'mermaid') {
+                return `
+                    <div class="mermaid-container">
+                        <div class="mermaid">${code}</div>
+                        <button class="copy-code-button">Copy</button>
+                    </div>
+                `;
+            }
+            return `<pre><code>${code}</code></pre>`;
+        };
+        marked.setOptions({ renderer });
         console.log("DEBUG: 'marked' is defined and loaded.");
         runtime.LogInfo("DEBUG: 'marked' is defined and loaded.");
     } else {
@@ -505,6 +520,9 @@ document.addEventListener('DOMContentLoaded', () => {
         chatWindow.appendChild(messageElement);
         if (sender === 'assistant') {
             addCopyButtonsToCodeBlocks(messageElement);
+            mermaid.run({
+                nodes: messageElement.querySelectorAll('.mermaid')
+            });
         }
         chatWindow.scrollTop = chatWindow.scrollHeight;
         return messageElement;
@@ -750,6 +768,10 @@ document.addEventListener('DOMContentLoaded', () => {
             console.warn("highlight.js not available, code blocks will not be highlighted.");
         }
 
+        mermaid.run({
+            nodes: lastMessageBubble.querySelectorAll('.mermaid')
+        });
+
         scrollToBottom();
     }
 
@@ -772,6 +794,18 @@ document.addEventListener('DOMContentLoaded', () => {
             copyButton.addEventListener('click', () => {
                 const codeToCopy = preElement.textContent;
                 runtime.ClipboardSetText(codeToCopy).then(() => {
+                    copyButton.textContent = 'Copied!';
+                    setTimeout(() => {
+                        copyButton.textContent = 'Copy';
+                    }, 2000);
+                });
+            });
+        });
+
+        container.querySelectorAll('.mermaid-container .copy-code-button').forEach(copyButton => {
+            copyButton.addEventListener('click', () => {
+                const mermaidCode = copyButton.previousElementSibling.textContent;
+                runtime.ClipboardSetText(mermaidCode).then(() => {
                     copyButton.textContent = 'Copied!';
                     setTimeout(() => {
                         copyButton.textContent = 'Copy';
