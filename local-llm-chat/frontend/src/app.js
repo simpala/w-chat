@@ -306,7 +306,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const renderer = new marked.Renderer();
         renderer.code = (code, language) => {
             if (language === 'mermaid') {
-                return `<div class="mermaid">${code}</div>`;
+                return `
+                    <div class="mermaid-container">
+                        <div class="mermaid">${code}</div>
+                        <button class="copy-code-button">Copy</button>
+                    </div>
+                `;
             }
             return `<pre><code>${code}</code></pre>`;
         };
@@ -789,6 +794,18 @@ document.addEventListener('DOMContentLoaded', () => {
             copyButton.addEventListener('click', () => {
                 const codeToCopy = preElement.textContent;
                 runtime.ClipboardSetText(codeToCopy).then(() => {
+                    copyButton.textContent = 'Copied!';
+                    setTimeout(() => {
+                        copyButton.textContent = 'Copy';
+                    }, 2000);
+                });
+            });
+        });
+
+        container.querySelectorAll('.mermaid-container .copy-code-button').forEach(copyButton => {
+            copyButton.addEventListener('click', () => {
+                const mermaidCode = copyButton.previousElementSibling.textContent;
+                runtime.ClipboardSetText(mermaidCode).then(() => {
                     copyButton.textContent = 'Copied!';
                     setTimeout(() => {
                         copyButton.textContent = 'Copy';
