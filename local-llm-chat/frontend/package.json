@@ -13,5 +13,8 @@
     "fuse.js": "^7.1.0",
     "svelte-select": "4.4.7",
     "vite": "^3.0.7"
+  },
+  "dependencies": {
+    "mermaid": "^10.9.1"
   }
 }

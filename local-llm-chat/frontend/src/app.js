@@ -1,4 +1,5 @@
 // app.js
+import mermaid from 'mermaid';
 
 console.log("DEBUG: Main app.js file loaded.");
 import {
