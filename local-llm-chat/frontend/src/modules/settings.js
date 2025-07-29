@@ -59,8 +59,9 @@ export async function handleModelSelection(modelName, modelPath) {
         runtime.LogInfo(`DEBUG: settings.js: No args found for ${modelName}, clearing input.`);
     }
 
-    // The settings will be saved manually by the user.
-    runtime.LogInfo("DEBUG: settings.js: Model selection handled.");
+    // Save the change of the selected model
+    await saveAllSettings();
+    runtime.LogInfo("DEBUG: settings.js: Model selection saved.");
 }
 
 

@@ -817,7 +817,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // Event listeners for saving settings (including theme)
-    document.getElementById('saveSettingsButton').addEventListener('click', saveAllSettings);
+    document.getElementById('llamaPathInput').addEventListener('change', saveAllSettings);
+    document.getElementById('modelPathInput').addEventListener('change', saveAllSettings);
+    document.getElementById('chatModelArgs').addEventListener('change', saveAllSettings);
 
     document.getElementById('launchLLMButton').addEventListener('click', launchLLM);
 
