@@ -301,8 +301,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             themeSelectInput.value = themeText;
             selectedThemeValue.value = themeValue; // Update hidden input
-            applyTheme(themeValue); // Apply the theme
-            themeSelectList.classList.add('select-hide'); // Hide dropdown
+            applyTheme(themeValue);
+            themeSelectList.classList.add('select-hide');
         });
     });
 
