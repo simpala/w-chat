@@ -825,7 +825,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('chatModelArgs').addEventListener('change', saveAllSettings);
 
     document.getElementById('launchLLMButton').addEventListener('click', launchLLM);
-    document.getElementById('refreshModelsButton').addEventListener('click', loadSettingsAndApplyTheme);
 
     // initFuzzySearch([]) is no longer needed here as it's handled by loadSettingsAndApplyTheme
 });
