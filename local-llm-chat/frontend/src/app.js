@@ -5,8 +5,10 @@ console.log("DEBUG: Main app.js file loaded.");
 import {
     initFuzzySearch,
     handleModelSelection,
-    fuse
-} from './modules/settings.js'; // Assuming settings.js handles fuzzy search, etc.
+    fuse,
+    saveAllSettings,
+    loadSettingsAndApplyTheme
+} from './modules/settings.js';
 
 import {
     launchLLM
@@ -42,8 +44,6 @@ import {
 import * as runtime from '../wailsjs/runtime';
 import { getModelName } from './modules/path-utils.js';
 
-// Define currentSettings globally
-let currentSettings = {};
 let currentSessionId = localStorage.getItem('currentSessionId') ? parseInt(localStorage.getItem('currentSessionId'), 10) : null; // Ensure this is accessible globally and parsed as int
 
 
@@ -184,117 +184,6 @@ async function loadArtifactsForCurrentSession() {
 // --- END NEW: Artifacts State and UI Management ---
 
 
-// Function to apply the theme
-export function applyTheme(themeName) {
-    console.log("DEBUG: applyTheme called with:", themeName);
-    const body = document.body;
-    // Remove all existing theme classes
-    body.className = body.className.split(' ').filter(c => !c.startsWith('theme-')).join(' ');
-
-    if (themeName && themeName !== 'default') {
-        body.classList.add(`theme-${themeName}`);
-    }
-    body.dataset.theme = themeName; // Store the active theme name in a data attribute
-    console.log("DEBUG: Body classes after applyTheme:", body.className);
-    console.log("DEBUG: Body data-theme after applyTheme:", body.dataset.theme);
-}
-
-// Modified loadSettings to handle theme
-async function loadSettingsAndApplyTheme() {
-    console.log("DEBUG: Frontend: loadSettingsAndApplyTheme started.");
-    try {
-        const settingsJson = await GoLoadSettings(); // This should return the JSON string from Go
-        console.log("DEBUG: Frontend: Raw settingsJson received from GoLoadSettings:", settingsJson);
-
-        currentSettings = JSON.parse(settingsJson); // This parses the snake_case JSON into a JS object
-        console.log("DEBUG: Frontend: Parsed currentSettings object:", currentSettings);
-
-
-        // Apply theme on load - Use snake_case
-        const savedTheme = currentSettings.theme || 'default';
-        console.log("DEBUG: Frontend: Saved theme from settings:", savedTheme);
-        applyTheme(savedTheme);
-
-        // Set the custom theme dropdown's displayed value and hidden value
-        const themeSelectInput = document.getElementById('themeSelectInput');
-        const selectedThemeValue = document.getElementById('selectedThemeValue');
-        // Find the correct option element based on data-value
-        const themeOptionElement = document.querySelector(`#themeSelectList div[data-value="${savedTheme}"]`);
-        if (themeSelectInput && selectedThemeValue && themeOptionElement) {
-            themeSelectInput.value = themeOptionElement.textContent; // Display text
-            selectedThemeValue.value = savedTheme; // Hidden value
-            console.log(`DEBUG: Frontend: Theme dropdown set to: ${themeOptionElement.textContent} (${savedTheme})`);
-        } else {
-            console.warn("WARN: Frontend: Theme UI elements not found or theme option not found for:", savedTheme);
-            if (!themeSelectInput) console.warn("themeSelectInput not found.");
-            if (!selectedThemeValue) console.warn("selectedThemeValue not found.");
-            if (!themeOptionElement) console.warn(`themeOptionElement not found for data-value="${savedTheme}".`);
-        }
-
-
-        // Populate your existing settings fields - Use snake_case
-        document.getElementById('llamaPathInput').value = currentSettings.llama_cpp_dir || '';
-        document.getElementById('modelPathInput').value = currentSettings.models_dir || '';
-        document.getElementById('selectedModelPath').value = currentSettings.selected_model || '';
-        document.getElementById('chatModelSelectInput').value = currentSettings.selected_model ? getModelName(currentSettings.selected_model) : 'Select Model...';
-
-        // More robust handling for ModelArgs - Use snake_case
-        const modelArgsInput = document.getElementById('chatModelArgs');
-        if (modelArgsInput) {
-            const selectedModel = currentSettings.selected_model;
-            const modelArgs = currentSettings.model_args;
-            if (modelArgs && selectedModel && modelArgs[selectedModel] !== undefined) {
-                modelArgsInput.value = modelArgs[selectedModel];
-                console.log(`DEBUG: Frontend: chatModelArgs set for ${selectedModel}: ${modelArgs[selectedModel]}`);
-            } else {
-                modelArgsInput.value = '';
-                console.log(`DEBUG: Frontend: chatModelArgs cleared or not found for ${selectedModel}. ModelArgs:`, modelArgs);
-            }
-        } else {
-            console.warn("WARN: Frontend: chatModelArgs element not found.");
-        }
-
-
-        // Update model list for fuzzy search
-        const models = await window.go.main.App.GetModels(); // Assuming GetModels exists
-        initFuzzySearch(models.map(p => ({ name: getModelName(p), path: p })));
-        console.log("DEBUG: Frontend: Models loaded for fuzzy search.");
-
-    } catch (error) {
-        console.error("ERROR: Frontend: Error loading settings and applying theme:", error);
-        applyTheme('default'); // Fallback to default theme on error
-    }
-    console.log("DEBUG: Frontend: loadSettingsAndApplyTheme finished.");
-}
-
-// Modified saveSettings to handle theme
-async function saveAllSettings() {
-    console.log("DEBUG: Frontend: saveAllSettings started.");
-    // Populate currentSettings with values from UI - Use snake_case
-    currentSettings.llama_cpp_dir = document.getElementById('llamaPathInput').value;
-    currentSettings.models_dir = document.getElementById('modelPathInput').value;
-    currentSettings.selected_model = document.getElementById('selectedModelPath').value;
-
-    if (!currentSettings.model_args) { // Use snake_case
-        currentSettings.model_args = {};
-    }
-    const currentModelPath = document.getElementById('selectedModelPath').value;
-    if (currentModelPath) {
-        currentSettings.model_args[currentModelPath] = document.getElementById('chatModelArgs').value; // Use snake_case
-    }
-
-    // Save the current theme from the body's data-theme attribute - Use snake_case
-    currentSettings.theme = document.body.dataset.theme || 'default';
-    console.log("DEBUG: Frontend: Settings object before saving:", currentSettings);
-
-    try {
-        await GoSaveSettings(JSON.stringify(currentSettings)); // Use aliased Go function
-        console.log("DEBUG: Frontend: Settings saved successfully.");
-    } catch (error) {
-        console.error("ERROR: Frontend: Error saving settings:", error);
-    }
-    console.log("DEBUG: Frontend: saveAllSettings finished.");
-}
 
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -413,7 +302,6 @@ document.addEventListener('DOMContentLoaded', () => {
             themeSelectInput.value = themeText;
             selectedThemeValue.value = themeValue; // Update hidden input
             applyTheme(themeValue); // Apply the theme
-            saveAllSettings(); // Save theme preference immediately
             themeSelectList.classList.add('select-hide'); // Hide dropdown
         });
     });
@@ -931,7 +819,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event listeners for saving settings (including theme)
     document.getElementById('llamaPathInput').addEventListener('change', saveAllSettings);
     document.getElementById('modelPathInput').addEventListener('change', saveAllSettings);
-    // Note: handleModelSelection now calls saveAllSettings internally
     document.getElementById('chatModelArgs').addEventListener('change', saveAllSettings);
 
     document.getElementById('launchLLMButton').addEventListener('click', launchLLM);
