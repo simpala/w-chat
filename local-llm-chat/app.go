@@ -33,19 +33,14 @@ type App struct {
 	ArtifactService *artifacts.ArtifactService
 }
 
-// ModelSettings struct to hold arguments for a specific model
-type ModelSettings struct {
-	Args string `json:"args"`
-}
-
 // Config struct - Add the Theme field here
 type Config struct {
-	LlamaCppDir         string                   `json:"llama_cpp_dir"`
-	ModelsDir           string                   `json:"models_dir"`
-	SelectedModel       string                   `json:"selected_model"`
-	ModelSettings       map[string]ModelSettings `json:"model_settings"`
-	Theme               string                   `json:"theme"`
-	McpConnectionStates map[string]bool          `json:"mcp_connection_states"`
+	LlamaCppDir         string            `json:"llama_cpp_dir"`
+	ModelsDir           string            `json:"models_dir"`
+	SelectedModel       string            `json:"selected_model"`
+	ModelArgs           map[string]string `json:"model_args"`
+	Theme               string            `json:"theme"`
+	McpConnectionStates map[string]bool   `json:"mcp_connection_states"`
 }
 
 // Conversation struct to hold the state of a single chat session
@@ -111,8 +106,8 @@ func (a *App) startup(ctx context.Context) {
 		wailsruntime.LogInfof(a.ctx, "Unmarshalled Config struct in startup: %+v", config)
 	}
 
-	if config.ModelSettings == nil {
-		config.ModelSettings = make(map[string]ModelSettings)
+	if config.ModelArgs == nil {
+		config.ModelArgs = make(map[string]string)
 	}
 	a.config = config
 	log.Println("App startup complete.")
@@ -193,24 +188,18 @@ func (a *App) SaveSettings(settings string) error {
 	}
 	wailsruntime.LogInfof(a.ctx, "Config struct after unmarshalling in SaveSettings: %+v", config)
 
-	// Ensure the ModelSettings map in the existing config is not nil
-	if a.config.ModelSettings == nil {
-		a.config.ModelSettings = make(map[string]ModelSettings)
+	if a.config.ModelArgs == nil {
+		a.config.ModelArgs = make(map[string]string)
 	}
-
-	// Merge the new model settings with the existing ones
-	if config.ModelSettings != nil {
-		for modelPath, newSettings := range config.ModelSettings {
-			a.config.ModelSettings[modelPath] = newSettings
+	if config.ModelArgs == nil {
+		config.ModelArgs = a.config.ModelArgs
+	} else {
+		for model, args := range a.config.ModelArgs {
+			if _, ok := config.ModelArgs[model]; !ok {
+				config.ModelArgs[model] = args
+			}
 		}
 	}
-
-	// Update other fields from the incoming config
-	a.config.LlamaCppDir = config.LlamaCppDir
-	a.config.ModelsDir = config.ModelsDir
-	a.config.SelectedModel = config.SelectedModel
-	a.config.Theme = config.Theme
-	// Note: McpConnectionStates is not managed here as it's transient state
 	a.config = config
 	wailsruntime.LogInfof(a.ctx, "a.config state before saving to file: %+v", a.config)
 
@@ -268,10 +257,6 @@ func (a *App) LoadSettings() (string, error) {
 	if a.config.Theme == "" {
 		a.config.Theme = "default"
 		wailsruntime.LogInfo(a.ctx, "Theme was empty, defaulted to 'default'.")
-	}
-	if a.config.ModelSettings == nil {
-		a.config.ModelSettings = make(map[string]ModelSettings)
-		wailsruntime.LogInfo(a.ctx, "ModelSettings was nil, initialized to empty map.")
 	}
 	wailsruntime.LogInfof(a.ctx, "a.config state after loading and decoding: %+v", a.config)
 

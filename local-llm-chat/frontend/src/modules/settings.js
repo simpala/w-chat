@@ -8,24 +8,12 @@ import {
 import Fuse from 'fuse.js';
 import * as runtime from '../../wailsjs/runtime'; // Import runtime for logging
 import { getModelName } from './path-utils.js';
+import { applyTheme } from '../app'; // Import applyTheme from app.js
+
 
 export let fuse;
+// Define currentSettings globally within this module
 let currentSettings = {};
-
-// Function to apply the theme
-export function applyTheme(themeName) {
-    console.log("DEBUG: applyTheme called with:", themeName);
-    const body = document.body;
-    // Remove all existing theme classes
-    body.className = body.className.split(' ').filter(c => !c.startsWith('theme-')).join(' ');
-
-    if (themeName && themeName !== 'default') {
-        body.classList.add(`theme-${themeName}`);
-    }
-    body.dataset.theme = themeName; // Store the active theme name in a data attribute
-    console.log("DEBUG: Body classes after applyTheme:", body.className);
-    console.log("DEBUG: Body data-theme after applyTheme:", body.dataset.theme);
-}
 
 export function initFuzzySearch(data) {
     const options = {
@@ -46,20 +34,12 @@ export async function handleModelSelection(modelName, modelPath) {
     document.getElementById('selectedModelPath').value = modelPath; // Set the hidden full path
     document.getElementById('chatModelSelectList').classList.add('select-hide');
 
-    // Update currentSettings with the new selection
-    currentSettings.selected_model = modelPath;
-
-    // Load the arguments for the newly selected model
-    const modelArgsInput = document.getElementById('chatModelArgs');
-    if (currentSettings.model_settings && currentSettings.model_settings[modelPath]) {
-        modelArgsInput.value = currentSettings.model_settings[modelPath].args || '';
-        runtime.LogInfo(`DEBUG: settings.js: Loaded args for ${modelName}: "${modelArgsInput.value}"`);
-    } else {
-        modelArgsInput.value = ''; // Clear args if none are saved for this model
-        runtime.LogInfo(`DEBUG: settings.js: No args found for ${modelName}, clearing input.`);
+    // Update currentSettings and save
+    if (!currentSettings.model_args) {
+        currentSettings.model_args = {};
     }
-
-    // Save the change of the selected model
+    currentSettings.selected_model = modelPath; // Store the full path as selected_model
+    // The chatModelArgs will be updated when loadSettingsAndApplyTheme is called or upon manual change
     await saveAllSettings();
     runtime.LogInfo("DEBUG: settings.js: Model selection saved.");
 }
@@ -79,25 +59,23 @@ export async function populateModelList(models) {
     runtime.LogInfo("DEBUG: settings.js: Model list populated with:", models.length, "models.");
 }
 
+// Consolidated save function (formerly saveSettings in settings.js and saveAllSettings in app.js)
 export async function saveAllSettings() {
     runtime.LogInfo("DEBUG: settings.js: saveAllSettings started.");
 
     currentSettings.llama_cpp_dir = document.getElementById('llamaPathInput').value;
     currentSettings.models_dir = document.getElementById('modelPathInput').value;
-    currentSettings.selected_model = document.getElementById('selectedModelPath').value;
+    currentSettings.selected_model = document.getElementById('selectedModelPath').value; // Get the full path from hidden input
 
-    const currentModelPath = document.getElementById('selectedModelPath').value;
+    if (!currentSettings.model_args) {
+        currentSettings.model_args = {};
+    }
+    const currentModelPath = document.getElementById('selectedModelPath').value; // Use the full path as the key
     if (currentModelPath) {
-        if (!currentSettings.model_settings) {
-            currentSettings.model_settings = {};
-        }
-        if (!currentSettings.model_settings[currentModelPath]) {
-            currentSettings.model_settings[currentModelPath] = {};
-        }
-        currentSettings.model_settings[currentModelPath].args = document.getElementById('chatModelArgs').value;
-        runtime.LogInfo(`DEBUG: settings.js: Staged args for ${currentModelPath}: "${currentSettings.model_settings[currentModelPath].args}"`);
+        currentSettings.model_args[currentModelPath] = document.getElementById('chatModelArgs').value;
     }
 
+    // Save the current theme from the body's data-theme attribute
     currentSettings.theme = document.body.dataset.theme || 'default';
     runtime.LogInfo("DEBUG: settings.js: Settings object before saving:", currentSettings);
 
@@ -110,10 +88,12 @@ export async function saveAllSettings() {
     runtime.LogInfo("DEBUG: settings.js: saveAllSettings finished.");
 }
 
+
+// Consolidated load function (formerly loadSettingsAndApplyTheme in app.js and loadSettings in settings.js)
 export async function loadSettingsAndApplyTheme() {
     runtime.LogInfo("DEBUG: settings.js: loadSettingsAndApplyTheme started.");
     try {
-        const settingsJson = await GoLoadSettings();
+        const settingsJson = await GoLoadSettings(); // This waits for Go to return the string
         runtime.LogInfo("DEBUG: settings.js: Raw settingsJson received from GoLoadSettings:", settingsJson);
 
         if (settingsJson) {
@@ -122,21 +102,24 @@ export async function loadSettingsAndApplyTheme() {
                 runtime.LogInfo("DEBUG: settings.js: Parsed currentSettings object:", currentSettings);
             } catch (parseError) {
                 runtime.LogError("ERROR: settings.js: Error parsing settings JSON:", parseError);
-                currentSettings = {};
+                currentSettings = {}; // Fallback to empty object on parse error
             }
         } else {
             runtime.LogWarning("WARN: settings.js: GoLoadSettings returned empty or null settingsJson. Initializing with default.");
-            currentSettings = {};
+            currentSettings = {}; // Initialize as empty if no JSON returned
+        }
+        // Ensure ModelArgs exists to prevent errors later
+        if (!currentSettings.model_args) {
+            currentSettings.model_args = {};
         }
 
-        if (!currentSettings.model_settings) {
-            currentSettings.model_settings = {};
-        }
 
+        // Apply theme on load
         const savedTheme = currentSettings.theme || 'default';
         runtime.LogInfo("DEBUG: settings.js: Saved theme from settings: " + savedTheme);
         applyTheme(savedTheme);
 
+        // Set the custom theme dropdown's displayed value and hidden value
         const themeSelectInput = document.getElementById('themeSelectInput');
         const selectedThemeValue = document.getElementById('selectedThemeValue');
         const themeOptionElement = document.querySelector(`#themeSelectList div[data-value="${savedTheme}"]`);
@@ -146,16 +129,23 @@ export async function loadSettingsAndApplyTheme() {
             runtime.LogInfo(`DEBUG: settings.js: Theme dropdown set to: ${themeOptionElement.textContent} (${savedTheme})`);
         } else {
             runtime.LogWarning("WARN: settings.js: Theme UI elements not found or theme option not found for:", savedTheme);
+            if (!themeSelectInput) runtime.LogWarning("themeSelectInput not found.");
+            if (!selectedThemeValue) runtime.LogWarning("selectedThemeValue not found.");
+            if (!themeOptionElement) runtime.LogWarning(`themeOptionElement not found for data-value="${savedTheme}".`);
         }
 
+        // Populate your existing settings fields
         document.getElementById('llamaPathInput').value = currentSettings.llama_cpp_dir || '';
         document.getElementById('modelPathInput').value = currentSettings.models_dir || '';
 
+        // Handle selected model display and path
         const chatModelSelectInput = document.getElementById('chatModelSelectInput');
         const selectedModelPathHidden = document.getElementById('selectedModelPath');
         if (chatModelSelectInput && selectedModelPathHidden) {
             if (currentSettings.selected_model) {
+                // Set the hidden input with the full path
                 selectedModelPathHidden.value = currentSettings.selected_model;
+                // Set the display input with just the model name (last part of the path)
                 chatModelSelectInput.value = getModelName(currentSettings.selected_model);
                 runtime.LogInfo(`DEBUG: settings.js: Selected Model UI set to: ${chatModelSelectInput.value} (Path: ${selectedModelPathHidden.value})`);
             } else {
@@ -167,26 +157,33 @@ export async function loadSettingsAndApplyTheme() {
             runtime.LogWarning("WARN: settings.js: Model UI elements not found (chatModelSelectInput or selectedModelPath).");
         }
 
+
+        // More robust handling for ModelArgs
         const modelArgsInput = document.getElementById('chatModelArgs');
         if (modelArgsInput) {
+            // Use the full path as the key for model_args
             const selectedModelFullPath = currentSettings.selected_model;
-            const modelSettings = currentSettings.model_settings;
-            if (modelSettings && selectedModelFullPath && modelSettings[selectedModelFullPath]) {
-                modelArgsInput.value = modelSettings[selectedModelFullPath].args || '';
-                runtime.LogInfo(`DEBUG: settings.js: chatModelArgs set for ${selectedModelFullPath}: ${modelArgsInput.value}`);
+            const modelArgs = currentSettings.model_args;
+            if (modelArgs && selectedModelFullPath && modelArgs[selectedModelFullPath] !== undefined) {
+                modelArgsInput.value = modelArgs[selectedModelFullPath];
+                runtime.LogInfo(`DEBUG: settings.js: chatModelArgs set for ${selectedModelFullPath}: ${modelArgs[selectedModelFullPath]}`);
             } else {
                 modelArgsInput.value = '';
-                runtime.LogInfo(`DEBUG: settings.js: chatModelArgs cleared as no settings found for ${selectedModelFullPath}.`);
+                runtime.LogInfo(`DEBUG: settings.js: chatModelArgs cleared or not found for ${selectedModelFullPath}. ModelArgs:`, modelArgs);
             }
         } else {
             runtime.LogWarning("WARN: settings.js: chatModelArgs element not found.");
         }
 
+        runtime.LogInfo(`DEBUG: settings.js: Value of currentSettings.llama_cpp_dir: '${currentSettings.llama_cpp_dir}'`);
+        runtime.LogInfo(`DEBUG: settings.js: Value of currentSettings.models_dir: '${currentSettings.models_dir}'`);
+
+        // Update model list for fuzzy search
         if (currentSettings.models_dir) {
             try {
-                const models = await GetModels();
+                const models = await GetModels(); // Get models from Go backend
                 runtime.LogInfo("DEBUG: settings.js: Models received from Go for fuzzy search:", models);
-                populateModelList(models);
+                populateModelList(models); // Populate the custom dropdown
                 initFuzzySearch(models.map(p => ({
                     name: getModelName(p),
                     path: p
@@ -196,12 +193,13 @@ export async function loadSettingsAndApplyTheme() {
             }
         } else {
             runtime.LogInfo("DEBUG: settings.js: Models directory not set, skipping model list population.");
-            initFuzzySearch([]);
+            initFuzzySearch([]); // Initialize fuzzy search with empty data if no models directory
         }
+
     } catch (error) {
         runtime.LogError("ERROR: settings.js: Top-level error in loadSettingsAndApplyTheme:", error);
-        applyTheme('default');
-        currentSettings = {};
+        applyTheme('default'); // Fallback to default theme on error
+        currentSettings = {}; // Reset settings to avoid issues
     }
     runtime.LogInfo("DEBUG: settings.js: loadSettingsAndApplyTheme finished.");
 }
