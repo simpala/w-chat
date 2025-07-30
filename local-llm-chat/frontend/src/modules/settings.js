@@ -104,13 +104,13 @@ export async function saveAllSettings() {
     currentSettings.theme = document.body.dataset.theme || 'default';
     runtime.LogInfo("DEBUG: settings.js: Settings object before saving:", currentSettings);
 
-    try {
-        await GoSaveSettings(JSON.stringify(currentSettings));
-        runtime.LogInfo("DEBUG: settings.js: Settings saved successfully to Go backend.");
-    } catch (error) {
-        runtime.LogError("ERROR: settings.js: Error saving settings to Go backend:", error);
-    }
-    runtime.LogInfo("DEBUG: settings.js: saveAllSettings finished.");
+    return GoSaveSettings(JSON.stringify(currentSettings))
+        .then(() => {
+            runtime.LogInfo("DEBUG: settings.js: Settings saved successfully to Go backend.");
+        })
+        .catch(error => {
+            runtime.LogError("ERROR: settings.js: Error saving settings to Go backend:", error);
+        });
 }
 
 export async function loadSettingsAndApplyTheme() {
