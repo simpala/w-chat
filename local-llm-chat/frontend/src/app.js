@@ -7,7 +7,8 @@ import {
     handleModelSelection,
     fuse,
     saveAllSettings,
-    loadSettingsAndApplyTheme
+    loadSettingsAndApplyTheme,
+    applyTheme
 } from './modules/settings.js';
 
 import {
