@@ -211,7 +211,6 @@ func (a *App) SaveSettings(settings string) error {
 	a.config.SelectedModel = config.SelectedModel
 	a.config.Theme = config.Theme
 	// Note: McpConnectionStates is not managed here as it's transient state
-	a.config = config
 	wailsruntime.LogInfof(a.ctx, "a.config state before saving to file: %+v", a.config)
 
 	file, err := os.Create("config.json")

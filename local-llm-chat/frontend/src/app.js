@@ -301,8 +301,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             themeSelectInput.value = themeText;
             selectedThemeValue.value = themeValue; // Update hidden input
-            applyTheme(themeValue); // Apply the theme
-            themeSelectList.classList.add('select-hide'); // Hide dropdown
+            applyTheme(themeValue);
+            themeSelectList.classList.add('select-hide');
         });
     });
 
@@ -818,7 +818,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event listeners for saving settings (including theme)
     document.getElementById('llamaPathInput').addEventListener('change', saveAllSettings);
-    document.getElementById('modelPathInput').addEventListener('change', saveAllSettings);
+    document.getElementById('modelPathInput').addEventListener('change', () => {
+        saveAllSettings().then(() => {
+            loadSettingsAndApplyTheme();
+        });
+    });
     document.getElementById('chatModelArgs').addEventListener('change', saveAllSettings);
 
     document.getElementById('launchLLMButton').addEventListener('click', launchLLM);
