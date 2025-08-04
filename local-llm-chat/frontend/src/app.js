@@ -92,9 +92,7 @@ function renderArtifacts() {
         deleteButton.title = 'Delete Artifact';
         deleteButton.addEventListener('click', async (e) => {
             const artifactID = artifact.id; // Get ID directly from closure
-            if (confirm(`Are you sure you want to delete artifact: ${artifact.metadata.file_name || artifact.id}?`)) {
-                await DeleteArtifact(artifactID); // Call Go backend
-            }
+            await DeleteArtifact(artifactID); // Call Go backend
         });
         artifactItem.appendChild(deleteButton);
 
