@@ -405,8 +405,19 @@ func (a *App) LaunchLLM(command string) (string, error) {
 		return "", fmt.Errorf("empty command provided")
 	}
 	cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+
+	userConfigDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get user config dir: %w", err)
+	}
+	artifactsDir := filepath.Join(userConfigDir, "local-llm-chat", "artifacts")
+	logFilePath := filepath.Join(artifactsDir, "llm-server.log")
+	logFile, err := os.Create(logFilePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create log file: %w", err)
+	}
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
 
 	setHideWindow(cmd)
 
