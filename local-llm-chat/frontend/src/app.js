@@ -92,9 +92,7 @@ function renderArtifacts() {
         deleteButton.title = 'Delete Artifact';
         deleteButton.addEventListener('click', async (e) => {
             const artifactID = artifact.id; // Get ID directly from closure
-            if (confirm(`Are you sure you want to delete artifact: ${artifact.metadata.file_name || artifact.id}?`)) {
-                await DeleteArtifact(artifactID); // Call Go backend
-            }
+            await DeleteArtifact(artifactID); // Call Go backend
         });
         artifactItem.appendChild(deleteButton);
 
@@ -623,6 +621,14 @@ document.addEventListener('DOMContentLoaded', () => {
         debounceTimer = setTimeout(() => {
             updateAssistantMessageUI(assistantResponse);
         }, DEBOUNCE_DELAY_MS);
+    });
+
+    EventsOn("sessionNameUpdated", (data) => {
+        const { sessionID, newName } = data;
+        const sessionButton = document.querySelector(`#chatSessionList button[data-session-id='${sessionID}']`);
+        if (sessionButton) {
+            sessionButton.textContent = newName;
+        }
     });
 
     function updateAssistantMessageUI(currentFullResponse) {

@@ -57,7 +57,7 @@ type ChatSession struct {
 
 // NewChatSession creates a new chat session with an optional system prompt
 func (d *Database) NewChatSession(systemPrompt string) (int64, error) { // Modified signature to accept systemPrompt
-	name := fmt.Sprintf("Chat Session %s", time.Now().Format("01-02 15:04"))
+	name := "New Chat"
 	// Insert system_prompt into the table
 	result, err := d.db.Exec("INSERT INTO chat_sessions (name, system_prompt) VALUES (?, ?)", name, systemPrompt)
 	if err != nil {
@@ -111,6 +111,12 @@ func (d *Database) GetChatSession(id int64) (*ChatSession, error) {
 // UpdateChatSessionSystemPrompt updates the system_prompt for a given chat session.
 func (d *Database) UpdateChatSessionSystemPrompt(sessionID int64, systemPrompt string) error {
 	_, err := d.db.Exec("UPDATE chat_sessions SET system_prompt = ? WHERE id = ?", systemPrompt, sessionID)
+	return err
+}
+
+// UpdateChatSessionName updates the name for a given chat session.
+func (d *Database) UpdateChatSessionName(sessionID int64, name string) error {
+	_, err := d.db.Exec("UPDATE chat_sessions SET name = ? WHERE id = ?", name, sessionID)
 	return err
 }
 
