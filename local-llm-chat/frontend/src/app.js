@@ -36,7 +36,8 @@ import {
     // --- NEW: Artifacts Imports ---
     AddArtifact,
     ListArtifacts,
-    DeleteArtifact
+    DeleteArtifact,
+    ToggleDebug
     // --- END NEW Artifacts Imports ---
 } from '../wailsjs/go/main/App';
 import {
@@ -54,6 +55,7 @@ export const ArtifactType = {
     VIDEO: "VIDEO",
     TOOL_NOTIFICATION: "TOOL_NOTIFICATION",
     MCP_MANAGER: "MCP_MANAGER",
+    LOG_VIEW: "LOG_VIEW",
     // Add other types as you define them in Go
 };
 // --- END NEW: Artifact Type Constants ---
@@ -136,6 +138,13 @@ function renderArtifacts() {
             mcpManagerDiv.innerHTML = `<div class="mcp-server-list"></div>`;
             artifactItem.appendChild(mcpManagerDiv);
             setTimeout(renderMcpServers, 0);
+        } else if (artifact.type === ArtifactType.LOG_VIEW) {
+            const iframe = document.createElement('iframe');
+            iframe.src = "/artifacts/llm-server.log";
+            iframe.style.width = '100%';
+            iframe.style.height = '300px';
+            iframe.style.border = 'none';
+            artifactItem.appendChild(iframe);
         }
 
         artifactsListElement.appendChild(artifactItem);
@@ -731,6 +740,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const settingsToggleButton = document.getElementById('settingsToggleButton');
     const mcpManagerButton = document.getElementById('mcpManagerButton');
+    const toggleDebugButton = document.getElementById('toggleDebugButton');
     const rightSidebar = document.querySelector('.sidebar-container.right');
     const artifactsPanel = document.getElementById('artifactsPanel');
     const toggleArtifactsPanelButton = document.getElementById('toggleArtifactsPanel');
@@ -760,6 +770,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (mcpManagerButton) {
         mcpManagerButton.addEventListener('click', createMcpManagerArtifact);
+    }
+
+    if (toggleLogViewButton) {
+        toggleLogViewButton.addEventListener('click', () => {
+            if (currentSessionId) {
+                AddArtifact(String(currentSessionId), ArtifactType.LOG_VIEW, "LLM Server Log", "");
+            } else {
+                addMessageToChatWindow('system', 'Please select a session before enabling the log view.');
+            }
+        });
     }
 
     if (toggleArtifactsPanelButton && artifactsPanel) {
