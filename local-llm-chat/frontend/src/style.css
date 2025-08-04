@@ -883,8 +883,8 @@ body {
 /* Settings Toggle Button */
 .settings-toggle-container {
     position: fixed;
-    bottom: 15px; /* Adjusted for a bit more space from the bottom */
-    right: 15px; /* Adjusted for a bit more space from the right */
+    bottom: 1rem;
+    right: 1rem;
     z-index: 1070; /* Increased to be above the artifacts panel */
 }
 
@@ -999,6 +999,13 @@ body {
     color: var(--text-primary);
 }
 
+.artifact-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: auto; /* Pushes the action buttons to the right */
+    padding: 0 10px;
+}
+
 #toggleArtifactsPanel {
     background-color: var(--button-bg);
     color: var(--button-text);
@@ -1062,7 +1069,8 @@ body {
 }
 
 .artifacts-panel.collapsed .artifacts-content,
-.artifacts-panel.collapsed .artifacts-header h3 {
+.artifacts-panel.collapsed .artifacts-header h3,
+.artifacts-panel.collapsed .artifact-actions {
     display: none; /* Hide content and title when collapsed */
 }
 
