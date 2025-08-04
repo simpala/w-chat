@@ -24,4 +24,5 @@ const (
 	TypeImage            ArtifactType = "IMAGE"
 	TypeVideo            ArtifactType = "VIDEO"
 	TypeToolNotification ArtifactType = "TOOL_NOTIFICATION"
+	TypeLogView          ArtifactType = "LOG_VIEW"
 )
