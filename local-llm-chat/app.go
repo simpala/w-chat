@@ -593,6 +593,23 @@ func (a *App) HandleChat(sessionId int64, message string) {
 		return
 	}
 
+	// If this is the first user message, generate and set the session name
+	if len(conv.messages) == 1 {
+		go func() {
+			newName, err := a.generateSessionName(message)
+			if err != nil {
+				wailsruntime.LogErrorf(a.ctx, "Error generating session name: %s", err.Error())
+				return
+			}
+			err = a.db.UpdateChatSessionName(sessionId, newName)
+			if err != nil {
+				wailsruntime.LogErrorf(a.ctx, "Error updating session name: %s", err.Error())
+				return
+			}
+			wailsruntime.EventsEmit(a.ctx, "sessionNameUpdated", map[string]interface{}{"sessionID": sessionId, "newName": newName})
+		}()
+	}
+
 	reqBody := ChatCompletionRequest{Messages: messagesForLLM, Stream: true, NPredict: -1}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
@@ -729,6 +746,44 @@ func (a *App) getConversation(sessionID int64) (*Conversation, bool) {
 	defer a.mu.Unlock()
 	conv, ok := a.conversations[sessionID]
 	return conv, ok
+}
+
+func (a *App) generateSessionName(message string) (string, error) {
+	prompt := fmt.Sprintf("Based on the following user message, create a very short, descriptive title for a chat session (4-5 words max, no quotes):\n\n%s", message)
+	reqMessages := []ChatMessage{
+		{Role: "system", Content: "You are an expert at summarizing text into a short, descriptive title."},
+		{Role: "user", Content: prompt},
+	}
+
+	reqBody := ChatCompletionRequest{Messages: reqMessages, Stream: false}
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := http.Post("http://localhost:8080/v1/chat/completions", "application/json", strings.NewReader(string(jsonBody)))
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+
+	if len(result.Choices) > 0 {
+		return strings.Trim(result.Choices[0].Message.Content, `"`), nil
+	}
+
+	return "", fmt.Errorf("no response from LLM for session name generation")
 }
 
 // Existing methods for artifacts should now delegate to the service:

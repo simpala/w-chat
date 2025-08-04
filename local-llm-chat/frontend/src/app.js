@@ -623,6 +623,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }, DEBOUNCE_DELAY_MS);
     });
 
+    EventsOn("sessionNameUpdated", (data) => {
+        const { sessionID, newName } = data;
+        const sessionButton = document.querySelector(`#chatSessionList button[data-session-id='${sessionID}']`);
+        if (sessionButton) {
+            sessionButton.textContent = newName;
+        }
+    });
+
     function updateAssistantMessageUI(currentFullResponse) {
         let lastMessageBubble = document.querySelector('.message.assistant:last-child');
         if (!lastMessageBubble) {
