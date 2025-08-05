@@ -338,7 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const parseStreamedContent = (rawContent) => {
         const parts = [];
         let remainingContent = rawContent;
-        const thinkRegex = /<think>(.*?)<\/think>|<\|channel\|>(.*?)<\|message\|>|<\|start\|>assistant<\|channel\|>(.*?)<\|message\|>/gs;
+        const thinkRegex = /<think>(.*?)<\/think>|<\|channel\|>analysis<\|message\|>(.*?)<\|start\|>assistant<\|channel\|>final<\|message\|>/gs;
         let match;
         let lastIndex = 0;
 
@@ -349,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     content: remainingContent.substring(lastIndex, match.index)
                 });
             }
-            const thoughtContent = match[1] || match[2] || match[3];
+            const thoughtContent = match[1] || match[2];
             parts.push({
                 type: 'thought',
                 content: thoughtContent.trim()
