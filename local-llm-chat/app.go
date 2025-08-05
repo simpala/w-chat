@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -749,7 +750,14 @@ func (a *App) getConversation(sessionID int64) (*Conversation, bool) {
 }
 
 func (a *App) generateSessionName(message string) (string, error) {
-	prompt := fmt.Sprintf("Based on the following user message, create a very short, descriptive title for a chat session (4-5 words max, no quotes):\n\n%s", message)
+	// Strip <think> tags from the message
+	re := regexp.MustCompile(`(?s)<think>.*?</think>`)
+	cleanedMessage := re.ReplaceAllString(message, "")
+
+	// Also remove any leading/trailing whitespace that might be left
+	cleanedMessage = strings.TrimSpace(cleanedMessage)
+
+	prompt := fmt.Sprintf("Based on the following user message, create a very short, descriptive title for a chat session (4-5 words max, no quotes):\n\n%s", cleanedMessage)
 	reqMessages := []ChatMessage{
 		{Role: "system", Content: "You are an expert at summarizing text into a short, descriptive title."},
 		{Role: "user", Content: prompt},
