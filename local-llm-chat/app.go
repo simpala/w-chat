@@ -761,14 +761,11 @@ func (a *App) generateSessionName(message string) (string, error) {
 	// Also remove any leading/trailing whitespace that might be left
 	cleanedMessage = strings.TrimSpace(cleanedMessage)
 
-	// --- DEBUGGING STEP ---
-	// Return a prefixed and truncated version of the cleaned message
-	// to verify the cleaning and update logic.
-	if len(cleanedMessage) > 10 {
-		cleanedMessage = cleanedMessage[:10]
+	// Use the cleaned message, truncated to 20 characters, as the session name.
+	if len(cleanedMessage) > 20 {
+		cleanedMessage = cleanedMessage[:20]
 	}
-	return "C:" + cleanedMessage, nil
-	// --- END DEBUGGING STEP ---
+	return cleanedMessage, nil
 }
 
 // Existing methods for artifacts should now delegate to the service:
