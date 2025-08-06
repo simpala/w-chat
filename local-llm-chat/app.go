@@ -751,8 +751,12 @@ func (a *App) getConversation(sessionID int64) (*Conversation, bool) {
 
 func (a *App) generateSessionName(message string) (string, error) {
 	// Strip <think> tags from the message
-	re := regexp.MustCompile(`(?s)<think>.*?</think>`)
-	cleanedMessage := re.ReplaceAllString(message, "")
+	reThink := regexp.MustCompile(`(?s)<think>.*?</think>`)
+	cleanedMessage := reThink.ReplaceAllString(message, "")
+
+	// Strip <|...|> tags from the message
+	reChannel := regexp.MustCompile(`(?s)<\|.*?\|>`)
+	cleanedMessage = reChannel.ReplaceAllString(cleanedMessage, "")
 
 	// Also remove any leading/trailing whitespace that might be left
 	cleanedMessage = strings.TrimSpace(cleanedMessage)
