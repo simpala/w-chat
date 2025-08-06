@@ -761,41 +761,14 @@ func (a *App) generateSessionName(message string) (string, error) {
 	// Also remove any leading/trailing whitespace that might be left
 	cleanedMessage = strings.TrimSpace(cleanedMessage)
 
-	prompt := fmt.Sprintf("Based on the following user message, create a very short, descriptive title for a chat session (4-5 words max, no quotes):\n\n%s", cleanedMessage)
-	reqMessages := []ChatMessage{
-		{Role: "system", Content: "You are an expert at summarizing text into a short, descriptive title."},
-		{Role: "user", Content: prompt},
+	// --- DEBUGGING STEP ---
+	// Return a prefixed and truncated version of the cleaned message
+	// to verify the cleaning and update logic.
+	if len(cleanedMessage) > 10 {
+		cleanedMessage = cleanedMessage[:10]
 	}
-
-	reqBody := ChatCompletionRequest{Messages: reqMessages, Stream: false}
-	jsonBody, err := json.Marshal(reqBody)
-	if err != nil {
-		return "", err
-	}
-
-	resp, err := http.Post("http://localhost:8080/v1/chat/completions", "application/json", strings.NewReader(string(jsonBody)))
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	var result struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", err
-	}
-
-	if len(result.Choices) > 0 {
-		return strings.Trim(result.Choices[0].Message.Content, `"`), nil
-	}
-
-	return "", fmt.Errorf("no response from LLM for session name generation")
+	return "C:" + cleanedMessage, nil
+	// --- END DEBUGGING STEP ---
 }
 
 // Existing methods for artifacts should now delegate to the service:
