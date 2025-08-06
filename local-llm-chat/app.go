@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -749,41 +750,22 @@ func (a *App) getConversation(sessionID int64) (*Conversation, bool) {
 }
 
 func (a *App) generateSessionName(message string) (string, error) {
-	prompt := fmt.Sprintf("Based on the following user message, create a very short, descriptive title for a chat session (4-5 words max, no quotes):\n\n%s", message)
-	reqMessages := []ChatMessage{
-		{Role: "system", Content: "You are an expert at summarizing text into a short, descriptive title."},
-		{Role: "user", Content: prompt},
-	}
+	// Strip <think> tags from the message
+	reThink := regexp.MustCompile(`(?s)<think>.*?</think>`)
+	cleanedMessage := reThink.ReplaceAllString(message, "")
 
-	reqBody := ChatCompletionRequest{Messages: reqMessages, Stream: false}
-	jsonBody, err := json.Marshal(reqBody)
-	if err != nil {
-		return "", err
-	}
+	// Strip <|...|> tags from the message
+	reChannel := regexp.MustCompile(`(?s)<\|.*?\|>`)
+	cleanedMessage = reChannel.ReplaceAllString(cleanedMessage, "")
 
-	resp, err := http.Post("http://localhost:8080/v1/chat/completions", "application/json", strings.NewReader(string(jsonBody)))
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
+	// Also remove any leading/trailing whitespace that might be left
+	cleanedMessage = strings.TrimSpace(cleanedMessage)
 
-	var result struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
+	// Use the cleaned message, truncated to 20 characters, as the session name.
+	if len(cleanedMessage) > 20 {
+		cleanedMessage = cleanedMessage[:20]
 	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", err
-	}
-
-	if len(result.Choices) > 0 {
-		return strings.Trim(result.Choices[0].Message.Content, `"`), nil
-	}
-
-	return "", fmt.Errorf("no response from LLM for session name generation")
+	return cleanedMessage, nil
 }
 
 // Existing methods for artifacts should now delegate to the service:
