@@ -32,6 +32,7 @@ type App struct {
 	conversations   map[int64]*Conversation
 	mu              sync.Mutex
 	ArtifactService *artifacts.ArtifactService
+	router          *Router
 }
 
 // ModelSettings struct to hold arguments for a specific model
@@ -116,6 +117,10 @@ func (a *App) startup(ctx context.Context) {
 		config.ModelSettings = make(map[string]ModelSettings)
 	}
 	a.config = config
+	
+	// Initialize router
+	a.router = NewRouter(a)
+	
 	log.Println("App startup complete.")
 	wailsruntime.LogInfof(a.ctx, "Final a.config state after startup: %+v", a.config)
 }
@@ -350,6 +355,30 @@ type McpConfig struct {
 	McpServers map[string]McpServerConfig `json:"mcpServers"`
 }
 
+// getServerConfig returns the configuration for a specific MCP server
+func (a *App) getServerConfig(serverName string) McpServerConfig {
+	// Load the MCP configuration
+	mcpConfigContent, err := a.GetMcpServers()
+	if err != nil {
+		wailsruntime.LogErrorf(a.ctx, "Error loading MCP servers config: %s", err.Error())
+		return McpServerConfig{}
+	}
+
+	var mcpConfig McpConfig
+	err = json.Unmarshal([]byte(mcpConfigContent), &mcpConfig)
+	if err != nil {
+		wailsruntime.LogErrorf(a.ctx, "Error unmarshalling MCP config: %s", err.Error())
+		return McpServerConfig{}
+	}
+
+	// Return the specific server config
+	if serverConfig, ok := mcpConfig.McpServers[serverName]; ok {
+		return serverConfig
+	}
+
+	return McpServerConfig{}
+}
+
 // GetMcpServers returns the contents of mcp.json
 func (a *App) GetMcpServers() (string, error) {
 	file, err := os.Open("mcp.json")
@@ -489,12 +518,12 @@ func (a *App) ConnectMcpClient(serverName string, command string, args []string)
 		return fmt.Errorf("client for server %s is already connected", serverName)
 	}
 
-	// client := mcpclient.NewMcpClient()
-	// if err := client.Connect(command, args); err != nil {
-	// 	return err
-	// }
+	client := mcpclient.NewMcpClient()
+	if err := client.Connect(command, args); err != nil {
+		return err
+	}
 
-	// a.mcpClients[serverName] = client
+	a.mcpClients[serverName] = client
 	return nil
 }
 
@@ -573,6 +602,7 @@ func (a *App) HandleChat(sessionId int64, message string) {
 
 	userMessage := ChatMessage{Role: "user", Content: message}
 
+	// Route the message based on content and MCP connections
 	var messagesForLLM []ChatMessage
 	wailsruntime.LogInfof(a.ctx, "HandleChat: System Prompt for session %d: '%s'", sessionId, conv.systemPrompt)
 	if conv.systemPrompt != "" {
@@ -580,6 +610,28 @@ func (a *App) HandleChat(sessionId int64, message string) {
 	}
 	messagesForLLM = append(messagesForLLM, conv.messages...)
 	messagesForLLM = append(messagesForLLM, userMessage)
+
+	// Use router to determine if we should use tools
+	if a.router != nil {
+		decision := a.router.ShouldUseTools(message)
+		wailsruntime.LogInfof(a.ctx, "Router decision: UseTools=%v, Reason=%s", decision.UseTools, decision.Reason)
+		
+		if decision.UseTools {
+			// Execute tools and augment the query
+			toolResults, err := a.router.ExecuteTools(sessionId, message)
+			if err != nil {
+				wailsruntime.LogErrorf(a.ctx, "Error executing tools: %s", err.Error())
+			} else if len(toolResults) > 0 {
+				// Augment the query with tool results
+				augmentedMessage := a.router.AugmentQueryWithToolResults(message, toolResults)
+				userMessage = ChatMessage{Role: "user", Content: augmentedMessage}
+				
+				// Update messages for LLM with augmented query
+				messagesForLLM = messagesForLLM[:len(messagesForLLM)-1] // Remove original user message
+				messagesForLLM = append(messagesForLLM, userMessage)
+			}
+		}
+	}
 
 	messagesJson, err := json.Marshal(messagesForLLM)
 	if err != nil {

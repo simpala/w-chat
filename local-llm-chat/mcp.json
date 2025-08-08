@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "everything-server": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-everything"],
+      "description": "MCP Everything Server - provides access to all tools"
+    }
+  }
+}
