@@ -75,7 +75,13 @@ func (r *Router) GetToolManifest() (string, error) {
 		for _, tool := range tools {
 			manifestBuilder.WriteString(fmt.Sprintf("- Tool: %s\n", tool.Name))
 			manifestBuilder.WriteString(fmt.Sprintf("  Description: %s\n", tool.Description))
-			// Here you could add argument details if the MCP protocol supports it
+			// Attempt to add argument details from the InputSchema
+			if tool.InputSchema != nil {
+				schemaBytes, err := json.MarshalIndent(tool.InputSchema, "  ", "  ")
+				if err == nil {
+					manifestBuilder.WriteString(fmt.Sprintf("  Arguments Schema:\n  %s\n", string(schemaBytes)))
+				}
+			}
 		}
 	}
 
