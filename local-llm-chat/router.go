@@ -76,9 +76,10 @@ func (r *Router) GetToolManifest() (string, error) {
 			manifestBuilder.WriteString(fmt.Sprintf("- Tool: %s\n", tool.Name))
 			manifestBuilder.WriteString(fmt.Sprintf("  Description: %s\n", tool.Description))
 			// Attempt to add argument details from the InputSchema
-			if tool.InputSchema != nil {
-				schemaBytes, err := json.MarshalIndent(tool.InputSchema, "  ", "  ")
-				if err == nil {
+			schemaBytes, err := json.MarshalIndent(tool.InputSchema, "  ", "  ")
+			if err == nil {
+				// Add the schema to the prompt only if it's not an empty object
+				if string(schemaBytes) != "{}" {
 					manifestBuilder.WriteString(fmt.Sprintf("  Arguments Schema:\n  %s\n", string(schemaBytes)))
 				}
 			}
