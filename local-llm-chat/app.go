@@ -919,21 +919,28 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 		wailsruntime.LogErrorf(a.ctx, "Error reading stream for session %d: %s", sessionID, err)
 	}
 
+	// Flush any remaining text in the buffer
 	mu.Lock()
 	if currentChunkBuffer.Len() > 0 {
 		wailsruntime.EventsEmit(a.ctx, "chat-stream", currentChunkBuffer.String())
 	}
 	mu.Unlock()
 
-	conv.mu.Lock()
-	defer conv.mu.Unlock()
+	// Get the complete response
+	fullResponse := fullResponseBuilder.String()
+	assistantMessage := ChatMessage{Role: "assistant", Content: fullResponse}
 
-	assistantMessage := ChatMessage{Role: "assistant", Content: fullResponseBuilder.String()}
+	// Lock the conversation just to update the in-memory message list
+	conv.mu.Lock()
 	conv.messages = append(conv.messages, assistantMessage)
-	if err := a.db.SaveChatMessage(sessionID, "assistant", fullResponseBuilder.String()); err != nil {
+	conv.mu.Unlock()
+
+	// Save the full message to the database *after* releasing the lock
+	if err := a.db.SaveChatMessage(sessionID, "assistant", fullResponse); err != nil {
 		wailsruntime.LogErrorf(a.ctx, "Error saving assistant message: %s", err.Error())
 	}
 
+	// Finally, send the end-of-stream signal to the frontend
 	wailsruntime.EventsEmit(a.ctx, "chat-stream", nil)
 }
 
