@@ -1,10 +1,10 @@
+
 package main
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -23,145 +23,103 @@ func NewRouter(app *App) *Router {
 	}
 }
 
-// RouteDecision represents the decision made by the router
-type RouteDecision struct {
-	UseTools     bool
-	ToolPatterns []string
-	Reason       string
-}
+// NeedsTools is the "Router Agent". It asks the LLM if the user's query
+// requires tool usage.
+func (r *Router) NeedsTools(userQuery string) (bool, error) {
+	wailsruntime.LogInfof(r.app.ctx, "Router Agent: Checking if query needs tools: \"%s\"", userQuery)
 
-// ShouldUseTools determines if the query should be routed to tools
-func (r *Router) ShouldUseTools(query string) RouteDecision {
-	// If no MCP clients are connected, skip tool routing
+	// If no clients are connected, no tools are available.
 	if len(r.app.mcpClients) == 0 {
-		return RouteDecision{
-			UseTools: false,
-			Reason:   "No MCP clients connected",
-		}
+		wailsruntime.LogInfo(r.app.ctx, "Router Agent: No MCP clients connected. Skipping tool check.")
+		return false, nil
 	}
 
-	// Define regex patterns for tool usage
-	toolPatterns := []string{
-		`(?i)\b(read|write|list|create|delete|update)\s+(file|document|folder|directory)\b`,
-		`(?i)\b(run|execute|command)\b`,
-		`(?i)\b(search|find|locate)\b`,
-		`(?i)\b(calculate|compute|math|sum|multiply|divide|subtract|add)\b`,
-		`(?i)\b(weather|time|date)\b`,
-		`(?i)\b(convert|translate)\b`,
+	// Construct the prompt for the Router Agent
+	prompt := fmt.Sprintf("You are a dispatcher. Your only job is to decide if a user's request needs access to external tools to be answered. Respond with only 'yes' or 'no'. User Request: \"%s\"", userQuery)
+
+	// Create a minimal message list for this check
+	messages := []ChatMessage{
+		{Role: "user", Content: prompt},
 	}
 
-	matchedPatterns := []string{}
-	for _, pattern := range toolPatterns {
-		re := regexp.MustCompile(pattern)
-		if re.MatchString(query) {
-			matchedPatterns = append(matchedPatterns, pattern)
-		}
+	// Make a non-streaming call to the LLM
+	responseContent, err := r.app.makeLLMRequest(messages, false)
+	if err != nil {
+		wailsruntime.LogErrorf(r.app.ctx, "Router Agent: Error making LLM request: %v", err)
+		return false, err
 	}
 
-	// If any patterns matched, route to tools
-	if len(matchedPatterns) > 0 {
-		return RouteDecision{
-			UseTools:     true,
-			ToolPatterns: matchedPatterns,
-			Reason:       fmt.Sprintf("Matched %d tool patterns", len(matchedPatterns)),
-		}
-	}
-
-	// Default to direct LLM path
-	return RouteDecision{
-		UseTools: false,
-		Reason:   "No tool patterns matched",
-	}
+	// Check the response
+	decision := strings.TrimSpace(strings.ToLower(responseContent))
+	wailsruntime.LogInfof(r.app.ctx, "Router Agent: Decision received: \"%s\"", decision)
+	return decision == "yes", nil
 }
 
-// ExecuteTools executes the appropriate tools based on the query
-func (r *Router) ExecuteTools(sessionID int64, query string) ([]mcp.CallToolResult, error) {
-	// For now, we'll use a simple approach - in the future we might want to
-	// use an LLM to determine which tools to call
-	
-	var allResults []mcp.CallToolResult
-	
-	// Get all available tools from connected MCP servers
+// GetToolManifest retrieves all available tools from connected MCP clients
+// and formats them into a string for the system prompt.
+func (r *Router) GetToolManifest() (string, error) {
+	var manifestBuilder strings.Builder
+	manifestBuilder.WriteString("You have access to the following tools. To use a tool, you must respond with a JSON object inside a <tool_code> block. The JSON should have 'tool_name' and 'arguments' keys.\n\n")
+	manifestBuilder.WriteString("Available Tools:\n")
+
+	for serverName, client := range r.app.mcpClients {
+		if client == nil {
+			continue
+		}
+		tools, err := client.ListTools(context.Background())
+		if err != nil {
+			wailsruntime.LogErrorf(r.app.ctx, "Error listing tools for server '%s': %v", serverName, err)
+			continue
+		}
+
+		for _, tool := range tools {
+			manifestBuilder.WriteString(fmt.Sprintf("- Tool: %s\n", tool.Name))
+			manifestBuilder.WriteString(fmt.Sprintf("  Description: %s\n", tool.Description))
+			// Here you could add argument details if the MCP protocol supports it
+		}
+	}
+
+	return manifestBuilder.String(), nil
+}
+
+// ToolCall represents the structure of a tool call from the LLM.
+type ToolCall struct {
+	ToolName  string                 `json:"tool_name"`
+	Arguments map[string]interface{} `json:"arguments"`
+}
+
+// ExecuteToolCall parses a tool call from the LLM, executes it, and returns the result.
+func (r *Router) ExecuteToolCall(toolCallJSON string) (*mcp.CallToolResult, error) {
+	var toolCall ToolCall
+	err := json.Unmarshal([]byte(toolCallJSON), &toolCall)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshalling tool call: %w", err)
+	}
+
+	wailsruntime.LogInfof(r.app.ctx, "Executing tool call: %s with args: %+v", toolCall.ToolName, toolCall.Arguments)
+
+	// Find the client that has the tool and execute it
 	for serverName, mcpClient := range r.app.mcpClients {
-		// Get tools from the connected client
+		if mcpClient == nil {
+			continue
+		}
+
 		tools, err := mcpClient.ListTools(context.Background())
 		if err != nil {
 			wailsruntime.LogErrorf(r.app.ctx, "Failed to list tools for %s: %v", serverName, err)
 			continue
 		}
-		
-		// For demonstration, we'll execute the first tool that matches our query
-		// In a real implementation, you'd want to use an LLM to determine which tools to call
-		for _, tool := range tools {
-			// Simple matching - in reality, you'd use more sophisticated logic
-			if strings.Contains(strings.ToLower(query), strings.ToLower(tool.Name)) {
-				// Execute the tool with a simple argument structure
-				arguments := map[string]interface{}{
-					"query": query,
-				}
-				
-				// Convert arguments to JSON string as required by the MCP protocol
-				argsJSON, err := json.Marshal(arguments)
-				if err != nil {
-					wailsruntime.LogErrorf(r.app.ctx, "Failed to marshal tool arguments: %v", err)
-					continue
-				}
-				
-				result, err := mcpClient.CallTool(context.Background(), tool.Name, string(argsJSON))
-				if err != nil {
-					wailsruntime.LogErrorf(r.app.ctx, "Failed to call tool %s: %v", tool.Name, err)
-					continue
-				}
-				
-				allResults = append(allResults, *result)
-				
-				// Add tool result as an artifact
-				sessionIDStr := fmt.Sprintf("%d", sessionID)
-				
-				// Extract content from the result
-				var contentBuilder strings.Builder
-				for _, content := range result.Content {
-					// Try to cast to TextContent
-					if textContent, ok := content.(mcp.TextContent); ok {
-						contentBuilder.WriteString(textContent.Text)
-					}
-				}
-				
-				content := fmt.Sprintf("Tool: %s\nResult: %s", tool.Name, contentBuilder.String())
-				_, err = r.app.ArtifactService.AddArtifact(sessionIDStr, "TOOL_NOTIFICATION", fmt.Sprintf("Tool: %s", tool.Name), content)
-				if err != nil {
-					wailsruntime.LogErrorf(r.app.ctx, "Failed to add tool result as artifact: %v", err)
-				}
-				
-				break // For now, just execute the first matching tool
-			}
-		}
-	}
-	
-	return allResults, nil
-}
 
-// AugmentQueryWithToolResults augments the original query with tool results
-func (r *Router) AugmentQueryWithToolResults(originalQuery string, toolResults []mcp.CallToolResult) string {
-	if len(toolResults) == 0 {
-		return originalQuery
-	}
-	
-	// Create a context section with tool results
-	var toolContext strings.Builder
-	toolContext.WriteString("\n\nTool Results:\n")
-	
-	for _, result := range toolResults {
-		// Extract content from the result
-		var contentBuilder strings.Builder
-		for _, content := range result.Content {
-			if textContent, ok := content.(mcp.TextContent); ok {
-				contentBuilder.WriteString(textContent.Text)
+		for _, tool := range tools {
+			if tool.Name == toolCall.ToolName {
+				result, err := mcpClient.CallTool(context.Background(), tool.Name, toolCall.Arguments)
+				if err != nil {
+					return nil, fmt.Errorf("failed to call tool %s: %w", tool.Name, err)
+				}
+				return result, nil
 			}
 		}
-		toolContext.WriteString(fmt.Sprintf("- Result: %s\n", contentBuilder.String()))
 	}
-	
-	// Append tool context to the original query
-	return originalQuery + toolContext.String()
+
+	return nil, fmt.Errorf("tool '%s' not found on any connected server", toolCall.ToolName)
 }

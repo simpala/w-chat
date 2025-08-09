@@ -1,0 +1,8 @@
+{
+  "llama_cpp_dir": "",
+  "models_dir": "",
+  "selected_model": "",
+  "model_settings": {},
+  "theme": "default",
+  "mcp_connection_states": null
+}

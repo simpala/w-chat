@@ -2,6 +2,7 @@ package mcpclient
 
 import (
 	"context"
+	//"encoding/json"
 	"fmt"
 	"sync"
 
@@ -35,6 +36,33 @@ func (m *McpClient) Connect(command string, args []string) error {
 		return fmt.Errorf("failed to start client: %v", err)
 	}
 
+	// Initialize the client with the server
+	initializeRequest := mcp.InitializeRequest{
+		Request: mcp.Request{
+			Method: "initialize",
+		},
+		Params: struct {
+			ProtocolVersion string             `json:"protocolVersion"`
+			Capabilities    mcp.ClientCapabilities `json:"capabilities"`
+			ClientInfo      mcp.Implementation     `json:"clientInfo"`
+		}{
+			ProtocolVersion: mcp.LATEST_PROTOCOL_VERSION,
+			Capabilities: mcp.ClientCapabilities{
+				Experimental: map[string]interface{}{},
+			},
+			ClientInfo: mcp.Implementation{
+				Name:    "local-llm-chat",
+				Version: "1.0.0",
+			},
+		},
+	}
+
+	_, err := c.Initialize(context.Background(), initializeRequest)
+	if err != nil {
+		c.Close()
+		return fmt.Errorf("failed to initialize client: %v", err)
+	}
+
 	m.client = c
 	m.conn = stdioTransport
 
@@ -64,14 +92,14 @@ func (m *McpClient) ListTools(ctx context.Context) ([]mcp.Tool, error) {
 	request := mcp.ListToolsRequest{}
 	result, err := m.client.ListTools(ctx, request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list tools: %w", err)
 	}
 	
 	return result.Tools, nil
 }
 
 // CallTool executes a tool with the given name and arguments
-func (m *McpClient) CallTool(ctx context.Context, name, arguments string) (*mcp.CallToolResult, error) {
+func (m *McpClient) CallTool(ctx context.Context, name string, arguments map[string]interface{}) (*mcp.CallToolResult, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -86,5 +114,10 @@ func (m *McpClient) CallTool(ctx context.Context, name, arguments string) (*mcp.
 		},
 	}
 	
-	return m.client.CallTool(ctx, request)
+	result, err := m.client.CallTool(ctx, request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call tool %s: %w", name, err)
+	}
+	
+	return result, nil
 }
