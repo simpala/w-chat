@@ -695,12 +695,18 @@ func (a *App) toolAgentChat(sessionId int64) {
 			return
 		}
 
-		// 4. Check for tool call
-		re := regexp.MustCompile(`(?s)<tool_code>(.*?)<\/tool_code>`)
-		matches := re.FindStringSubmatch(llmResponse)
+		// 4. Check for tool call by looking for a JSON object
+		var toolCallJSON string
+		firstBrace := strings.Index(llmResponse, "{")
+		lastBrace := strings.LastIndex(llmResponse, "}")
 
-		if len(matches) > 1 {
-			toolCallJSON := matches[1]
+		// Ensure that both braces are found and in the correct order
+		if firstBrace != -1 && lastBrace != -1 && lastBrace > firstBrace {
+			// Extract the JSON part of the response
+			toolCallJSON = llmResponse[firstBrace : lastBrace+1]
+		}
+
+		if toolCallJSON != "" {
 			wailsruntime.LogInfof(a.ctx, "Tool Agent: Detected tool call: %s", toolCallJSON)
 
 			// Execute tool call

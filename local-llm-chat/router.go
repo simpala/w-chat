@@ -59,7 +59,7 @@ func (r *Router) NeedsTools(userQuery string) (bool, error) {
 // and formats them into a string for the system prompt.
 func (r *Router) GetToolManifest() (string, error) {
 	var manifestBuilder strings.Builder
-	manifestBuilder.WriteString("You have access to the following tools. To use a tool, you must respond with a JSON object inside a <tool_code> block. The JSON should have 'tool_name' and 'arguments' keys.\n\n")
+	manifestBuilder.WriteString("You have access to the following tools. To use a tool, you must respond with a JSON object with 'tool_name' and 'arguments' keys.\n\n")
 	manifestBuilder.WriteString("Available Tools:\n")
 
 	for serverName, client := range r.app.mcpClients {
