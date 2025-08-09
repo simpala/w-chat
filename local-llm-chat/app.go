@@ -548,6 +548,7 @@ type ChatCompletionRequest struct {
 	Messages []ChatMessage `json:"messages"`
 	Stream   bool          `json:"stream"`
 	NPredict int           `json:"N_precdict,omitempty"`
+	AddBos   bool          `json:"add_bos"`
 }
 
 // LoadChatHistory loads the chat history for a given session into memory.
@@ -772,7 +773,7 @@ func (a *App) toolAgentChat(sessionId int64) {
 
 // makeLLMRequest sends a request to the LLM and returns the complete response content.
 func (a *App) makeLLMRequest(messages []ChatMessage, stream bool) (string, error) {
-	reqBody := ChatCompletionRequest{Messages: messages, Stream: stream, NPredict: -1}
+	reqBody := ChatCompletionRequest{Messages: messages, Stream: stream, NPredict: -1, AddBos: false}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
 		return "", fmt.Errorf("error marshalling request body: %w", err)
@@ -818,7 +819,7 @@ func (a *App) streamResponse(sessionID int64, messages []ChatMessage) {
 		return
 	}
 
-	reqBody := ChatCompletionRequest{Messages: messages, Stream: true, NPredict: -1}
+	reqBody := ChatCompletionRequest{Messages: messages, Stream: true, NPredict: -1, AddBos: false}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
 		wailsruntime.LogErrorf(a.ctx, "Error marshalling request body: %s", err.Error())
