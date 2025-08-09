@@ -59,7 +59,7 @@ func (r *Router) NeedsTools(userQuery string) (bool, error) {
 // and formats them into a string for the system prompt.
 func (r *Router) GetToolManifest() (string, error) {
 	var manifestBuilder strings.Builder
-	manifestBuilder.WriteString("You have access to the following tools. To use a tool, you must respond with a JSON object inside a <tool_code> block. The JSON should have 'tool_name' and 'arguments' keys.\n\n")
+	manifestBuilder.WriteString("You have access to the following tools. To use a tool, you must respond with a JSON object with 'tool_name' and 'arguments' keys.\n\n")
 	manifestBuilder.WriteString("Available Tools:\n")
 
 	for serverName, client := range r.app.mcpClients {
@@ -75,7 +75,14 @@ func (r *Router) GetToolManifest() (string, error) {
 		for _, tool := range tools {
 			manifestBuilder.WriteString(fmt.Sprintf("- Tool: %s\n", tool.Name))
 			manifestBuilder.WriteString(fmt.Sprintf("  Description: %s\n", tool.Description))
-			// Here you could add argument details if the MCP protocol supports it
+			// Attempt to add argument details from the InputSchema
+			schemaBytes, err := json.MarshalIndent(tool.InputSchema, "  ", "  ")
+			if err == nil {
+				// Add the schema to the prompt only if it's not an empty object
+				if string(schemaBytes) != "{}" {
+					manifestBuilder.WriteString(fmt.Sprintf("  Arguments Schema:\n  %s\n", string(schemaBytes)))
+				}
+			}
 		}
 	}
 
