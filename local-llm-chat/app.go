@@ -707,6 +707,15 @@ func (a *App) toolAgentChat(sessionId int64) {
 		}
 
 		if toolCallJSON != "" {
+			// First, save the assistant's message that contains the tool call
+			assistantMessage := ChatMessage{Role: "assistant", Content: llmResponse}
+			conv.mu.Lock()
+			conv.messages = append(conv.messages, assistantMessage)
+			if errDb := a.db.SaveChatMessage(sessionId, "assistant", llmResponse); errDb != nil {
+				wailsruntime.LogErrorf(a.ctx, "Error saving assistant's tool call message: %s", errDb.Error())
+			}
+			conv.mu.Unlock()
+
 			wailsruntime.LogInfof(a.ctx, "Tool Agent: Detected tool call: %s", toolCallJSON)
 
 			// Execute tool call
@@ -726,11 +735,12 @@ func (a *App) toolAgentChat(sessionId int64) {
 				toolResultContent = contentBuilder.String()
 			}
 
-			// Add tool result to conversation history
-			toolMessage := ChatMessage{Role: "tool", Content: toolResultContent}
+			// Add tool result to conversation history.
+			// WORKAROUND: Use "user" role for tool result to satisfy restrictive chat templates.
+			toolMessage := ChatMessage{Role: "user", Content: toolResultContent}
 			conv.mu.Lock()
 			conv.messages = append(conv.messages, toolMessage)
-			if err := a.db.SaveChatMessage(sessionId, "tool", toolResultContent); err != nil {
+			if err := a.db.SaveChatMessage(sessionId, "user", toolResultContent); err != nil {
 				wailsruntime.LogErrorf(a.ctx, "Error saving tool message: %s", err.Error())
 			}
 			conv.mu.Unlock()
