@@ -742,19 +742,19 @@ func (a *App) toolAgentChat(sessionId int64) {
 			continue
 		}
 
-		// 5. If no tool call, this is the final answer
-		wailsruntime.LogInfo(a.ctx, "Tool Agent: No more tool calls detected. Streaming final answer.")
-		assistantMessage := ChatMessage{Role: "assistant", Content: llmResponse}
+		// 5. If no tool call, this is the final answer. Stream it.
+		wailsruntime.LogInfo(a.ctx, "Tool Agent: No more tool calls detected. Generating final answer via streaming.")
+
+		// The conversation history is already up-to-date with all the tool calls and results.
+		// We can now call the standard streaming function to get the final, consolidated response.
+		var finalMessages []ChatMessage
+		finalMessages = append(finalMessages, ChatMessage{Role: "system", Content: toolSystemPrompt})
 		conv.mu.Lock()
-		conv.messages = append(conv.messages, assistantMessage)
-		if err := a.db.SaveChatMessage(sessionId, "assistant", llmResponse); err != nil {
-			wailsruntime.LogErrorf(a.ctx, "Error saving final assistant message: %s", err.Error())
-		}
+		finalMessages = append(finalMessages, conv.messages...)
 		conv.mu.Unlock()
 
-		wailsruntime.EventsEmit(a.ctx, "chat-stream", llmResponse)
-		wailsruntime.EventsEmit(a.ctx, "chat-stream", nil) // End of stream signal
-		return                                          // End the agentic loop
+		a.streamResponse(sessionId, finalMessages)
+		return // End the agentic loop
 	}
 
 	//wailsruntime.LogWarningf(a.ctx, "Tool Agent: Exceeded max iterations. Ending loop.")
