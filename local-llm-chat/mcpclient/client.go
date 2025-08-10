@@ -2,8 +2,8 @@ package mcpclient
 
 import (
 	"context"
-	//"encoding/json"
 	"fmt"
+	"os/exec"
 	"sync"
 
 	"github.com/mark3labs/mcp-go/client"
@@ -21,6 +21,13 @@ func NewMcpClient() *McpClient {
 	return &McpClient{}
 }
 
+// commandFunc is a custom command factory that creates a command with a hidden window on Windows.
+func commandFunc(ctx context.Context, command string, env []string, args []string) (*exec.Cmd, error) {
+	cmd := exec.CommandContext(ctx, command, args...)
+	setHideWindow(cmd)
+	return cmd, nil
+}
+
 func (m *McpClient) Connect(command string, args []string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -29,7 +36,7 @@ func (m *McpClient) Connect(command string, args []string) error {
 		return fmt.Errorf("client is already connected")
 	}
 
-	stdioTransport := transport.NewStdio(command, nil, args...)
+	stdioTransport := transport.NewStdioWithOptions(command, nil, args, transport.WithCommandFunc(commandFunc))
 	c := client.NewClient(stdioTransport)
 
 	if err := c.Start(context.Background()); err != nil {
