@@ -686,18 +686,9 @@ func (a *App) toolAgentChat(sessionId int64) {
 		var messagesForLLM []ChatMessage
 		messagesForLLM = append(messagesForLLM, ChatMessage{Role: "system", Content: toolSystemPrompt})
 		conv.mu.Lock()
-		history := conv.messages
+		prunedHistory := a.pruneHistory(conv.messages)
 		conv.mu.Unlock()
-
-		const maxHistory = 8 // Keep the last 4 pairs of assistant/user tool messages
-		if len(history) > maxHistory {
-			// Keep the original user query (index 0) and the most recent `maxHistory` messages
-			prunedHistory := []ChatMessage{history[0]}
-			prunedHistory = append(prunedHistory, history[len(history)-maxHistory:]...)
-			messagesForLLM = append(messagesForLLM, prunedHistory...)
-		} else {
-			messagesForLLM = append(messagesForLLM, history...)
-		}
+		messagesForLLM = append(messagesForLLM, prunedHistory...)
 
 		// 3. Call LLM (non-streaming)
 		llmResponse, err := a.makeLLMRequest(messagesForLLM, false)
@@ -771,24 +762,26 @@ func (a *App) toolAgentChat(sessionId int64) {
 		var finalMessages []ChatMessage
 		finalMessages = append(finalMessages, ChatMessage{Role: "system", Content: toolSystemPrompt})
 		conv.mu.Lock()
-		history := conv.messages
+		prunedHistory := a.pruneHistory(conv.messages)
 		conv.mu.Unlock()
-
-		const maxHistory = 8 // Keep the last 4 pairs of assistant/user tool messages
-		if len(history) > maxHistory {
-			// Keep the original user query (index 0) and the most recent `maxHistory` messages
-			prunedHistory := []ChatMessage{history[0]}
-			prunedHistory = append(prunedHistory, history[len(history)-maxHistory:]...)
-			finalMessages = append(finalMessages, prunedHistory...)
-		} else {
-			finalMessages = append(finalMessages, history...)
-		}
+		finalMessages = append(finalMessages, prunedHistory...)
 
 		a.streamResponse(sessionId, finalMessages)
 		return // End the agentic loop
 	}
 
 	//wailsruntime.LogWarningf(a.ctx, "Tool Agent: Exceeded max iterations. Ending loop.")
+}
+
+func (a *App) pruneHistory(history []ChatMessage) []ChatMessage {
+	const maxHistory = 8 // Keep the last 4 pairs of assistant/user tool messages
+	if len(history) > maxHistory {
+		// Keep the original user query (index 0) and the most recent `maxHistory` messages
+		prunedHistory := []ChatMessage{history[0]}
+		prunedHistory = append(prunedHistory, history[len(history)-maxHistory:]...)
+		return prunedHistory
+	}
+	return history
 }
 
 // makeLLMRequest sends a request to the LLM and returns the complete response content.
