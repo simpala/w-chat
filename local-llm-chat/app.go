@@ -548,6 +548,7 @@ type ChatCompletionRequest struct {
 	Messages []ChatMessage `json:"messages"`
 	Stream   bool          `json:"stream"`
 	NPredict int           `json:"N_precdict,omitempty"`
+	AddBos   bool          `json:"add_bos"`
 }
 
 // LoadChatHistory loads the chat history for a given session into memory.
@@ -685,8 +686,18 @@ func (a *App) toolAgentChat(sessionId int64) {
 		var messagesForLLM []ChatMessage
 		messagesForLLM = append(messagesForLLM, ChatMessage{Role: "system", Content: toolSystemPrompt})
 		conv.mu.Lock()
-		messagesForLLM = append(messagesForLLM, conv.messages...)
+		history := conv.messages
 		conv.mu.Unlock()
+
+		const maxHistory = 8 // Keep the last 4 pairs of assistant/user tool messages
+		if len(history) > maxHistory {
+			// Keep the original user query (index 0) and the most recent `maxHistory` messages
+			prunedHistory := []ChatMessage{history[0]}
+			prunedHistory = append(prunedHistory, history[len(history)-maxHistory:]...)
+			messagesForLLM = append(messagesForLLM, prunedHistory...)
+		} else {
+			messagesForLLM = append(messagesForLLM, history...)
+		}
 
 		// 3. Call LLM (non-streaming)
 		llmResponse, err := a.makeLLMRequest(messagesForLLM, false)
@@ -695,12 +706,27 @@ func (a *App) toolAgentChat(sessionId int64) {
 			return
 		}
 
-		// 4. Check for tool call
-		re := regexp.MustCompile(`(?s)<tool_code>(.*?)<\/tool_code>`)
-		matches := re.FindStringSubmatch(llmResponse)
+		// 4. Check for tool call by looking for a JSON object
+		var toolCallJSON string
+		firstBrace := strings.Index(llmResponse, "{")
+		lastBrace := strings.LastIndex(llmResponse, "}")
 
-		if len(matches) > 1 {
-			toolCallJSON := matches[1]
+		// Ensure that both braces are found and in the correct order
+		if firstBrace != -1 && lastBrace != -1 && lastBrace > firstBrace {
+			// Extract the JSON part of the response
+			toolCallJSON = llmResponse[firstBrace : lastBrace+1]
+		}
+
+		if toolCallJSON != "" {
+			// First, save the assistant's message that contains the tool call
+			assistantMessage := ChatMessage{Role: "assistant", Content: llmResponse}
+			conv.mu.Lock()
+			conv.messages = append(conv.messages, assistantMessage)
+			if errDb := a.db.SaveChatMessage(sessionId, "assistant", llmResponse); errDb != nil {
+				wailsruntime.LogErrorf(a.ctx, "Error saving assistant's tool call message: %s", errDb.Error())
+			}
+			conv.mu.Unlock()
+
 			wailsruntime.LogInfof(a.ctx, "Tool Agent: Detected tool call: %s", toolCallJSON)
 
 			// Execute tool call
@@ -720,11 +746,12 @@ func (a *App) toolAgentChat(sessionId int64) {
 				toolResultContent = contentBuilder.String()
 			}
 
-			// Add tool result to conversation history
-			toolMessage := ChatMessage{Role: "tool", Content: toolResultContent}
+			// Add tool result to conversation history.
+			// WORKAROUND: Use "user" role for tool result to satisfy restrictive chat templates.
+			toolMessage := ChatMessage{Role: "user", Content: toolResultContent}
 			conv.mu.Lock()
 			conv.messages = append(conv.messages, toolMessage)
-			if err := a.db.SaveChatMessage(sessionId, "tool", toolResultContent); err != nil {
+			if err := a.db.SaveChatMessage(sessionId, "user", toolResultContent); err != nil {
 				wailsruntime.LogErrorf(a.ctx, "Error saving tool message: %s", err.Error())
 			}
 			conv.mu.Unlock()
@@ -736,19 +763,29 @@ func (a *App) toolAgentChat(sessionId int64) {
 			continue
 		}
 
-		// 5. If no tool call, this is the final answer
-		wailsruntime.LogInfo(a.ctx, "Tool Agent: No more tool calls detected. Streaming final answer.")
-		assistantMessage := ChatMessage{Role: "assistant", Content: llmResponse}
+		// 5. If no tool call, this is the final answer. Stream it.
+		wailsruntime.LogInfo(a.ctx, "Tool Agent: No more tool calls detected. Generating final answer via streaming.")
+
+		// The conversation history is already up-to-date with all the tool calls and results.
+		// We can now call the standard streaming function to get the final, consolidated response.
+		var finalMessages []ChatMessage
+		finalMessages = append(finalMessages, ChatMessage{Role: "system", Content: toolSystemPrompt})
 		conv.mu.Lock()
-		conv.messages = append(conv.messages, assistantMessage)
-		if err := a.db.SaveChatMessage(sessionId, "assistant", llmResponse); err != nil {
-			wailsruntime.LogErrorf(a.ctx, "Error saving final assistant message: %s", err.Error())
-		}
+		history := conv.messages
 		conv.mu.Unlock()
 
-		wailsruntime.EventsEmit(a.ctx, "chat-stream", llmResponse)
-		wailsruntime.EventsEmit(a.ctx, "chat-stream", nil) // End of stream signal
-		return                                          // End the agentic loop
+		const maxHistory = 8 // Keep the last 4 pairs of assistant/user tool messages
+		if len(history) > maxHistory {
+			// Keep the original user query (index 0) and the most recent `maxHistory` messages
+			prunedHistory := []ChatMessage{history[0]}
+			prunedHistory = append(prunedHistory, history[len(history)-maxHistory:]...)
+			finalMessages = append(finalMessages, prunedHistory...)
+		} else {
+			finalMessages = append(finalMessages, history...)
+		}
+
+		a.streamResponse(sessionId, finalMessages)
+		return // End the agentic loop
 	}
 
 	//wailsruntime.LogWarningf(a.ctx, "Tool Agent: Exceeded max iterations. Ending loop.")
@@ -756,7 +793,7 @@ func (a *App) toolAgentChat(sessionId int64) {
 
 // makeLLMRequest sends a request to the LLM and returns the complete response content.
 func (a *App) makeLLMRequest(messages []ChatMessage, stream bool) (string, error) {
-	reqBody := ChatCompletionRequest{Messages: messages, Stream: stream, NPredict: -1}
+	reqBody := ChatCompletionRequest{Messages: messages, Stream: stream, NPredict: -1, AddBos: false}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
 		return "", fmt.Errorf("error marshalling request body: %w", err)
@@ -802,7 +839,7 @@ func (a *App) streamResponse(sessionID int64, messages []ChatMessage) {
 		return
 	}
 
-	reqBody := ChatCompletionRequest{Messages: messages, Stream: true, NPredict: -1}
+	reqBody := ChatCompletionRequest{Messages: messages, Stream: true, NPredict: -1, AddBos: false}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
 		wailsruntime.LogErrorf(a.ctx, "Error marshalling request body: %s", err.Error())
@@ -903,21 +940,28 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 		wailsruntime.LogErrorf(a.ctx, "Error reading stream for session %d: %s", sessionID, err)
 	}
 
+	// Flush any remaining text in the buffer
 	mu.Lock()
 	if currentChunkBuffer.Len() > 0 {
 		wailsruntime.EventsEmit(a.ctx, "chat-stream", currentChunkBuffer.String())
 	}
 	mu.Unlock()
 
-	conv.mu.Lock()
-	defer conv.mu.Unlock()
+	// Get the complete response
+	fullResponse := fullResponseBuilder.String()
+	assistantMessage := ChatMessage{Role: "assistant", Content: fullResponse}
 
-	assistantMessage := ChatMessage{Role: "assistant", Content: fullResponseBuilder.String()}
+	// Lock the conversation just to update the in-memory message list
+	conv.mu.Lock()
 	conv.messages = append(conv.messages, assistantMessage)
-	if err := a.db.SaveChatMessage(sessionID, "assistant", fullResponseBuilder.String()); err != nil {
+	conv.mu.Unlock()
+
+	// Save the full message to the database *after* releasing the lock
+	if err := a.db.SaveChatMessage(sessionID, "assistant", fullResponse); err != nil {
 		wailsruntime.LogErrorf(a.ctx, "Error saving assistant message: %s", err.Error())
 	}
 
+	// Finally, send the end-of-stream signal to the frontend
 	wailsruntime.EventsEmit(a.ctx, "chat-stream", nil)
 }
 
