@@ -762,7 +762,7 @@ func (a *App) toolAgentChat(sessionId int64) {
 		var finalMessages []ChatMessage
 		finalMessages = append(finalMessages, ChatMessage{Role: "system", Content: toolSystemPrompt})
 		conv.mu.Lock()
-		prunedHistory := a.pruneHistory(conv.messages)
+		prunedHistory = a.pruneHistory(conv.messages)
 		conv.mu.Unlock()
 		finalMessages = append(finalMessages, prunedHistory...)
 
