@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -13,13 +15,16 @@ import (
 
 // Router handles the decision making for routing queries to tools or directly to LLM
 type Router struct {
-	app *App
+	app              *App
+	lastToolCallTime map[string]time.Time
+	mu               sync.Mutex
 }
 
 // NewRouter creates a new router instance
 func NewRouter(app *App) *Router {
 	return &Router{
-		app: app,
+		app:              app,
+		lastToolCallTime: make(map[string]time.Time),
 	}
 }
 
@@ -103,6 +108,16 @@ func (r *Router) ExecuteToolCall(toolCallJSON string) (*mcp.CallToolResult, erro
 		return nil, fmt.Errorf("error unmarshalling tool call: %w", err)
 	}
 
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	cooldown := time.Duration(r.app.config.ToolCallCooldown) * time.Second
+	if lastCall, found := r.lastToolCallTime[toolCall.ToolName]; found {
+		if time.Since(lastCall) < cooldown {
+			return nil, fmt.Errorf("tool '%s' is on cooldown. Please wait", toolCall.ToolName)
+		}
+	}
+
 	wailsruntime.LogInfof(r.app.ctx, "Executing tool call: %s with args: %+v", toolCall.ToolName, toolCall.Arguments)
 
 	// Find the client that has the tool and execute it
@@ -123,6 +138,7 @@ func (r *Router) ExecuteToolCall(toolCallJSON string) (*mcp.CallToolResult, erro
 				if err != nil {
 					return nil, fmt.Errorf("failed to call tool %s: %w", tool.Name, err)
 				}
+				r.lastToolCallTime[toolCall.ToolName] = time.Now() // Update last call time
 				return result, nil
 			}
 		}

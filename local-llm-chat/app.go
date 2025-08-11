@@ -50,6 +50,8 @@ type Config struct {
 	ModelSettings       map[string]ModelSettings `json:"model_settings"`
 	Theme               string                   `json:"theme"`
 	McpConnectionStates map[string]bool          `json:"mcp_connection_states"`
+	ToolCallIterations  int                      `json:"tool_call_iterations"`
+	ToolCallCooldown    int                      `json:"tool_call_cooldown"`
 }
 
 // Conversation struct to hold the state of a single chat session
@@ -218,6 +220,8 @@ func (a *App) SaveSettings(settings string) error {
 	a.config.ModelsDir = config.ModelsDir
 	a.config.SelectedModel = config.SelectedModel
 	a.config.Theme = config.Theme
+	a.config.ToolCallIterations = config.ToolCallIterations
+	a.config.ToolCallCooldown = config.ToolCallCooldown
 	// Note: McpConnectionStates is not managed here as it's transient state
 	wailsruntime.LogInfof(a.ctx, "a.config state before saving to file: %+v", a.config)
 
@@ -280,6 +284,13 @@ func (a *App) LoadSettings() (string, error) {
 		a.config.ModelSettings = make(map[string]ModelSettings)
 		wailsruntime.LogInfo(a.ctx, "ModelSettings was nil, initialized to empty map.")
 	}
+	// Set default values for new tool settings if they are not present
+	if a.config.ToolCallIterations == 0 {
+		a.config.ToolCallIterations = 5 // Default to 5 iterations
+		wailsruntime.LogInfo(a.ctx, "ToolCallIterations was 0, defaulted to 5.")
+	}
+	// ToolCallCooldown can default to 0, so no check is needed unless we want a different default.
+
 	wailsruntime.LogInfof(a.ctx, "a.config state after loading and decoding: %+v", a.config)
 
 	configBytes, err := json.Marshal(a.config)
@@ -682,7 +693,11 @@ func (a *App) toolAgentChat(sessionId int64) {
 	toolSystemPrompt := toolManifest
 
 	// Agentic loop
-	for i := 0; i < 5; i++ { // Limit iterations to prevent infinite loops
+	maxIterations := a.config.ToolCallIterations
+	if maxIterations <= 0 {
+		maxIterations = 5 // Default to 5 if not set or set to 0/negative
+	}
+	for i := 0; i < maxIterations; i++ { // Use the configured limit
 		var messagesForLLM []ChatMessage
 		messagesForLLM = append(messagesForLLM, ChatMessage{Role: "system", Content: toolSystemPrompt})
 		conv.mu.Lock()
