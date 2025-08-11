@@ -102,6 +102,19 @@ export async function saveAllSettings() {
 
     // Save the current theme from the body's data-theme attribute
     currentSettings.theme = document.body.dataset.theme || 'default';
+
+    // --- NEW: Save Tool Usage Sliders ---
+    const iterationsSlider = document.getElementById('toolCallIterationsSlider');
+    if (iterationsSlider) {
+        currentSettings.tool_call_iterations = parseInt(iterationsSlider.value, 10);
+    }
+
+    const cooldownSlider = document.getElementById('toolCallCooldownSlider');
+    if (cooldownSlider) {
+        currentSettings.tool_call_cooldown = parseInt(cooldownSlider.value, 10);
+    }
+    // --- END NEW ---
+
     runtime.LogInfo("DEBUG: settings.js: Settings object before saving:", currentSettings);
 
     return GoSaveSettings(JSON.stringify(currentSettings))
@@ -217,6 +230,24 @@ export async function loadSettingsAndApplyTheme() {
             runtime.LogInfo("DEBUG: settings.js: Models directory not set, skipping model list population.");
             initFuzzySearch([]); // Initialize fuzzy search with empty data if no models directory
         }
+
+        // --- NEW: Populate Tool Usage Sliders ---
+        // Note: These elements only exist when the MCP manager artifact is rendered.
+        // This function is called on startup, so we check for their existence.
+        const iterationsSlider = document.getElementById('toolCallIterationsSlider');
+        const iterationsValue = document.getElementById('toolCallIterationsValue');
+        const cooldownSlider = document.getElementById('toolCallCooldownSlider');
+        const cooldownValue = document.getElementById('toolCallCooldownValue');
+
+        if (iterationsSlider && iterationsValue) {
+            iterationsSlider.value = currentSettings.tool_call_iterations || 5;
+            iterationsValue.textContent = iterationsSlider.value;
+        }
+        if (cooldownSlider && cooldownValue) {
+            cooldownSlider.value = currentSettings.tool_call_cooldown || 0;
+            cooldownValue.textContent = cooldownSlider.value;
+        }
+        // --- END NEW ---
 
     } catch (error) {
         runtime.LogError("ERROR: settings.js: Top-level error in loadSettingsAndApplyTheme:", error);
