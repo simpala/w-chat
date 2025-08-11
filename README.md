@@ -36,9 +36,15 @@
     cd ..
     ```
 4.  **Build the application:**
-    ```bash
-    wails build
-    ```
+
+    *   **Windows & macOS:**
+        ```bash
+        wails build
+        ```
+    *   **Linux:**
+        ```bash
+        wails build -tags webkit2_41
+        ```
     This will create a binary in the `build/bin` directory.
 
 ## Usage
