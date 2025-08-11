@@ -785,7 +785,26 @@ func (a *App) toolAgentChat(sessionId int64) {
 		return // End the agentic loop
 	}
 
-	//wailsruntime.LogWarningf(a.ctx, "Tool Agent: Exceeded max iterations. Ending loop.")
+	// Handle case where max iterations are exceeded
+	wailsruntime.LogWarningf(a.ctx, "Tool Agent: Exceeded max iterations (%d). Ending loop.", maxIterations)
+
+	// Create a user-friendly error message
+	errorMessage := fmt.Sprintf("The assistant reached the maximum number of tool calls (%d) without providing a final answer. The task has been stopped.", maxIterations)
+
+	// Add the error message to the conversation history
+	assistantMessage := ChatMessage{Role: "assistant", Content: errorMessage}
+	conv.mu.Lock()
+	conv.messages = append(conv.messages, assistantMessage)
+	if err := a.db.SaveChatMessage(sessionId, "assistant", errorMessage); err != nil {
+		wailsruntime.LogErrorf(a.ctx, "Error saving max iterations error message: %s", err.Error())
+	}
+	conv.mu.Unlock()
+
+	// Send the error message to the frontend
+	wailsruntime.EventsEmit(a.ctx, "chat-stream", errorMessage)
+
+	// Signal the end of the stream
+	wailsruntime.EventsEmit(a.ctx, "chat-stream", nil)
 }
 
 func (a *App) pruneHistory(history []ChatMessage) []ChatMessage {
