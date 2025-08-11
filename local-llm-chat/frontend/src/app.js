@@ -227,6 +227,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const messageInput = document.getElementById('messageInput');
     const stopButton = document.getElementById('stopButton');
     const chatWindow = document.querySelector('.messages-container');
+        // Intercept link clicks to open in system browser
+    chatWindow.addEventListener('click', (e) => {
+        const target = e.target.closest('a');
+        if (target && target.href) {
+            // Check if it's an external link
+            if (target.protocol === 'http:' || target.protocol === 'https:') {
+                e.preventDefault();
+                runtime.BrowserOpenURL(target.href);
+            }
+        }
+    });
     const systemPromptSelectInput = document.getElementById('systemPromptSelectInput');
     const systemPromptSelectList = document.getElementById('systemPromptSelectList');
     const customSystemPrompt = document.getElementById('customSystemPrompt');
@@ -311,6 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedThemeValue.value = themeValue; // Update hidden input
             applyTheme(themeValue);
             themeSelectList.classList.add('select-hide');
+            saveAllSettings(); // <-- THE FIX: Save settings when theme is changed
         });
     });
 
