@@ -220,6 +220,8 @@ func (a *App) SaveSettings(settings string) error {
 	a.config.ModelsDir = config.ModelsDir
 	a.config.SelectedModel = config.SelectedModel
 	a.config.Theme = config.Theme
+	a.config.ToolCallIterations = config.ToolCallIterations
+	a.config.ToolCallCooldown = config.ToolCallCooldown
 	// Note: McpConnectionStates is not managed here as it's transient state
 	wailsruntime.LogInfof(a.ctx, "a.config state before saving to file: %+v", a.config)
 
