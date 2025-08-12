@@ -77,3 +77,6 @@ The application uses a two-agent system to handle user queries:
 
 This agent workflow allows the application to be extended with new tools without modifying the core logic. For more details, see the `MCP_README.md` file.
 
+
+
+<img width="1923" height="1038" alt="Untitled" src="https://github.com/user-attachments/assets/4bf25e9e-d204-4528-adc2-91ff813ebb2c" />
