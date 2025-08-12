@@ -10,6 +10,7 @@
 *   **Dynamic Tool Discovery:** The application dynamically discovers and uses tools made available through the Multi-Agent Communication Protocol (MCP).
 *   **Cross-Platform:** Built with Wails, it runs on Windows, macOS, and Linux.
 *   **Conversation History:** Your conversations are saved locally for future reference.
+*   **Save Model Settings:** Per Model argument setting's are saved in the config file and will be there the next time you need to use that model.
 *   **AI slop** yes.
 *   **bugs** most likely report them better yet fix them!
 ## Getting Started
