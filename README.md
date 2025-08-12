@@ -79,4 +79,4 @@ This agent workflow allows the application to be extended with new tools without
 
 
 
-<img width="1923" height="1038" alt="Untitled" src="https://github.com/user-attachments/assets/4bf25e9e-d204-4528-adc2-91ff813ebb2c" />
+<img width="1923" height="1038" alt="screen_shot.png" src="screen_shot.png" />
