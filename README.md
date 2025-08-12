@@ -1,6 +1,6 @@
 # Local LLM Chat
 
-**Local LLM Chat** is a cross-platform desktop application that provides a user-friendly chat interface for interacting with local large language models (LLMs), specifically designed to work with the `llama.cpp` server. It features a sophisticated, agentic workflow that allows the LLM to dynamically use external tools to answer questions and complete tasks.
+**Local LLM Chat** is a cross-platform desktop application that provides a user-friendly chat interface for interacting with local large language models (LLMs), specifically designed to work with the `llama.cpp` server. It features agent workflow that allows the LLM to dynamically use external tools to answer questions and complete tasks.
 
 ## Features
 
@@ -29,19 +29,13 @@
     ```bash
     cd local-llm-chat
     ```
-3.  **Install frontend dependencies:**
-    ```bash
-    cd frontend
-    npm install
-    cd ..
-    ```
-4.  **Build the application:**
+3.  **Build the application:**
 
     *   **Windows & macOS:**
         ```bash
         wails build
         ```
-    *   **Linux:**
+    *   **Linux:** 
         ```bash
         wails build -tags webkit2_41
         ```
@@ -79,7 +73,7 @@ The application uses a two-agent system to handle user queries:
 1.  **Router Agent:** This agent first determines if a user's query requires the use of external tools.
 2.  **Tool-Using Agent:** If tools are needed, this agent takes over. It discovers available tools, selects the appropriate one, and executes it.
 
-This agentic workflow allows the application to be extended with new tools without modifying the core logic. For more details, see the `MCP_README.md` file.
+This agent workflow allows the application to be extended with new tools without modifying the core logic. For more details, see the `MCP_README.md` file.
 
 ## License
 
