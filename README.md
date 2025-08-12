@@ -10,14 +10,15 @@
 *   **Dynamic Tool Discovery:** The application dynamically discovers and uses tools made available through the Multi-Agent Communication Protocol (MCP).
 *   **Cross-Platform:** Built with Wails, it runs on Windows, macOS, and Linux.
 *   **Conversation History:** Your conversations are saved locally for future reference.
-
+*   **AI slop** yes.
+*   **bugs** most likely report them better yet fix them!
 ## Getting Started
 
 ### Prerequisites
 
 *   **Go:** The backend is written in Go. You'll need Go installed to build the application.
-*   **Node.js:** The frontend is a Svelte application, which requires Node.js and npm.
-*   **`llama.cpp` Server:** You need a running `llama.cpp` server instance for the application to connect to.
+*   **Node.js:**  
+*   **`llama.cpp` the app expects you to have downloaded a llama.cpp release from https://github.com/ggml-org/llama.cpp/releases or built it yourself
 
 ### Installation
 
@@ -61,7 +62,7 @@
     }
     ```
     *   `llama_cpp_dir`: The directory where your `llama.cpp` server is located.
-    *   `models_dir`: The directory where your LLM models are stored.
+    *   `models_dir`: The directory where your LLM gguf models are stored.
     *   `selected_model`: The name of the model you want to use.
     *   `model_settings`: Specific settings for the selected model.
     *   `theme`: The theme of the application (e.g., "default", "dark").
