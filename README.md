@@ -68,7 +68,7 @@
     *   `model_settings`: Specific settings for the selected model.
     *   `theme`: The theme of the application (e.g., "default", "dark").
 
-## How MCP Works Within this app
+## How MCP works within this app
 
 The application uses a two-agent system to handle user queries:
 
