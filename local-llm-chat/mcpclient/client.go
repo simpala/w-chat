@@ -37,7 +37,7 @@ func (m *McpClient) Connect(command string, args []string) error {
 	}
 
 	stdioTransport := transport.NewStdioWithOptions(command, nil, args, transport.WithCommandFunc(commandFunc))
-	c := client.NewClient(stdioTransport)
+	c := client.NewClient(stdioTransport) //stdio fits most cases in a local setup
 
 	if err := c.Start(context.Background()); err != nil {
 		return fmt.Errorf("failed to start client: %v", err)
