@@ -62,6 +62,7 @@ type Conversation struct {
 	mu           sync.Mutex
 }
 
+
 func NewApp() *App {
 	return &App{
 		conversations: make(map[int64]*Conversation),
