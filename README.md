@@ -23,7 +23,7 @@
 
 1.  **Clone the repository:**
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/simpala/w-chat.git
     ```
 2.  **Navigate to the `local-llm-chat` directory:**
     ```bash
