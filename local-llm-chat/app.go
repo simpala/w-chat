@@ -441,10 +441,7 @@ func (a *App) findExecutable(rootDir, exeName string) (string, error) {
 	var exePath string
 	exeFullName := exeName
 
-	env, err := wailsruntime.Environment(a.ctx)
-	if err != nil {
-		return "", fmt.Errorf("failed to get environment info: %w", err)
-	}
+	env := wailsruntime.Environment(a.ctx)
 
 	if env.Platform == "windows" {
 		exeFullName += ".exe"
