@@ -56,6 +56,7 @@ export const ArtifactType = {
     TOOL_NOTIFICATION: "TOOL_NOTIFICATION",
     MCP_MANAGER: "MCP_MANAGER",
     LOG_VIEW: "LOG_VIEW",
+    LLAMA_UPDATER: "LLAMA_UPDATER",
     // Add other types as you define them in Go
 };
 // --- END NEW: Artifact Type Constants ---
@@ -136,6 +137,11 @@ function renderArtifacts() {
             mcpManagerDiv.innerHTML = `<div class="mcp-server-list"></div>`;
             artifactItem.appendChild(mcpManagerDiv);
             setTimeout(renderMcpServers, 0);
+        } else if (artifact.type === ArtifactType.LLAMA_UPDATER) {
+            const llamaUpdaterDiv = document.createElement('div');
+            llamaUpdaterDiv.id = 'llama-updater-content';
+            llamaUpdaterDiv.innerHTML = `<button id="fetchLlamaReleases">Fetch Latest Releases</button>`;
+            artifactItem.appendChild(llamaUpdaterDiv);
         } else if (artifact.type === ArtifactType.LOG_VIEW) {
             const iframe = document.createElement('iframe');
             iframe.src = "/artifacts/llm-server.log";
@@ -791,6 +797,11 @@ document.addEventListener('DOMContentLoaded', () => {
         mcpManagerButton.addEventListener('click', createMcpManagerArtifact);
     }
 
+    const llamaUpdaterButton = document.getElementById('llamaUpdaterButton');
+    if (llamaUpdaterButton) {
+        llamaUpdaterButton.addEventListener('click', createLlamaUpdaterArtifact);
+    }
+
     if (toggleLogViewButton) {
         toggleLogViewButton.addEventListener('click', () => {
             if (currentSessionId) {
@@ -868,6 +879,18 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('launchLLMButton').addEventListener('click', launchLLM);
 
     // initFuzzySearch([]) is no longer needed here as it's handled by loadSettingsAndApplyTheme
+
+    document.getElementById('artifactsContent').addEventListener('click', async (e) => {
+        if (e.target.id === 'fetchLlamaReleases') {
+            handleFetchLlamaReleases();
+        } else if (e.target.classList.contains('download-llama-release')) {
+            const button = e.target;
+            const assetUrl = button.dataset.url;
+            const assetName = button.dataset.name;
+            const tagName = button.dataset.tag;
+            handleDownloadLlamaRelease(assetUrl, assetName, tagName, button);
+        }
+    });
 });
 
 // --- NEW: File Upload Handling Function ---
@@ -932,6 +955,26 @@ async function createMcpManagerArtifact() {
     } catch (error) {
         console.error("ERROR: Error creating MCP manager artifact:", error);
         addMessageToChatWindow('system', `ERROR: Failed to create MCP manager artifact: ${error.message || error}`);
+    }
+}
+
+async function createLlamaUpdaterArtifact() {
+    if (currentSessionId === null) {
+        addMessageToChatWindow('system', 'WARN: No current chat session. Please start a chat session before opening the Llama.cpp updater.');
+        return;
+    }
+
+    const llamaUpdaterExists = artifacts.some(a => a.type === ArtifactType.LLAMA_UPDATER);
+    if (llamaUpdaterExists) {
+        addMessageToChatWindow('system', 'INFO: Llama.cpp updater is already open.');
+        return;
+    }
+
+    try {
+        await AddArtifact(String(currentSessionId), ArtifactType.LLAMA_UPDATER, "Llama.cpp Updater", "");
+    } catch (error) {
+        console.error("ERROR: Error creating Llama.cpp updater artifact:", error);
+        addMessageToChatWindow('system', `ERROR: Failed to create Llama.cpp updater artifact: ${error.message || error}`);
     }
 }
 
@@ -1035,3 +1078,92 @@ async function renderMcpServers() {
     }
 }
 // --- END NEW: File Upload Handling Function ---
+
+// --- Llama.cpp Updater Functions ---
+
+async function handleFetchLlamaReleases() {
+    const contentDiv = document.getElementById('llama-updater-content');
+    if (!contentDiv) return;
+
+    contentDiv.innerHTML = '<p>Fetching releases...</p>';
+
+    try {
+        const releases = await window.go.main.App.FetchLlamaCppReleases();
+        if (!releases || releases.length === 0) {
+            contentDiv.innerHTML = '<p>No recent llama.cpp releases found.</p>';
+            return;
+        }
+
+        let releasesHtml = '<ul>';
+        releases.forEach(release => {
+            releasesHtml += `<li><strong>${release.name}</strong> (${release.tag_name})<ul>`;
+            release.assets.forEach(asset => {
+                releasesHtml += `
+                    <li>
+                        ${asset.name} (${asset.human_size})
+                        <button class="download-llama-release" data-url="${asset.browser_download_url}" data-name="${asset.name}" data-tag="${release.tag_name}">
+                            Download
+                        </button>
+                    </li>`;
+            });
+            releasesHtml += '</ul></li>';
+        });
+        releasesHtml += '</ul>';
+        contentDiv.innerHTML = releasesHtml;
+
+    } catch (error) {
+        console.error("Error fetching llama.cpp releases:", error);
+        contentDiv.innerHTML = `<p class="error-message">Error fetching releases: ${error}</p>`;
+    }
+}
+
+function handleDownloadLlamaRelease(assetUrl, assetName, tagName, button) {
+    button.disabled = true;
+    button.textContent = 'Downloading...';
+
+    const progress = document.createElement('div');
+    progress.classList.add('download-progress');
+    progress.innerHTML = `
+        <div class="progress-bar-container">
+            <div class="progress-bar"></div>
+        </div>
+        <span class="progress-text"></span>
+    `;
+    button.parentElement.appendChild(progress);
+
+    window.go.main.App.DownloadLlamaCppAsset(assetUrl, assetName, tagName);
+}
+
+function setupLlamaDownloadListeners() {
+    runtime.EventsOn("llama-cpp-download-progress", (progress) => {
+        const progressBar = document.querySelector('.download-progress .progress-bar');
+        const progressText = document.querySelector('.download-progress .progress-text');
+        if (progressBar && progressText) {
+            const percentage = progress.total > 0 ? (progress.downloaded / progress.total) * 100 : 0;
+            progressBar.style.width = `${percentage}%`;
+            progressText.textContent = `${progress.human_downloaded} / ${progress.human_total}`;
+        }
+    });
+
+    runtime.EventsOn("llama-cpp-download-complete", (newPath) => {
+        const contentDiv = document.getElementById('llama-updater-content');
+        if (contentDiv) {
+            contentDiv.innerHTML = `<p class="success-message">Llama.cpp downloaded and extracted to:<br>${newPath}</p>`;
+        }
+        // Also update the settings input field if it's on the screen
+        const llamaPathInput = document.getElementById('llamaPathInput');
+        if (llamaPathInput) {
+            llamaPathInput.value = newPath;
+        }
+    });
+
+    runtime.EventsOn("llama-cpp-download-error", (errorMessage) => {
+        const contentDiv = document.getElementById('llama-updater-content');
+        if (contentDiv) {
+            contentDiv.innerHTML += `<p class="error-message">Download failed: ${errorMessage}</p>`;
+        }
+    });
+}
+
+// Call this once when the app loads
+setupLlamaDownloadListeners();
