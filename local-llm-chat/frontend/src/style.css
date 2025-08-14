@@ -1194,3 +1194,61 @@ body {
     font-size: 0.8em;
     margin-top: 0.5rem;
 }
+
+/* --- Llama.cpp Updater Styles --- */
+#llama-updater-content ul {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+#llama-updater-content li {
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color-light);
+    border-radius: 4px;
+}
+
+#llama-updater-content li ul {
+    margin-top: 0.5rem;
+    padding-left: 1rem;
+}
+
+#llama-updater-content li li {
+    border: none;
+    padding: 0.25rem 0;
+}
+
+.download-llama-release {
+    margin-left: 1rem;
+    padding: 4px 8px;
+    font-size: 0.8em;
+}
+
+.download-progress {
+    margin-top: 0.5rem;
+}
+
+.progress-bar-container {
+    width: 100%;
+    background-color: var(--bg-tertiary);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    width: 0%;
+    height: 10px;
+    background-color: #4caf50;
+    transition: width 0.2s ease-in-out;
+}
+
+.progress-text {
+    font-size: 0.8em;
+    margin-top: 0.25rem;
+    display: block;
+}
+
+.success-message {
+    color: #4caf50;
+    font-weight: bold;
+}
