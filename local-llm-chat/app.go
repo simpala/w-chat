@@ -472,9 +472,9 @@ func (a *App) LaunchLLM(modelPath string, modelArgs string) (string, error) {
 			wailsruntime.LogErrorf(a.ctx, "Failed to terminate existing LLM server: %v", err)
 		}
 	}
-	serverPath, err := findExecutable(a.config.LlamaCppDir, "server")
+	serverPath, err := findExecutable(a.config.LlamaCppDir, "llama-server")
 	if err != nil {
-		return "", fmt.Errorf("could not find server executable: %w", err)
+		return "", fmt.Errorf("could not find llama-server executable: %w", err)
 	}
 
 	// Construct the command arguments
