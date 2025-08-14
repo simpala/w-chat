@@ -627,16 +627,31 @@ func (a *App) LoadChatHistory(sessionId int64) ([]ChatMessage, error) {
 		}
 		a.conversations[sessionId] = conv
 	}
+
+	// Create a cleaned version of the history for the in-memory context.
+	cleanedHistory := make([]ChatMessage, len(history))
+	for i, msg := range history {
+		if msg.Role == "assistant" {
+			cleanedHistory[i] = ChatMessage{
+				Role:    msg.Role,
+				Content: stripThinkTags(msg.Content),
+			}
+		} else {
+			cleanedHistory[i] = msg
+		}
+	}
+
 	conv.mu.Lock()
-	conv.messages = history
+	conv.messages = cleanedHistory // Use the cleaned history for the in-memory context
 	conv.systemPrompt = session.SystemPrompt
 	conv.mu.Unlock()
-	wailsruntime.LogInfof(a.ctx, "Updated conversation in memory for session %d. System Prompt: '%s'", sessionId, conv.systemPrompt)
+	wailsruntime.LogInfof(a.ctx, "Updated conversation in memory for session %d with cleaned history. System Prompt: '%s'", sessionId, conv.systemPrompt)
 
 	if history == nil {
 		return []ChatMessage{}, nil
 	}
 
+	// Return the original history to the frontend for display
 	return history, nil
 }
 
@@ -763,13 +778,18 @@ func (a *App) toolAgentChat(sessionId int64) {
 		}
 
 		if toolCallJSON != "" {
-			// First, save the assistant's message that contains the tool call
-			assistantMessage := ChatMessage{Role: "assistant", Content: llmResponse}
-			conv.mu.Lock()
-			conv.messages = append(conv.messages, assistantMessage)
+			// Save the full message (with tags) to the database first.
 			if errDb := a.db.SaveChatMessage(sessionId, "assistant", llmResponse); errDb != nil {
 				wailsruntime.LogErrorf(a.ctx, "Error saving assistant's tool call message: %s", errDb.Error())
 			}
+
+			// Now, create a cleaned version for the in-memory context.
+			cleanedResponse := stripThinkTags(llmResponse)
+			assistantMessage := ChatMessage{Role: "assistant", Content: cleanedResponse}
+
+			// Lock the conversation to update the in-memory message list with the cleaned message.
+			conv.mu.Lock()
+			conv.messages = append(conv.messages, assistantMessage)
 			conv.mu.Unlock()
 
 			wailsruntime.LogInfof(a.ctx, "Tool Agent: Detected tool call: %s", toolCallJSON)
@@ -1015,17 +1035,20 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 
 	// Get the complete response
 	fullResponse := fullResponseBuilder.String()
-	assistantMessage := ChatMessage{Role: "assistant", Content: fullResponse}
 
-	// Lock the conversation just to update the in-memory message list
-	conv.mu.Lock()
-	conv.messages = append(conv.messages, assistantMessage)
-	conv.mu.Unlock()
-
-	// Save the full message to the database *after* releasing the lock
+	// Save the full message (with tags) to the database first.
 	if err := a.db.SaveChatMessage(sessionID, "assistant", fullResponse); err != nil {
 		wailsruntime.LogErrorf(a.ctx, "Error saving assistant message: %s", err.Error())
 	}
+
+	// Now, create a cleaned version for the in-memory context.
+	cleanedResponse := stripThinkTags(fullResponse)
+	assistantMessage := ChatMessage{Role: "assistant", Content: cleanedResponse}
+
+	// Lock the conversation to update the in-memory message list with the cleaned message.
+	conv.mu.Lock()
+	conv.messages = append(conv.messages, assistantMessage)
+	conv.mu.Unlock()
 
 	// Finally, send the end-of-stream signal to the frontend
 	wailsruntime.EventsEmit(a.ctx, "chat-stream", nil)
@@ -1050,6 +1073,14 @@ func (a *App) getConversation(sessionID int64) (*Conversation, bool) {
 	defer a.mu.Unlock()
 	conv, ok := a.conversations[sessionID]
 	return conv, ok
+}
+
+// stripThinkTags removes <think> tags and surrounding whitespace from a string.
+func stripThinkTags(content string) string {
+	reThink := regexp.MustCompile(`(?s)<think>.*?</think>`)
+	strippedContent := reThink.ReplaceAllString(content, "")
+	// Also remove any leading/trailing whitespace that might be left
+	return strings.TrimSpace(strippedContent)
 }
 
 func (a *App) generateSessionName(message string) (string, error) {
