@@ -1077,7 +1077,7 @@ func (a *App) FetchLlamaCppReleases() ([]GitHubRelease, error) {
 
 	var filteredReleases []GitHubRelease
 	for _, release := range releases {
-		if strings.Contains(release.Name, "master") && len(release.Assets) > 0 {
+		if len(release.Assets) > 0 {
 			for i := range release.Assets {
 				release.Assets[i].HumanSize = humanizeSize(release.Assets[i].Size)
 			}
