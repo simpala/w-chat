@@ -17,9 +17,7 @@
 
 ### Prerequisites
 
-*   **Go:** The backend is written in Go. You'll need Go installed to build the application.
-*   **Node.js:**  
-*   **`llama.cpp` the app expects you to have downloaded a llama.cpp release from https://github.com/ggml-org/llama.cpp/releases or built it yourself
+*   **`llama.cpp` As of v1.0.4 you can download the latest llama.cpp binary release versions within the app itself (orange C++ logo in the artifacts panel), this also will prefill the config with this downloaded version.
 
 ### Installation
 
@@ -49,19 +47,6 @@
     *   On Windows, run `local-llm-chat.exe`.
     *   On macOS, run `local-llm-chat.app`.
     *   On Linux, run `local-llm-chat`.
-2.  **Configure the application:**
-    The application uses a `config.json` file to store its settings. The first time you run the application, it will be created with default values.
-
-    ```json
-    {
-      "llama_cpp_dir": "",
-      "models_dir": "",
-      "selected_model": "",
-      "model_settings": {},
-      "theme": "default",
-      "mcp_connection_states": null
-    }
-    ```
     *   `llama_cpp_dir`: The directory where your `llama.cpp` server is located.
     *   `models_dir`: The directory where your LLM gguf models are stored.
     *   `selected_model`: The name of the model you want to use.
