@@ -436,19 +436,57 @@ func (a *App) GetPrompt(promptName string) (string, error) {
 	return string(content), nil
 }
 
+// findExecutable searches for an executable file in a directory and its subdirectories.
+func (a *App) findExecutable(rootDir, exeName string) (string, error) {
+	var exePath string
+	exeFullName := exeName
+
+	env := wailsruntime.Environment(a.ctx)
+
+	if env.Platform == "windows" {
+		exeFullName += ".exe"
+	}
+
+	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && strings.EqualFold(info.Name(), exeFullName) {
+			exePath = path
+			return filepath.SkipDir // Stop searching once found
+		}
+		return nil
+	})
+
+	if err != nil {
+		return "", err
+	}
+	if exePath == "" {
+		return "", fmt.Errorf("executable '%s' not found in '%s' or its subdirectories", exeFullName, rootDir)
+	}
+	return exePath, nil
+}
+
 // LaunchLLM launches the LLM server in the background.
-func (a *App) LaunchLLM(command string) (string, error) {
+func (a *App) LaunchLLM(modelPath string, modelArgs string) (string, error) {
 	if a.llmCmd != nil && a.llmCmd.Process != nil {
 		wailsruntime.LogInfo(a.ctx, "Terminating existing LLM server process...")
 		if err := a.llmCmd.Process.Kill(); err != nil {
 			wailsruntime.LogErrorf(a.ctx, "Failed to terminate existing LLM server: %v", err)
 		}
 	}
-	cmdParts := strings.Fields(command)
-	if len(cmdParts) == 0 {
-		return "", fmt.Errorf("empty command provided")
+	serverPath, err := a.findExecutable(a.config.LlamaCppDir, "llama-server")
+	if err != nil {
+		return "", fmt.Errorf("could not find llama-server executable: %w", err)
 	}
-	cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
+
+	// Construct the command arguments
+	args := []string{"-m", modelPath}
+	if modelArgs != "" {
+		args = append(args, strings.Fields(modelArgs)...)
+	}
+
+	cmd := exec.Command(serverPath, args...)
 
 	userConfigDir, err := os.UserConfigDir()
 	if err != nil {

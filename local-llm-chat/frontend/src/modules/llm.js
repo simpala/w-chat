@@ -24,22 +24,20 @@ export async function launchLLM() {
         // Server is not running, which is fine
     }
 
-    const llamaPath = document.getElementById('llamaPathInput').value;
     const modelPath = document.getElementById('selectedModelPath').value;
     const cleanedModelPath = modelPath.replace(/^"|"$/g, ''); // Remove existing quotes
     const modelArgs = document.getElementById('chatModelArgs').value;
 
-    if (!llamaPath || !modelPath) {
-        alert('Please select a Llama.cpp directory and a model.');
+    if (!modelPath) {
+        alert('Please select a model.');
         messageInput.placeholder = "no model loaded...";
         messageInput.classList.remove('loading-placeholder');
         return;
     }
 
-    const command = `${llamaPath}/llama-server -m ${cleanedModelPath} ${modelArgs}`;
     try {
-        window.runtime.LogInfo("Attempting to launch LLM with command:", command);
-        await GoLaunchLLM(command);
+        window.runtime.LogInfo(`Attempting to launch LLM with model ${cleanedModelPath} and args: ${modelArgs}`);
+        await GoLaunchLLM(cleanedModelPath, modelArgs);
 
         const healthCheckInterval = setInterval(async () => {
             try {
