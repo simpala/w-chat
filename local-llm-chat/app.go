@@ -437,14 +437,20 @@ func (a *App) GetPrompt(promptName string) (string, error) {
 }
 
 // findExecutable searches for an executable file in a directory and its subdirectories.
-func findExecutable(rootDir, exeName string) (string, error) {
+func (a *App) findExecutable(rootDir, exeName string) (string, error) {
 	var exePath string
 	exeFullName := exeName
-	if wailsruntime.Environment().Platform == "windows" {
+
+	env, err := wailsruntime.Environment(a.ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get environment info: %w", err)
+	}
+
+	if env.Platform == "windows" {
 		exeFullName += ".exe"
 	}
 
-	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -472,7 +478,7 @@ func (a *App) LaunchLLM(modelPath string, modelArgs string) (string, error) {
 			wailsruntime.LogErrorf(a.ctx, "Failed to terminate existing LLM server: %v", err)
 		}
 	}
-	serverPath, err := findExecutable(a.config.LlamaCppDir, "llama-server")
+	serverPath, err := a.findExecutable(a.config.LlamaCppDir, "llama-server")
 	if err != nil {
 		return "", fmt.Errorf("could not find llama-server executable: %w", err)
 	}
