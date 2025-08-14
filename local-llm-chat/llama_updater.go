@@ -13,6 +13,21 @@ import (
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+// GitHubRelease represents a single release from the GitHub API.
+type GitHubRelease struct {
+	TagName string  `json:"tag_name"`
+	Name    string  `json:"name"`
+	Assets  []Asset `json:"assets"`
+}
+
+// Asset represents a single downloadable asset within a GitHub release.
+type Asset struct {
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
+	Size               int64  `json:"size"`
+	HumanSize          string `json:"human_size"` // Added for frontend convenience
+}
+
 // --- Llama.cpp Updater ---
 
 // FetchLlamaCppReleases fetches the latest releases for llama.cpp from GitHub.
