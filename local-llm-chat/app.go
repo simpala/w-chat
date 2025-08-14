@@ -447,7 +447,7 @@ func (a *App) findExecutable(rootDir, exeName string) (string, error) {
 		exeFullName += ".exe"
 	}
 
-	err = filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
