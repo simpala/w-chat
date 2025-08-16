@@ -10,5 +10,8 @@
   "author": {
     "name": "google-labs-jules[bot]",
     "email": "161369871+google-labs-jules[bot]@users.noreply.github.com"
+  },
+  "build": {
+    "ldflags": "-H windowsgui"
   }
 }
