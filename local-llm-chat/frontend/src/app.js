@@ -36,8 +36,7 @@ import {
     // --- NEW: Artifacts Imports ---
     AddArtifact,
     ListArtifacts,
-    DeleteArtifact,
-    ToggleDebug
+    DeleteArtifact
     // --- END NEW Artifacts Imports ---
 } from '../wailsjs/go/main/App';
 import {
@@ -647,6 +646,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const sessionButton = document.querySelector(`#chatSessionList button[data-session-id='${sessionID}']`);
         if (sessionButton) {
             sessionButton.textContent = newName;
+        }
+    });
+
+    EventsOn("token-stats", (data) => {
+        const tokenCounter = document.getElementById('token-counter');
+        if (tokenCounter) {
+            tokenCounter.textContent = `Tokens/sec: ${data.tps.toFixed(2)}`;
+        }
+    });
+
+    EventsOn("session-token-total", (data) => {
+        if (data.sessionID === currentSessionId) {
+            const sessionTokenTotal = document.getElementById('session-token-total');
+            if (sessionTokenTotal) {
+                sessionTokenTotal.textContent = `Total Tokens: ${data.total}`;
+            }
         }
     });
 

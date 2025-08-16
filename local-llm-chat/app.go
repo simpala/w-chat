@@ -35,6 +35,7 @@ type App struct {
 	mu              sync.Mutex
 	ArtifactService *artifacts.ArtifactService
 	router          *Router
+	tokenCounter    *TokenCounter
 }
 
 // ModelSettings struct to hold arguments for a specific model
@@ -60,6 +61,7 @@ type Conversation struct {
 	systemPrompt string
 	httpResp     *http.Response
 	mu           sync.Mutex
+	TotalTokens  int
 }
 
 
@@ -125,6 +127,9 @@ func (a *App) startup(ctx context.Context) {
 
 	// Initialize router
 	a.router = NewRouter(a)
+
+	// Initialize the token counter
+	a.tokenCounter = NewTokenCounter(ctx)
 
 	log.Println("App startup complete.")
 	wailsruntime.LogInfof(a.ctx, "Final a.config state after startup: %+v", a.config)
@@ -964,6 +969,8 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 		return
 	}
 
+	a.tokenCounter.Start()
+
 	var mu sync.Mutex
 	var currentChunkBuffer strings.Builder
 	var fullResponseBuilder strings.Builder
@@ -1005,6 +1012,7 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 
 			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
 				content := chunk.Choices[0].Delta.Content
+				a.tokenCounter.CountAndMeasure(content)
 
 				mu.Lock()
 				currentChunkBuffer.WriteString(content)
@@ -1035,6 +1043,7 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 
 	// Get the complete response
 	fullResponse := fullResponseBuilder.String()
+	a.tokenCounter.UpdateSessionTotal(sessionID)
 
 	// Save the full message (with tags) to the database first.
 	if err := a.db.SaveChatMessage(sessionID, "assistant", fullResponse); err != nil {
@@ -1048,6 +1057,7 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 	// Lock the conversation to update the in-memory message list with the cleaned message.
 	conv.mu.Lock()
 	conv.messages = append(conv.messages, assistantMessage)
+	conv.TotalTokens = a.tokenCounter.GetSessionTotal(sessionID)
 	conv.mu.Unlock()
 
 	// Finally, send the end-of-stream signal to the frontend

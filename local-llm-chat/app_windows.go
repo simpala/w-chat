@@ -9,7 +9,7 @@ import (
 )
 
 func setHideWindow(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	// cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 }
 
 func shutdownLLM(cmd *exec.Cmd) error {

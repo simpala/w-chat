@@ -697,6 +697,20 @@ body {
     border-top: 1px solid var(--border-color);
 }
 
+.footer {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 10px;
+    border-top: 1px solid #444;
+    font-size: 0.8em;
+    color: #888;
+}
+
+.token-counter {
+    min-width: 100px;
+    text-align: right;
+}
+
 .chat-header select {
     display: block;
     flex-grow: 0;    /* Do not grow */
