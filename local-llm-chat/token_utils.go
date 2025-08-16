@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"log"
 	"sync"
 	"time"
@@ -9,6 +10,9 @@ import (
 	"github.com/pkoukk/tiktoken-go"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
+
+//go:embed cl100k_base.tiktoken
+var bpeFile []byte
 
 // TokenCounter is responsible for counting tokens and calculating tokens per second.
 type TokenCounter struct {
@@ -22,10 +26,9 @@ type TokenCounter struct {
 
 // NewTokenCounter creates a new TokenCounter.
 func NewTokenCounter(ctx context.Context) *TokenCounter {
-	// The p100k_base encoding is a good default for many models.
-	tkm, err := tiktoken.GetEncoding("p100k_base")
+	tkm, err := tiktoken.NewTiktokenFromBpe(bpeFile)
 	if err != nil {
-		log.Fatalf("Failed to get tiktoken encoding: %v", err)
+		log.Fatalf("Failed to create tiktoken from BPE: %v", err)
 	}
 	return &TokenCounter{
 		ctx:           ctx,

@@ -36,8 +36,7 @@ import {
     // --- NEW: Artifacts Imports ---
     AddArtifact,
     ListArtifacts,
-    DeleteArtifact,
-    ToggleDebug
+    DeleteArtifact
     // --- END NEW Artifacts Imports ---
 } from '../wailsjs/go/main/App';
 import {

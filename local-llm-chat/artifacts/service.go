@@ -123,7 +123,7 @@ func (s *ArtifactService) AddArtifact(sessionID string, artifactType ArtifactTyp
 		ContentPath:  contentPath,
 		URL:          artifactURL,
 		Metadata:     metadata,
-		Timestamp:    time.Now(),
+		Timestamp:    time.Now().Format(time.RFC3339),
 		IsPersistent: false, // Set to false when not using persistence
 	}
 
@@ -189,7 +189,7 @@ func (s *ArtifactService) ListArtifacts(sessionID string) ([]*Artifact, error) {
 
 	// Sort by timestamp so they appear in chronological order.
 	sort.Slice(result, func(i, j int) bool {
-		return result[i].Timestamp.Before(result[j].Timestamp)
+		return result[i].Timestamp < result[j].Timestamp
 	})
 
 	log.Printf("ArtifactService: Listed %d artifacts for session %s", len(result), sessionID)
