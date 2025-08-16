@@ -27,11 +27,17 @@ func (l *embeddedBpeLoader) LoadTiktokenBpe(tiktokenBpeFile string) (map[string]
 		if line == "" {
 			continue
 		}
-		parts := strings.Split(line, " ")
+
+		parts := strings.Fields(line)
+		if len(parts) != 2 {
+			continue
+		}
+
 		token, err := base64.StdEncoding.DecodeString(parts[0])
 		if err != nil {
 			return nil, err
 		}
+
 		rank, err := strconv.Atoi(parts[1])
 		if err != nil {
 			return nil, err
