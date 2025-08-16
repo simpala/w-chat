@@ -650,6 +650,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    EventsOn("token-stats", (data) => {
+        const tokenCounter = document.getElementById('token-counter');
+        if (tokenCounter) {
+            tokenCounter.textContent = `Tokens/sec: ${data.tps.toFixed(2)}`;
+        }
+    });
+
+    EventsOn("session-token-total", (data) => {
+        if (data.sessionID === currentSessionId) {
+            const sessionTokenTotal = document.getElementById('session-token-total');
+            if (sessionTokenTotal) {
+                sessionTokenTotal.textContent = `Total Tokens: ${data.total}`;
+            }
+        }
+    });
+
     function updateAssistantMessageUI(currentFullResponse) {
         let lastMessageBubble = document.querySelector('.message.assistant:last-child');
         if (!lastMessageBubble) {
