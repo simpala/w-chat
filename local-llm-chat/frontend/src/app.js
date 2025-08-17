@@ -446,31 +446,55 @@ document.addEventListener('DOMContentLoaded', () => {
     function loadSessions() {
         LoadChatSessions().then(sessions => {
             chatSessionList.innerHTML = '';
-            if (sessions) {
-                sessions.forEach(session => {
-                    const sessionButton = document.createElement('button');
-                    sessionButton.textContent = session.name;
-                    sessionButton.dataset.sessionId = session.id;
-                    sessionButton.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        const sessionId = parseInt(sessionButton.dataset.sessionId);
-                        if (e.ctrlKey) {
-                            DeleteChatSession(sessionId).then(() => {
-                                if (currentSessionId === sessionId) {
-                                    currentSessionId = null;
-                                    messages = [];
-                                    renderMessages();
-                                }
-                                loadSessions();
-                            });
-                        } else {
-                            switchSession(sessionId);
-                        }
-                    });
-                    chatSessionList.appendChild(sessionButton);
+            sessions = sessions || []; // Ensure sessions is an array
+
+            sessions.forEach(session => {
+                const sessionButton = document.createElement('button');
+                sessionButton.textContent = session.name;
+                sessionButton.dataset.sessionId = session.id;
+                sessionButton.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const sessionId = parseInt(sessionButton.dataset.sessionId);
+                    if (e.ctrlKey) {
+                        DeleteChatSession(sessionId).then(() => {
+                            if (currentSessionId === sessionId) {
+                                currentSessionId = null;
+                                localStorage.removeItem('currentSessionId'); // Also remove from storage
+                                messages = [];
+                                renderMessages();
+                            }
+                            loadSessions(); // This will handle selecting a new session or creating one
+                        });
+                    } else {
+                        switchSession(sessionId);
+                    }
                 });
+                chatSessionList.appendChild(sessionButton);
+            });
+
+            // --- NEW LOGIC TO ENSURE A SESSION IS ALWAYS ACTIVE ---
+            const sessionIds = sessions.map(s => s.id);
+            const currentSessionIsValid = currentSessionId !== null && sessionIds.includes(currentSessionId);
+
+            if (!currentSessionIsValid) {
+                if (sessions.length > 0) {
+                    // If there are sessions, switch to the first one (most recent)
+                    const newSessionId = sessions[0].id;
+                    console.log(`Current session ${currentSessionId} is invalid or null. Switching to the first available session: ${newSessionId}`);
+                    switchSession(newSessionId);
+                } else {
+                    // If there are no sessions at all, create a new one
+                    console.log("No valid sessions found. Creating a new chat.");
+                    // We can't call NewChat directly here as it creates a circular dependency of logic.
+                    // Instead, we programmatically click the new chat button which encapsulates all the needed logic.
+                    // Use a timeout to prevent potential race conditions with the DOM.
+                    setTimeout(() => document.getElementById('newChatButton').click(), 0);
+                }
+            } else {
+                // If the current session is valid, just ensure the UI is up-to-date
+                 updateActiveSessionButton();
             }
-            updateChatInputState();
+            // updateChatInputState is called within switchSession or updateActiveSessionButton, so it's covered.
         });
     }
 
