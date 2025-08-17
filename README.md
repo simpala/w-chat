@@ -68,7 +68,7 @@ This agent workflow allows the application to be extended with new tools without
    This is a moving target right now. Until Llama.cpp settles on a `reasoning_content` JSON field, I parse the tags after the LLM’s full response and collapse the thinking process. It is subject to change in the near future.
 
 2. **Crashes or hanging application**  
-   Sometimes, when switching (very rarely for me), Llama.cpp fails to fully exit and leaves a zombie llama‑server process. If you load a model and send a message that is `NOT` within a chat session, this can lock the application into waiting for the model to respond.
+   Sometimes, when switching (very rarely for me), Llama.cpp fails to fully exit and leaves a zombie llama‑server process.
 
 3. **Tool calling**  
    Some models will endlessly call tools if allowed. That’s why I added a maximum iteration limit and a tool cooldown. If the maximum iterations are reached, the process simply exits, allowing you to send messages again. The cooldown prevents overly eager models from repeating the same call in quick succession and overloading context with results. These safeguards mostly work, but mileage may vary
