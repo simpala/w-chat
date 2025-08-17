@@ -446,42 +446,72 @@ document.addEventListener('DOMContentLoaded', () => {
     function loadSessions() {
         LoadChatSessions().then(sessions => {
             chatSessionList.innerHTML = '';
-            if (sessions) {
-                sessions.forEach(session => {
-                    const sessionButton = document.createElement('button');
-                    sessionButton.textContent = session.name;
-                    sessionButton.dataset.sessionId = session.id;
-                    sessionButton.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        const sessionId = parseInt(sessionButton.dataset.sessionId);
-                        if (e.ctrlKey) {
-                            DeleteChatSession(sessionId).then(() => {
-                                if (currentSessionId === sessionId) {
-                                    currentSessionId = null;
-                                    messages = [];
-                                    renderMessages();
-                                }
-                                loadSessions();
-                            });
-                        } else {
-                            switchSession(sessionId);
-                        }
-                    });
-                    chatSessionList.appendChild(sessionButton);
+            sessions = sessions || []; // Ensure sessions is an array
+
+            // Populate the session list in the UI
+            sessions.forEach(session => {
+                const sessionButton = document.createElement('button');
+                sessionButton.textContent = session.name;
+                sessionButton.dataset.sessionId = session.id;
+                sessionButton.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const sessionId = parseInt(sessionButton.dataset.sessionId);
+                    if (e.ctrlKey) {
+                        DeleteChatSession(sessionId).then(() => {
+                            if (currentSessionId === sessionId) {
+                                currentSessionId = null;
+                                localStorage.removeItem('currentSessionId');
+                                messages = [];
+                                renderMessages();
+                            }
+                            loadSessions(); // Reload sessions to select a new one or create one
+                        });
+                    } else {
+                        switchSession(sessionId, false); // Explicitly not forced
+                    }
                 });
+                chatSessionList.appendChild(sessionButton);
+            });
+
+            // --- REVISED LOGIC TO BE THE SINGLE SOURCE OF TRUTH FOR SESSION SELECTION ---
+            const sessionIds = sessions.map(s => s.id);
+            // Re-read from localStorage to have the most up-to-date value.
+            let sessionFromLocalStorage = localStorage.getItem('currentSessionId') ? parseInt(localStorage.getItem('currentSessionId'), 10) : null;
+
+            let targetSessionId = null;
+
+            // 1. Check if the session from localStorage is valid
+            if (sessionFromLocalStorage !== null && sessionIds.includes(sessionFromLocalStorage)) {
+                targetSessionId = sessionFromLocalStorage;
             }
-            updateChatInputState();
+            // 2. If not, check if there are other sessions to fall back to
+            else if (sessions.length > 0) {
+                targetSessionId = sessions[0].id;
+                console.log(`Session ${sessionFromLocalStorage} was invalid or null. Falling back to first available session: ${targetSessionId}`);
+            }
+
+            // 3. Take action
+            if (targetSessionId !== null) {
+                // On initial load or after a delete, we always want to ensure the session is fully loaded, so we force it.
+                switchSession(targetSessionId, true);
+            } else {
+                // 4. If no sessions exist at all, create a new one.
+                console.log("No sessions available. Creating a new chat.");
+                // Use a timeout to allow the DOM to update before clicking.
+                setTimeout(() => document.getElementById('newChatButton').click(), 0);
+            }
         });
     }
 
-    function switchSession(sessionId) {
-        console.log("DEBUG: switchSession function entered. Session ID:", sessionId);
+    function switchSession(sessionId, force = false) {
+        console.log(`DEBUG: switchSession called for session ID: ${sessionId}, force: ${force}`);
         if (isStreaming) {
             console.log("Cannot switch session while streaming.");
             return;
         }
-        if (currentSessionId === sessionId) {
-            console.log("Session already active.");
+        // If not forced, don't reload an already active session.
+        if (!force && currentSessionId === sessionId) {
+            console.log("Session already active, and not forced. No action taken.");
             return;
         }
         currentSessionId = sessionId;
@@ -502,12 +532,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log("DEBUG: History is null or undefined, clearing messages.");
             }
             renderMessages();
-            loadArtifactsForCurrentSession(); // <--- NEW: Load artifacts when switching sessions
+            loadArtifactsForCurrentSession();
         }).catch(error => {
             console.error("DEBUG: Error loading chat history:", error);
             messages = [];
             renderMessages();
-            loadArtifactsForCurrentSession(); // <--- NEW: Load artifacts even if chat history fails
+            loadArtifactsForCurrentSession();
         });
         updateActiveSessionButton();
         updateChatInputState();
@@ -763,10 +793,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // Initial setup
-    loadSessions();
-    if (currentSessionId) {
-        switchSession(parseInt(currentSessionId));
-    }
+    loadSessions(); // This will now handle the initial session loading and selection.
     loadPrompts();
     loadSettingsAndApplyTheme(); // Call the new load function
     mcpManager.initialize().then(() => {
@@ -776,7 +803,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     setupArtifactEventListeners(); // <--- NEW: Setup artifact event listeners on DOMContentLoaded
-    updateChatInputState();
 
     const settingsToggleButton = document.getElementById('settingsToggleButton');
     const mcpManagerButton = document.getElementById('mcpManagerButton');
