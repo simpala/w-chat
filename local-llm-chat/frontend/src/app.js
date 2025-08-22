@@ -384,10 +384,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateThinkingProcess(messageElement, thought);
             }
 
-            const markdownDiv = document.createElement('div');
-            markdownDiv.classList.add('markdown-content');
-            markdownDiv.innerHTML = marked.parse(messageContent);
-            messageElement.appendChild(markdownDiv);
+            const mainContentContainer = document.createElement('div');
+            mainContentContainer.classList.add('main-content-container');
+            mainContentContainer.innerHTML = marked.parse(messageContent);
+            messageElement.appendChild(mainContentContainer);
 
         } else {
             messageElement.textContent = messageContent;
@@ -559,6 +559,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let assistantResponse = '';
         messages.push({ role: 'assistant', content: '' });
+        addMessageToChatWindow('assistant', ''); // Create the bubble upfront
 
         sendMessage(currentSessionId, contentToSend).catch(error => {
             console.error("Error sending message:", error);
@@ -610,11 +611,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Listener for reasoning content
     EventsOn("reasoning-stream", function(data) {
         if (isStreaming) {
-            reasoningContent += data;
-            // Update the thinking process UI in real-time
             let lastMessageBubble = document.querySelector('.message.assistant:last-child');
             if (lastMessageBubble) {
-                updateThinkingProcess(lastMessageBubble, reasoningContent);
+                updateThinkingProcess(lastMessageBubble, data, true); // true for append
             }
         }
     });
@@ -669,7 +668,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    function updateThinkingProcess(messageElement, thought) {
+    function updateThinkingProcess(messageElement, thought, append = false) {
         let detailsElement = messageElement.querySelector('.thought-block');
 
         // Create the details element if it doesn't exist
@@ -691,7 +690,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update the content of the thought block
         const contentElement = detailsElement.querySelector('.thought-content');
         if (contentElement) {
-            contentElement.textContent = thought;
+            if (append) {
+                contentElement.textContent += thought;
+            } else {
+                contentElement.textContent = thought;
+            }
         }
     }
 
@@ -702,44 +705,38 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Always clear and redraw
-        lastMessageBubble.innerHTML = '';
+        // Find or create a container for the main content
+        let mainContentContainer = lastMessageBubble.querySelector('.main-content-container');
+        if (!mainContentContainer) {
+            mainContentContainer = document.createElement('div');
+            mainContentContainer.classList.add('main-content-container');
+            lastMessageBubble.appendChild(mainContentContainer);
+        }
 
-        // 1. Handle Thinking Process
-        // Give priority to reasoningContent, but fall back to parsing <think> tags
-        let thought = reasoningContent;
+        // Handle <think> tags for backward compatibility
         const thinkTagMatch = /<think>(.*?)<\/think>/s.exec(currentFullResponse);
-
         if (thinkTagMatch && thinkTagMatch[1]) {
-            if (!thought) { // Only use think tag if reasoningContent is empty
-                thought = thinkTagMatch[1].trim();
-            }
-            // Strip the think tags for rendering the main content
+            const thought = thinkTagMatch[1].trim();
             currentFullResponse = currentFullResponse.replace(/<think>.*?<\/think>/s, '').trim();
+            // If we find a think tag, we should display it, but only if a streamed thought-block doesn't already exist.
+            if (!lastMessageBubble.querySelector('.thought-block')) {
+                 updateThinkingProcess(lastMessageBubble, thought);
+            }
         }
 
-        if (thought) {
-            updateThinkingProcess(lastMessageBubble, thought);
-        }
-
-        // 2. Render Main Content (which is now clean of think tags)
-        const markdownDiv = document.createElement('div');
-        markdownDiv.classList.add('markdown-content');
-        markdownDiv.innerHTML = marked.parse(currentFullResponse);
-        lastMessageBubble.appendChild(markdownDiv);
-
+        mainContentContainer.innerHTML = marked.parse(currentFullResponse);
 
         if (typeof hljs !== 'undefined') {
-            lastMessageBubble.querySelectorAll('pre code').forEach((block) => {
+            mainContentContainer.querySelectorAll('pre code').forEach((block) => {
                 hljs.highlightElement(block);
             });
-            addCopyButtonsToCodeBlocks(lastMessageBubble);
+            addCopyButtonsToCodeBlocks(mainContentContainer);
         } else {
             console.warn("highlight.js not available, code blocks will not be highlighted.");
         }
 
         mermaid.run({
-            nodes: lastMessageBubble.querySelectorAll('.mermaid')
+            nodes: mainContentContainer.querySelectorAll('.mermaid')
         });
 
         scrollToBottom();

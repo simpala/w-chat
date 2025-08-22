@@ -771,25 +771,36 @@ func (a *App) toolAgentChat(sessionId int64) {
 			return
 		}
 
+		// Emit reasoning content if it exists
+		if llmResponse.ReasoningContent != "" {
+			wailsruntime.EventsEmit(a.ctx, "reasoning-stream", llmResponse.ReasoningContent)
+		}
+
 		// 4. Check for tool call by looking for a JSON object
 		var toolCallJSON string
-		firstBrace := strings.Index(llmResponse, "{")
-		lastBrace := strings.LastIndex(llmResponse, "}")
+		firstBrace := strings.Index(llmResponse.Content, "{")
+		lastBrace := strings.LastIndex(llmResponse.Content, "}")
 
 		// Ensure that both braces are found and in the correct order
 		if firstBrace != -1 && lastBrace != -1 && lastBrace > firstBrace {
 			// Extract the JSON part of the response
-			toolCallJSON = llmResponse[firstBrace : lastBrace+1]
+			toolCallJSON = llmResponse.Content[firstBrace : lastBrace+1]
 		}
 
 		if toolCallJSON != "" {
+			// Reconstruct message with <think> tags for saving
+			messageToSave := llmResponse.Content
+			if llmResponse.ReasoningContent != "" {
+				messageToSave = fmt.Sprintf("<think>%s</think>\n%s", llmResponse.ReasoningContent, llmResponse.Content)
+			}
+
 			// Save the full message (with tags) to the database first.
-			if errDb := a.db.SaveChatMessage(sessionId, "assistant", llmResponse); errDb != nil {
+			if errDb := a.db.SaveChatMessage(sessionId, "assistant", messageToSave); errDb != nil {
 				wailsruntime.LogErrorf(a.ctx, "Error saving assistant's tool call message: %s", errDb.Error())
 			}
 
 			// Now, create a cleaned version for the in-memory context.
-			cleanedResponse := stripThinkTags(llmResponse)
+			cleanedResponse := stripThinkTags(messageToSave)
 			assistantMessage := ChatMessage{Role: "assistant", Content: cleanedResponse}
 
 			// Lock the conversation to update the in-memory message list with the cleaned message.
