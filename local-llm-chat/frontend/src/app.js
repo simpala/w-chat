@@ -256,6 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let messages = [];
     let isStreaming = false;
     let selectedSystemPrompt = '';
+    let reasoningContent = ''; // To store reasoning content
 
     function loadPrompts() {
         GetPrompts().then(prompts => {
@@ -352,39 +353,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    const parseStreamedContent = (rawContent) => {
-        const parts = [];
-        let remainingContent = rawContent;
-        //const thinkRegex = /<think>(.*?)<\/think>|<\|channel\|>analysis<\|message\|>(.*?)<\|start\|>assistant<\|channel\|>final<\|message\|>/gs;//old
-        const thinkRegex = /<think>(.*?)<\/think>|<\|channel\|>analysis<\|message\|>(.*?)<\|end\|>/gs;
-        let match;
-        let lastIndex = 0;
-
-        while ((match = thinkRegex.exec(remainingContent)) !== null) {
-            if (match.index > lastIndex) {
-                parts.push({
-                    type: 'text',
-                    content: remainingContent.substring(lastIndex, match.index)
-                });
-            }
-            const thoughtContent = match[1] || match[2];
-            parts.push({
-                type: 'thought',
-                content: thoughtContent.trim()
-            });
-            lastIndex = thinkRegex.lastIndex;
-        }
-
-        if (lastIndex < remainingContent.length) {
-            parts.push({
-                type: 'text',
-                content: remainingContent.substring(lastIndex)
-            });
-        }
-
-        return parts;
-    };
-
     function renderMessages() {
         chatWindow.innerHTML = '';
         messages.forEach(message => {
@@ -405,30 +373,22 @@ document.addEventListener('DOMContentLoaded', () => {
         messageElement.classList.add('message', sender);
 
         if (sender === 'assistant') {
-            const parsedParts = parseStreamedContent(messageContent || '');
-            parsedParts.forEach(part => {
-                const partContainer = document.createElement('div');
+            let thought = '';
+            const thinkTagMatch = /<think>(.*?)<\/think>/s.exec(messageContent);
+            if (thinkTagMatch && thinkTagMatch[1]) {
+                thought = thinkTagMatch[1].trim();
+                messageContent = messageContent.replace(/<think>.*?<\/think>/s, '').trim();
+            }
 
-                if (part.type === 'thought') {
-                    const detailsElement = document.createElement('details');
-                    detailsElement.classList.add('thought-block');
-                    const summaryElement = document.createElement('summary');
-                    summaryElement.classList.add('thought-summary');
-                    summaryElement.innerHTML = '<span class="inline-block mr-2">💡</span>Thinking Process';
-                    const contentElement = document.createElement('p');
-                    contentElement.classList.add('thought-content');
-                    contentElement.textContent = part.content;
-                    detailsElement.appendChild(summaryElement);
-                    detailsElement.appendChild(contentElement);
-                    partContainer.appendChild(detailsElement);
-                } else {
-                    const markdownDiv = document.createElement('div');
-                    markdownDiv.classList.add('markdown-content');
-                    markdownDiv.innerHTML = marked.parse(part.content);
-                    partContainer.appendChild(markdownDiv);
-                }
-                messageElement.appendChild(partContainer);
-            });
+            if (thought) {
+                updateThinkingProcess(messageElement, thought);
+            }
+
+            const markdownDiv = document.createElement('div');
+            markdownDiv.classList.add('markdown-content');
+            markdownDiv.innerHTML = marked.parse(messageContent);
+            messageElement.appendChild(markdownDiv);
+
         } else {
             messageElement.textContent = messageContent;
         }
@@ -593,6 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
         messageInput.value = '';
 
         isStreaming = true;
+        reasoningContent = ''; // Reset reasoning content
         sendButton.style.display = 'none';
         stopButton.style.display = 'block';
 
@@ -646,6 +607,18 @@ document.addEventListener('DOMContentLoaded', () => {
     let debounceTimer;
     const DEBOUNCE_DELAY_MS = 30;
 
+    // Listener for reasoning content
+    EventsOn("reasoning-stream", function(data) {
+        if (isStreaming) {
+            reasoningContent += data;
+            // Update the thinking process UI in real-time
+            let lastMessageBubble = document.querySelector('.message.assistant:last-child');
+            if (lastMessageBubble) {
+                updateThinkingProcess(lastMessageBubble, reasoningContent);
+            }
+        }
+    });
+
     EventsOn("chat-stream", function(data) {
         if (data === null) {
             clearTimeout(debounceTimer);
@@ -696,6 +669,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    function updateThinkingProcess(messageElement, thought) {
+        let detailsElement = messageElement.querySelector('.thought-block');
+
+        // Create the details element if it doesn't exist
+        if (!detailsElement) {
+            detailsElement = document.createElement('details');
+            detailsElement.classList.add('thought-block');
+            const summaryElement = document.createElement('summary');
+            summaryElement.classList.add('thought-summary');
+            summaryElement.innerHTML = '<span class="inline-block mr-2">💡</span>Thinking Process';
+            const contentElement = document.createElement('p');
+            contentElement.classList.add('thought-content');
+            detailsElement.appendChild(summaryElement);
+            detailsElement.appendChild(contentElement);
+
+            // Prepend the thought block to the message element to ensure it appears first
+            messageElement.insertBefore(detailsElement, messageElement.firstChild);
+        }
+
+        // Update the content of the thought block
+        const contentElement = detailsElement.querySelector('.thought-content');
+        if (contentElement) {
+            contentElement.textContent = thought;
+        }
+    }
+
     function updateAssistantMessageUI(currentFullResponse) {
         let lastMessageBubble = document.querySelector('.message.assistant:last-child');
         if (!lastMessageBubble) {
@@ -703,31 +702,32 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Always clear and redraw
         lastMessageBubble.innerHTML = '';
-        const parsedParts = parseStreamedContent(currentFullResponse);
 
-        parsedParts.forEach(part => {
-            const partContainer = document.createElement('div');
-            if (part.type === 'thought') {
-                const detailsElement = document.createElement('details');
-                detailsElement.classList.add('thought-block');
-                const summaryElement = document.createElement('summary');
-                summaryElement.classList.add('thought-summary');
-                summaryElement.innerHTML = '<span class="inline-block mr-2">💡</span>Thinking Process';
-                const contentElement = document.createElement('p');
-                contentElement.classList.add('thought-content');
-                contentElement.textContent = part.content;
-                detailsElement.appendChild(summaryElement);
-                detailsElement.appendChild(contentElement);
-                partContainer.appendChild(detailsElement);
-            } else {
-                const markdownDiv = document.createElement('div');
-                markdownDiv.classList.add('markdown-content');
-                markdownDiv.innerHTML = marked.parse(part.content);
-                partContainer.appendChild(markdownDiv);
+        // 1. Handle Thinking Process
+        // Give priority to reasoningContent, but fall back to parsing <think> tags
+        let thought = reasoningContent;
+        const thinkTagMatch = /<think>(.*?)<\/think>/s.exec(currentFullResponse);
+
+        if (thinkTagMatch && thinkTagMatch[1]) {
+            if (!thought) { // Only use think tag if reasoningContent is empty
+                thought = thinkTagMatch[1].trim();
             }
-            lastMessageBubble.appendChild(partContainer);
-        });
+            // Strip the think tags for rendering the main content
+            currentFullResponse = currentFullResponse.replace(/<think>.*?<\/think>/s, '').trim();
+        }
+
+        if (thought) {
+            updateThinkingProcess(lastMessageBubble, thought);
+        }
+
+        // 2. Render Main Content (which is now clean of think tags)
+        const markdownDiv = document.createElement('div');
+        markdownDiv.classList.add('markdown-content');
+        markdownDiv.innerHTML = marked.parse(currentFullResponse);
+        lastMessageBubble.appendChild(markdownDiv);
+
 
         if (typeof hljs !== 'undefined') {
             lastMessageBubble.querySelectorAll('pre code').forEach((block) => {
