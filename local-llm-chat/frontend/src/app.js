@@ -355,7 +355,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const parseStreamedContent = (rawContent) => {
         const parts = [];
         let remainingContent = rawContent;
-        const thinkRegex = /<think>(.*?)<\/think>|<\|channel\|>analysis<\|message\|>(.*?)<\|start\|>assistant<\|channel\|>final<\|message\|>/gs;
+        //const thinkRegex = /<think>(.*?)<\/think>|<\|channel\|>analysis<\|message\|>(.*?)<\|start\|>assistant<\|channel\|>final<\|message\|>/gs;//old
+        const thinkRegex = /<think>(.*?)<\/think>|<\|channel\|>analysis<\|message\|>(.*?)<\|end\|>/gs;
         let match;
         let lastIndex = 0;
 
