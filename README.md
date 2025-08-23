@@ -75,7 +75,7 @@ This agent workflow allows the application to be extended with new tools without
    Some models will endlessly call tools if allowed. That’s why I added a maximum iteration limit and a tool cooldown. If the maximum iterations are reached, the process simply exits, allowing you to send messages again. The cooldown prevents overly eager models from repeating the same call in quick succession and overloading context with results. These safeguards mostly work, but mileage may vary
 
 4. **Harmony format** 
-    this check box experimental to allow gpt-oss models to call tools via connected mcp servers, So far not impressed even Qwen .6b makes better decisions, but its there if you dare try.
+    this check box experimental to allow gpt-oss models to call tools via connected mcp servers, So far not impressed even Qwen .6b makes better decisions than gpt-oss 20b, but its there if you dare try.
 
 
 ![App Screenshot](screen_shot.png)
