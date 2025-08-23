@@ -256,6 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let messages = [];
     let isStreaming = false;
     let selectedSystemPrompt = '';
+    let reasoningContent = ''; // To store reasoning content
 
     function loadPrompts() {
         GetPrompts().then(prompts => {
@@ -352,39 +353,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    const parseStreamedContent = (rawContent) => {
-        const parts = [];
-        let remainingContent = rawContent;
-        //const thinkRegex = /<think>(.*?)<\/think>|<\|channel\|>analysis<\|message\|>(.*?)<\|start\|>assistant<\|channel\|>final<\|message\|>/gs;//old
-        const thinkRegex = /<think>(.*?)<\/think>|<\|channel\|>analysis<\|message\|>(.*?)<\|end\|>/gs;
-        let match;
-        let lastIndex = 0;
-
-        while ((match = thinkRegex.exec(remainingContent)) !== null) {
-            if (match.index > lastIndex) {
-                parts.push({
-                    type: 'text',
-                    content: remainingContent.substring(lastIndex, match.index)
-                });
-            }
-            const thoughtContent = match[1] || match[2];
-            parts.push({
-                type: 'thought',
-                content: thoughtContent.trim()
-            });
-            lastIndex = thinkRegex.lastIndex;
-        }
-
-        if (lastIndex < remainingContent.length) {
-            parts.push({
-                type: 'text',
-                content: remainingContent.substring(lastIndex)
-            });
-        }
-
-        return parts;
-    };
-
     function renderMessages() {
         chatWindow.innerHTML = '';
         messages.forEach(message => {
@@ -405,30 +373,22 @@ document.addEventListener('DOMContentLoaded', () => {
         messageElement.classList.add('message', sender);
 
         if (sender === 'assistant') {
-            const parsedParts = parseStreamedContent(messageContent || '');
-            parsedParts.forEach(part => {
-                const partContainer = document.createElement('div');
+            let thought = '';
+            const thinkTagMatch = /<think>(.*?)<\/think>/s.exec(messageContent);
+            if (thinkTagMatch && thinkTagMatch[1]) {
+                thought = thinkTagMatch[1].trim();
+                messageContent = messageContent.replace(/<think>.*?<\/think>/s, '').trim();
+            }
 
-                if (part.type === 'thought') {
-                    const detailsElement = document.createElement('details');
-                    detailsElement.classList.add('thought-block');
-                    const summaryElement = document.createElement('summary');
-                    summaryElement.classList.add('thought-summary');
-                    summaryElement.innerHTML = '<span class="inline-block mr-2">💡</span>Thinking Process';
-                    const contentElement = document.createElement('p');
-                    contentElement.classList.add('thought-content');
-                    contentElement.textContent = part.content;
-                    detailsElement.appendChild(summaryElement);
-                    detailsElement.appendChild(contentElement);
-                    partContainer.appendChild(detailsElement);
-                } else {
-                    const markdownDiv = document.createElement('div');
-                    markdownDiv.classList.add('markdown-content');
-                    markdownDiv.innerHTML = marked.parse(part.content);
-                    partContainer.appendChild(markdownDiv);
-                }
-                messageElement.appendChild(partContainer);
-            });
+            if (thought) {
+                updateThinkingProcess(messageElement, thought);
+            }
+
+            const mainContentContainer = document.createElement('div');
+            mainContentContainer.classList.add('main-content-container');
+            mainContentContainer.innerHTML = marked.parse(messageContent);
+            messageElement.appendChild(mainContentContainer);
+
         } else {
             messageElement.textContent = messageContent;
         }
@@ -593,11 +553,13 @@ document.addEventListener('DOMContentLoaded', () => {
         messageInput.value = '';
 
         isStreaming = true;
+        reasoningContent = ''; // Reset reasoning content
         sendButton.style.display = 'none';
         stopButton.style.display = 'block';
 
         let assistantResponse = '';
         messages.push({ role: 'assistant', content: '' });
+        addMessageToChatWindow('assistant', ''); // Create the bubble upfront
 
         sendMessage(currentSessionId, contentToSend).catch(error => {
             console.error("Error sending message:", error);
@@ -645,6 +607,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let debounceTimer;
     const DEBOUNCE_DELAY_MS = 30;
+
+    // Listener for reasoning content
+    EventsOn("reasoning-stream", function(data) {
+        if (isStreaming) {
+            let lastMessageBubble = document.querySelector('.message.assistant:last-child');
+            if (lastMessageBubble) {
+                updateThinkingProcess(lastMessageBubble, data, true); // true for append
+            }
+        }
+    });
 
     EventsOn("chat-stream", function(data) {
         if (data === null) {
@@ -696,6 +668,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    function updateThinkingProcess(messageElement, thought, append = false) {
+        let detailsElement = messageElement.querySelector('.thought-block');
+
+        // Create the details element if it doesn't exist
+        if (!detailsElement) {
+            detailsElement = document.createElement('details');
+            detailsElement.classList.add('thought-block');
+            const summaryElement = document.createElement('summary');
+            summaryElement.classList.add('thought-summary');
+            summaryElement.innerHTML = '<span class="inline-block mr-2">💡</span>Thinking Process';
+            const contentElement = document.createElement('p');
+            contentElement.classList.add('thought-content');
+            detailsElement.appendChild(summaryElement);
+            detailsElement.appendChild(contentElement);
+
+            // Prepend the thought block to the message element to ensure it appears first
+            messageElement.insertBefore(detailsElement, messageElement.firstChild);
+        }
+
+        // Update the content of the thought block
+        const contentElement = detailsElement.querySelector('.thought-content');
+        if (contentElement) {
+            if (append) {
+                contentElement.textContent += thought;
+            } else {
+                contentElement.textContent = thought;
+            }
+        }
+    }
+
     function updateAssistantMessageUI(currentFullResponse) {
         let lastMessageBubble = document.querySelector('.message.assistant:last-child');
         if (!lastMessageBubble) {
@@ -703,43 +705,38 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        lastMessageBubble.innerHTML = '';
-        const parsedParts = parseStreamedContent(currentFullResponse);
+        // Find or create a container for the main content
+        let mainContentContainer = lastMessageBubble.querySelector('.main-content-container');
+        if (!mainContentContainer) {
+            mainContentContainer = document.createElement('div');
+            mainContentContainer.classList.add('main-content-container');
+            lastMessageBubble.appendChild(mainContentContainer);
+        }
 
-        parsedParts.forEach(part => {
-            const partContainer = document.createElement('div');
-            if (part.type === 'thought') {
-                const detailsElement = document.createElement('details');
-                detailsElement.classList.add('thought-block');
-                const summaryElement = document.createElement('summary');
-                summaryElement.classList.add('thought-summary');
-                summaryElement.innerHTML = '<span class="inline-block mr-2">💡</span>Thinking Process';
-                const contentElement = document.createElement('p');
-                contentElement.classList.add('thought-content');
-                contentElement.textContent = part.content;
-                detailsElement.appendChild(summaryElement);
-                detailsElement.appendChild(contentElement);
-                partContainer.appendChild(detailsElement);
-            } else {
-                const markdownDiv = document.createElement('div');
-                markdownDiv.classList.add('markdown-content');
-                markdownDiv.innerHTML = marked.parse(part.content);
-                partContainer.appendChild(markdownDiv);
+        // Handle <think> tags for backward compatibility
+        const thinkTagMatch = /<think>(.*?)<\/think>/s.exec(currentFullResponse);
+        if (thinkTagMatch && thinkTagMatch[1]) {
+            const thought = thinkTagMatch[1].trim();
+            currentFullResponse = currentFullResponse.replace(/<think>.*?<\/think>/s, '').trim();
+            // If we find a think tag, we should display it, but only if a streamed thought-block doesn't already exist.
+            if (!lastMessageBubble.querySelector('.thought-block')) {
+                 updateThinkingProcess(lastMessageBubble, thought);
             }
-            lastMessageBubble.appendChild(partContainer);
-        });
+        }
+
+        mainContentContainer.innerHTML = marked.parse(currentFullResponse);
 
         if (typeof hljs !== 'undefined') {
-            lastMessageBubble.querySelectorAll('pre code').forEach((block) => {
+            mainContentContainer.querySelectorAll('pre code').forEach((block) => {
                 hljs.highlightElement(block);
             });
-            addCopyButtonsToCodeBlocks(lastMessageBubble);
+            addCopyButtonsToCodeBlocks(mainContentContainer);
         } else {
             console.warn("highlight.js not available, code blocks will not be highlighted.");
         }
 
         mermaid.run({
-            nodes: lastMessageBubble.querySelectorAll('.mermaid')
+            nodes: mainContentContainer.querySelectorAll('.mermaid')
         });
 
         scrollToBottom();
@@ -917,6 +914,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     document.getElementById('chatModelArgs').addEventListener('change', saveAllSettings);
+    document.getElementById('harmonyToolsCheckbox').addEventListener('change', saveAllSettings);
 
     document.getElementById('launchLLMButton').addEventListener('click', launchLLM);
 

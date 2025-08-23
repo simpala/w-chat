@@ -48,21 +48,54 @@ func (r *Router) NeedsTools(userQuery string) (bool, error) {
 	}
 
 	// Make a non-streaming call to the LLM
-	responseContent, err := r.app.makeLLMRequest(messages, false)
+	responseContent, err := r.app.makeLLMRequest(messages, false, nil)
 	if err != nil {
 		wailsruntime.LogErrorf(r.app.ctx, "Router Agent: Error making LLM request: %v", err)
 		return false, err
 	}
 
 	// Check the response
-	decision := strings.TrimSpace(strings.ToLower(responseContent))
+	decision := strings.TrimSpace(strings.ToLower(responseContent.Content))
 	wailsruntime.LogInfof(r.app.ctx, "Router Agent: Decision received: \"%s\"", decision)
 	return decision == "yes", nil
 }
 
-// GetToolManifest retrieves all available tools from connected MCP clients
-// and formats them into a string for the system prompt.
-func (r *Router) GetToolManifest() (string, error) {
+// GetToolManifestSchema retrieves all available tools and formats them into a JSON Schema.
+func (r *Router) GetToolManifestSchema() (map[string]interface{}, error) {
+	var toolNames []string
+	for serverName, client := range r.app.mcpClients {
+		if client == nil {
+			continue
+		}
+		tools, err := client.ListTools(context.Background())
+		if err != nil {
+			wailsruntime.LogErrorf(r.app.ctx, "Error listing tools for server '%s': %v", serverName, err)
+			continue
+		}
+		for _, tool := range tools {
+			toolNames = append(toolNames, tool.Name)
+		}
+	}
+
+	schema := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"tool_name": map[string]interface{}{
+				"type": "string",
+				"enum": toolNames,
+			},
+			"arguments": map[string]interface{}{
+				"type": "object",
+			},
+		},
+		"required": []string{"tool_name", "arguments"},
+	}
+
+	return schema, nil
+}
+
+// GetToolManifestText retrieves all available tools and formats them into a string for the system prompt.
+func (r *Router) GetToolManifestText() (string, error) {
 	var manifestBuilder strings.Builder
 	manifestBuilder.WriteString("You have access to the following tools. To use a tool, you must respond with a JSON object with 'tool_name' and 'arguments' keys.\n\n")
 	manifestBuilder.WriteString("Available Tools:\n")
