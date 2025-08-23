@@ -59,6 +59,7 @@ The application uses a two-agent system to handle user queries:
 
 1.  **Router Agent:** This agent first determines if a user's query requires the use of external tools.
 2.  **Tool-Using Agent:** If tools are needed, this agent takes over. It discovers available tools, selects the appropriate one, and executes it.
+3.  **This is a rather simple Implementation and may not result in the best results, a better way would be to alias each tool in each mcp and keep the context of other tools out of the context of the Tool-Using Agent to keep it from being context overwhelmed.
 
 This agent workflow allows the application to be extended with new tools without modifying the core logic. For more details, see the `MCP_README.md` file.
 
@@ -72,6 +73,9 @@ This agent workflow allows the application to be extended with new tools without
 
 3. **Tool calling**  
    Some models will endlessly call tools if allowed. That’s why I added a maximum iteration limit and a tool cooldown. If the maximum iterations are reached, the process simply exits, allowing you to send messages again. The cooldown prevents overly eager models from repeating the same call in quick succession and overloading context with results. These safeguards mostly work, but mileage may vary
+
+4. **Harmony format** 
+    this check box experimental to allow gpt-oss models to call tools via connected mcp servers, So far not impressed even Qwen .6b makes better decisions, but its there if you dare try.
 
 
 ![App Screenshot](screen_shot.png)
