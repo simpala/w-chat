@@ -914,6 +914,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     document.getElementById('chatModelArgs').addEventListener('change', saveAllSettings);
+    document.getElementById('harmonyToolsCheckbox').addEventListener('change', saveAllSettings);
 
     document.getElementById('launchLLMButton').addEventListener('click', launchLLM);
 

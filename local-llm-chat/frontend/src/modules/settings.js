@@ -49,12 +49,17 @@ export async function handleModelSelection(modelName, modelPath) {
 
     // Load the arguments for the newly selected model
     const modelArgsInput = document.getElementById('chatModelArgs');
+    const harmonyCheckbox = document.getElementById('harmonyToolsCheckbox'); // Get checkbox
     if (currentSettings.model_settings && currentSettings.model_settings[modelPath]) {
         modelArgsInput.value = currentSettings.model_settings[modelPath].args || '';
+        // NEW: Load the harmony tools setting
+        harmonyCheckbox.checked = currentSettings.model_settings[modelPath].use_harmony_tools || false;
         runtime.LogInfo(`DEBUG: settings.js: Loaded args for ${modelName}: "${modelArgsInput.value}"`);
+        runtime.LogInfo(`DEBUG: settings.js: Loaded harmony setting for ${modelName}: ${harmonyCheckbox.checked}`);
     } else {
         modelArgsInput.value = ''; // Clear args if none are saved for this model
-        runtime.LogInfo(`DEBUG: settings.js: No args found for ${modelName}, clearing input.`);
+        harmonyCheckbox.checked = false; // Uncheck for new/unsaved model
+        runtime.LogInfo(`DEBUG: settings.js: No settings found for ${modelName}, clearing inputs.`);
     }
 
     // Save the change of the selected model
@@ -97,7 +102,9 @@ export async function saveAllSettings() {
         }
         // Save the arguments
         currentSettings.model_settings[currentModelPath].args = document.getElementById('chatModelArgs').value;
+        currentSettings.model_settings[currentModelPath].use_harmony_tools = document.getElementById('harmonyToolsCheckbox').checked;
         runtime.LogInfo(`DEBUG: settings.js: Staged args for ${currentModelPath}: "${currentSettings.model_settings[currentModelPath].args}"`);
+        runtime.LogInfo(`DEBUG: settings.js: Staged harmony setting for ${currentModelPath}: ${currentSettings.model_settings[currentModelPath].use_harmony_tools}`);
     }
 
     // Save the current theme from the body's data-theme attribute
@@ -196,18 +203,23 @@ export async function loadSettingsAndApplyTheme() {
 
         // More robust handling for model_settings
         const modelArgsInput = document.getElementById('chatModelArgs');
-        if (modelArgsInput) {
+        const harmonyCheckbox = document.getElementById('harmonyToolsCheckbox'); // Get checkbox
+        if (modelArgsInput && harmonyCheckbox) {
             const selectedModelFullPath = currentSettings.selected_model;
             const modelSettings = currentSettings.model_settings;
             if (modelSettings && selectedModelFullPath && modelSettings[selectedModelFullPath]) {
                 modelArgsInput.value = modelSettings[selectedModelFullPath].args || '';
+                // NEW: Load the harmony tools setting
+                harmonyCheckbox.checked = modelSettings[selectedModelFullPath].use_harmony_tools || false;
                 runtime.LogInfo(`DEBUG: settings.js: chatModelArgs set for ${selectedModelFullPath}: ${modelArgsInput.value}`);
+                runtime.LogInfo(`DEBUG: settings.js: harmonyCheckbox set for ${selectedModelFullPath}: ${harmonyCheckbox.checked}`);
             } else {
                 modelArgsInput.value = '';
-                runtime.LogInfo(`DEBUG: settings.js: chatModelArgs cleared as no settings found for ${selectedModelFullPath}.`);
+                harmonyCheckbox.checked = false;
+                runtime.LogInfo(`DEBUG: settings.js: chatModelArgs and harmonyCheckbox cleared as no settings found for ${selectedModelFullPath}.`);
             }
         } else {
-            runtime.LogWarning("WARN: settings.js: chatModelArgs element not found.");
+            runtime.LogWarning("WARN: settings.js: chatModelArgs or harmonyToolsCheckbox element not found.");
         }
 
         runtime.LogInfo(`DEBUG: settings.js: Value of currentSettings.llama_cpp_dir: '${currentSettings.llama_cpp_dir}'`);
