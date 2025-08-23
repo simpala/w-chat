@@ -771,25 +771,36 @@ func (a *App) toolAgentChat(sessionId int64) {
 			return
 		}
 
+		// Emit reasoning content if it exists
+		if llmResponse.ReasoningContent != "" {
+			wailsruntime.EventsEmit(a.ctx, "reasoning-stream", llmResponse.ReasoningContent)
+		}
+
 		// 4. Check for tool call by looking for a JSON object
 		var toolCallJSON string
-		firstBrace := strings.Index(llmResponse, "{")
-		lastBrace := strings.LastIndex(llmResponse, "}")
+		firstBrace := strings.Index(llmResponse.Content, "{")
+		lastBrace := strings.LastIndex(llmResponse.Content, "}")
 
 		// Ensure that both braces are found and in the correct order
 		if firstBrace != -1 && lastBrace != -1 && lastBrace > firstBrace {
 			// Extract the JSON part of the response
-			toolCallJSON = llmResponse[firstBrace : lastBrace+1]
+			toolCallJSON = llmResponse.Content[firstBrace : lastBrace+1]
 		}
 
 		if toolCallJSON != "" {
+			// Reconstruct message with <think> tags for saving
+			messageToSave := llmResponse.Content
+			if llmResponse.ReasoningContent != "" {
+				messageToSave = fmt.Sprintf("<think>%s</think>\n%s", llmResponse.ReasoningContent, llmResponse.Content)
+			}
+
 			// Save the full message (with tags) to the database first.
-			if errDb := a.db.SaveChatMessage(sessionId, "assistant", llmResponse); errDb != nil {
+			if errDb := a.db.SaveChatMessage(sessionId, "assistant", messageToSave); errDb != nil {
 				wailsruntime.LogErrorf(a.ctx, "Error saving assistant's tool call message: %s", errDb.Error())
 			}
 
 			// Now, create a cleaned version for the in-memory context.
-			cleanedResponse := stripThinkTags(llmResponse)
+			cleanedResponse := stripThinkTags(messageToSave)
 			assistantMessage := ChatMessage{Role: "assistant", Content: cleanedResponse}
 
 			// Lock the conversation to update the in-memory message list with the cleaned message.
@@ -882,23 +893,29 @@ func (a *App) pruneHistory(history []ChatMessage) []ChatMessage {
 	return history
 }
 
+// LLMResponse struct to hold the content and reasoning from the LLM.
+type LLMResponse struct {
+	Content          string
+	ReasoningContent string
+}
+
 // makeLLMRequest sends a request to the LLM and returns the complete response content.
-func (a *App) makeLLMRequest(messages []ChatMessage, stream bool) (string, error) {
+func (a *App) makeLLMRequest(messages []ChatMessage, stream bool) (LLMResponse, error) {
 	reqBody := ChatCompletionRequest{Messages: messages, Stream: stream, NPredict: -1, AddBos: false}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", fmt.Errorf("error marshalling request body: %w", err)
+		return LLMResponse{}, fmt.Errorf("error marshalling request body: %w", err)
 	}
 
 	resp, err := http.Post("http://localhost:8080/v1/chat/completions", "application/json", bytes.NewReader(jsonBody))
 	if err != nil {
-		return "", fmt.Errorf("error making POST request to LLM: %w", err)
+		return LLMResponse{}, fmt.Errorf("error making POST request to LLM: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("error reading response body: %w", err)
+		return LLMResponse{}, fmt.Errorf("error reading response body: %w", err)
 	}
 
 	// Assuming the non-streaming response has a similar structure to the streaming one
@@ -906,20 +923,24 @@ func (a *App) makeLLMRequest(messages []ChatMessage, stream bool) (string, error
 	var result struct {
 		Choices []struct {
 			Message struct {
-				Content string `json:"content"`
+				Content          string `json:"content"`
+				ReasoningContent string `json:"reasoning_content"`
 			} `json:"message"`
 		} `json:"choices"`
 	}
 
 	if err := json.Unmarshal(body, &result); err != nil {
-		return "", fmt.Errorf("error unmarshalling LLM response: %w", err)
+		return LLMResponse{}, fmt.Errorf("error unmarshalling LLM response: %w", err)
 	}
 
 	if len(result.Choices) > 0 {
-		return result.Choices[0].Message.Content, nil
+		return LLMResponse{
+			Content:          result.Choices[0].Message.Content,
+			ReasoningContent: result.Choices[0].Message.ReasoningContent,
+		}, nil
 	}
 
-	return "", fmt.Errorf("no content in LLM response")
+	return LLMResponse{}, fmt.Errorf("no content in LLM response")
 }
 
 // streamResponse handles sending a request to the LLM and streaming the response.
@@ -953,7 +974,8 @@ func (a *App) streamResponse(sessionID int64, messages []ChatMessage) {
 type ChatCompletionChunk struct {
 	Choices []struct {
 		Delta struct {
-			Content string `json:"content"`
+			Content          string `json:"content"`
+			ReasoningContent string `json:"reasoning_content"`
 		} `json:"delta"`
 	} `json:"choices"`
 }
@@ -974,6 +996,7 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 	var mu sync.Mutex
 	var currentChunkBuffer strings.Builder
 	var fullResponseBuilder strings.Builder
+	var fullReasoningBuilder strings.Builder
 
 	const batchInterval = 50 * time.Millisecond
 	const maxBatchChars = 80
@@ -1010,21 +1033,31 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 				continue
 			}
 
-			if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
-				content := chunk.Choices[0].Delta.Content
-				a.tokenCounter.CountAndMeasure(content)
+			if len(chunk.Choices) > 0 {
+				delta := chunk.Choices[0].Delta
+				if delta.Content != "" {
+					content := delta.Content
+					a.tokenCounter.CountAndMeasure(content)
 
-				mu.Lock()
-				currentChunkBuffer.WriteString(content)
-				fullResponseBuilder.WriteString(content)
+					mu.Lock()
+					currentChunkBuffer.WriteString(content)
+					fullResponseBuilder.WriteString(content)
 
-				if currentChunkBuffer.Len() >= maxBatchChars {
-					chunkToSend := currentChunkBuffer.String()
-					currentChunkBuffer.Reset()
+					if currentChunkBuffer.Len() >= maxBatchChars {
+						chunkToSend := currentChunkBuffer.String()
+						currentChunkBuffer.Reset()
+						mu.Unlock()
+						wailsruntime.EventsEmit(a.ctx, "chat-stream", chunkToSend)
+					} else {
+						mu.Unlock()
+					}
+				}
+				if delta.ReasoningContent != "" {
+					reasoning := delta.ReasoningContent
+					mu.Lock()
+					fullReasoningBuilder.WriteString(reasoning)
 					mu.Unlock()
-					wailsruntime.EventsEmit(a.ctx, "chat-stream", chunkToSend)
-				} else {
-					mu.Unlock()
+					wailsruntime.EventsEmit(a.ctx, "reasoning-stream", reasoning)
 				}
 			}
 		}
@@ -1043,15 +1076,22 @@ func (a *App) streamHandler(sessionID int64, resp *http.Response) {
 
 	// Get the complete response
 	fullResponse := fullResponseBuilder.String()
+	fullReasoning := fullReasoningBuilder.String()
 	a.tokenCounter.UpdateSessionTotal(sessionID)
 
+	// Reconstruct the message with <think> tags if reasoning content exists
+	finalMessageToSave := fullResponse
+	if fullReasoning != "" {
+		finalMessageToSave = fmt.Sprintf("<think>%s</think>\n%s", fullReasoning, fullResponse)
+	}
+
 	// Save the full message (with tags) to the database first.
-	if err := a.db.SaveChatMessage(sessionID, "assistant", fullResponse); err != nil {
+	if err := a.db.SaveChatMessage(sessionID, "assistant", finalMessageToSave); err != nil {
 		wailsruntime.LogErrorf(a.ctx, "Error saving assistant message: %s", err.Error())
 	}
 
 	// Now, create a cleaned version for the in-memory context.
-	cleanedResponse := stripThinkTags(fullResponse)
+	cleanedResponse := stripThinkTags(finalMessageToSave)
 	assistantMessage := ChatMessage{Role: "assistant", Content: cleanedResponse}
 
 	// Lock the conversation to update the in-memory message list with the cleaned message.

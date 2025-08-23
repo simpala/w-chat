@@ -55,7 +55,7 @@ func (r *Router) NeedsTools(userQuery string) (bool, error) {
 	}
 
 	// Check the response
-	decision := strings.TrimSpace(strings.ToLower(responseContent))
+	decision := strings.TrimSpace(strings.ToLower(responseContent.Content))
 	wailsruntime.LogInfof(r.app.ctx, "Router Agent: Decision received: \"%s\"", decision)
 	return decision == "yes", nil
 }
