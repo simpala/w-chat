@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -60,9 +59,11 @@ func (r *Router) NeedsTools(userQuery string) (bool, error) {
 	return decision == "yes", nil
 }
 
-// GetToolManifestSchema retrieves all available tools and formats them into a JSON Schema.
+// GetToolManifestSchema retrieves all available tools and formats them into a JSON Schema
+// that allows the model to choose one of the available tools.
 func (r *Router) GetToolManifestSchema() (map[string]interface{}, error) {
-	var toolNames []string
+	var toolSchemas []map[string]interface{}
+
 	for serverName, client := range r.app.mcpClients {
 		if client == nil {
 			continue
@@ -72,26 +73,38 @@ func (r *Router) GetToolManifestSchema() (map[string]interface{}, error) {
 			wailsruntime.LogErrorf(r.app.ctx, "Error listing tools for server '%s': %v", serverName, err)
 			continue
 		}
+
 		for _, tool := range tools {
-			toolNames = append(toolNames, tool.Name)
+			// For each tool, create a specific schema object
+			toolSchema := map[string]interface{}{
+				"type":        "object",
+				"description": tool.Description, // Add the tool description here
+				"properties": map[string]interface{}{
+					"tool_name": map[string]interface{}{
+						"type":  "string",
+						"const": tool.Name, // Use const to enforce this exact tool name
+					},
+					"arguments": tool.InputSchema, // Use the schema provided by the tool
+				},
+				"required": []string{"tool_name", "arguments"},
+			}
+			toolSchemas = append(toolSchemas, toolSchema)
 		}
 	}
 
-	schema := map[string]interface{}{
-		"type": "object",
-		"properties": map[string]interface{}{
-			"tool_name": map[string]interface{}{
-				"type": "string",
-				"enum": toolNames,
-			},
-			"arguments": map[string]interface{}{
-				"type": "object",
-			},
-		},
-		"required": []string{"tool_name", "arguments"},
+	// The final schema uses "oneOf" to give the LLM a choice between the different tool schemas
+	finalSchema := map[string]interface{}{
+		"oneOf": toolSchemas,
 	}
 
-	return schema, nil
+	// Log the generated schema for debugging
+	schemaBytes, err := json.MarshalIndent(finalSchema, "", "  ")
+	if err == nil {
+		wailsruntime.LogInfof(r.app.ctx, "Generated Harmony Tool Schema:\n%s", string(schemaBytes))
+	}
+
+
+	return finalSchema, nil
 }
 
 // GetToolManifestText retrieves all available tools and formats them into a string for the system prompt.
