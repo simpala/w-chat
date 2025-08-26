@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -78,10 +77,11 @@ func (r *Router) GetToolManifestSchema() (map[string]interface{}, error) {
 		for _, tool := range tools {
 			// For each tool, create a specific schema object
 			toolSchema := map[string]interface{}{
-				"type": "object",
+				"type":        "object",
+				"description": tool.Description, // Add the tool description here
 				"properties": map[string]interface{}{
 					"tool_name": map[string]interface{}{
-						"type": "string",
+						"type":  "string",
 						"const": tool.Name, // Use const to enforce this exact tool name
 					},
 					"arguments": tool.InputSchema, // Use the schema provided by the tool
