@@ -921,6 +921,26 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('chatModelArgs').addEventListener('change', saveAllSettings);
     document.getElementById('harmonyToolsCheckbox').addEventListener('change', saveAllSettings);
 
+    // --- NEW: Add event listeners for sliders ---
+    const iterationsSlider = document.getElementById('toolCallIterationsSlider');
+    const iterationsValue = document.getElementById('toolCallIterationsValue');
+    if (iterationsSlider && iterationsValue) {
+        iterationsSlider.addEventListener('input', () => {
+            iterationsValue.textContent = iterationsSlider.value;
+            saveAllSettings(); // Save on change
+        });
+    }
+
+    const cooldownSlider = document.getElementById('toolCallCooldownSlider');
+    const cooldownValue = document.getElementById('toolCallCooldownValue');
+    if (cooldownSlider && cooldownValue) {
+        cooldownSlider.addEventListener('input', () => {
+            cooldownValue.textContent = cooldownSlider.value;
+            saveAllSettings(); // Save on change
+        });
+    }
+    // --- END NEW ---
+
     document.getElementById('launchLLMButton').addEventListener('click', launchLLM);
 
     // initFuzzySearch([]) is no longer needed here as it's handled by loadSettingsAndApplyTheme
@@ -1027,40 +1047,8 @@ async function renderMcpServers() {
     const serverList = document.querySelector('.mcp-server-list');
     if (!serverList) return;
 
-    // Clear existing content except for the settings
-    serverList.innerHTML = `
-        <div class="mcp-settings">
-            <h4>Tool Usage Settings</h4>
-            <div class="setting-item">
-                <label for="toolCallIterationsSlider">Max Tool Iterations: <span id="toolCallIterationsValue">5</span></label>
-                <input type="range" id="toolCallIterationsSlider" min="1" max="10" value="5" class="slider">
-            </div>
-            <div class="setting-item">
-                <label for="toolCallCooldownSlider">Tool Cooldown (s): <span id="toolCallCooldownValue">0</span></label>
-                <input type="range" id="toolCallCooldownSlider" min="0" max="60" value="0" class="slider">
-            </div>
-        </div>
-    `;
-
-    const iterationsSlider = document.getElementById('toolCallIterationsSlider');
-    const iterationsValue = document.getElementById('toolCallIterationsValue');
-    if (iterationsSlider && iterationsValue) {
-        iterationsSlider.addEventListener('input', () => {
-            iterationsValue.textContent = iterationsSlider.value;
-            saveAllSettings();
-        });
-    }
-
-    const cooldownSlider = document.getElementById('toolCallCooldownSlider');
-    const cooldownValue = document.getElementById('toolCallCooldownValue');
-    if (cooldownSlider && cooldownValue) {
-        cooldownSlider.addEventListener('input', () => {
-            cooldownValue.textContent = cooldownSlider.value;
-            saveAllSettings();
-        });
-    }
-
-    loadSettingsAndApplyTheme();
+    // Clear existing content
+    serverList.innerHTML = '';
 
     try {
         const servers = mcpManager.servers;

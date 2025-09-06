@@ -1165,6 +1165,10 @@ body {
     margin-top: 10px; /* Spacing between artifacts */
 }
 
+.setting-item {
+    margin-bottom: 1rem;
+}
+
 .mcp-server-item {
     background-color: var(--bg-tertiary);
     padding: 1rem;
