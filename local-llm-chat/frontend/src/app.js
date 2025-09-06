@@ -36,8 +36,13 @@ import {
     // --- NEW: Artifacts Imports ---
     AddArtifact,
     ListArtifacts,
-    DeleteArtifact
+    DeleteArtifact,
     // --- END NEW Artifacts Imports ---
+    GetMcpServerState,
+    SetMcpToolEnabled,
+    ConnectMcpClient,
+    DisconnectMcpClient,
+    GetMcpServers,
 } from '../wailsjs/go/main/App';
 import {
     EventsOn
@@ -1022,7 +1027,7 @@ async function renderMcpServers() {
     const serverList = document.querySelector('.mcp-server-list');
     if (!serverList) return;
 
-    // Add settings sliders to the top of the MCP manager
+    // Clear existing content except for the settings
     serverList.innerHTML = `
         <div class="mcp-settings">
             <h4>Tool Usage Settings</h4>
@@ -1037,13 +1042,12 @@ async function renderMcpServers() {
         </div>
     `;
 
-    // --- NEW: Add event listeners for sliders ---
     const iterationsSlider = document.getElementById('toolCallIterationsSlider');
     const iterationsValue = document.getElementById('toolCallIterationsValue');
     if (iterationsSlider && iterationsValue) {
         iterationsSlider.addEventListener('input', () => {
             iterationsValue.textContent = iterationsSlider.value;
-            saveAllSettings(); // Save on change
+            saveAllSettings();
         });
     }
 
@@ -1052,54 +1056,46 @@ async function renderMcpServers() {
     if (cooldownSlider && cooldownValue) {
         cooldownSlider.addEventListener('input', () => {
             cooldownValue.textContent = cooldownSlider.value;
-            saveAllSettings(); // Save on change
+            saveAllSettings();
         });
     }
-    // --- END NEW ---
 
-    // Reload the settings to populate the sliders correctly
     loadSettingsAndApplyTheme();
-
 
     try {
         const servers = mcpManager.servers;
-
         if (!servers || Object.keys(servers).length === 0) {
-            serverList.innerHTML = '<p>No MCP servers found in mcp.json.</p>';
+            const noServersEl = document.createElement('p');
+            noServersEl.textContent = 'No MCP servers found in mcp.json.';
+            serverList.appendChild(noServersEl);
             return;
         }
 
         for (const serverName in servers) {
-            const server = servers[serverName];
             const connectionState = mcpManager.getConnectionState(serverName);
             const serverItem = document.createElement('div');
             serverItem.classList.add('mcp-server-item');
 
             let statusIndicator;
             switch (connectionState.status) {
-                case MCP_CONNECTION_STATUS.CONNECTED:
-                    statusIndicator = '<span class="status-indicator connected"></span>';
-                    break;
-                case MCP_CONNECTION_STATUS.DISCONNECTED:
-                    statusIndicator = '<span class="status-indicator disconnected"></span>';
-                    break;
-                case MCP_CONNECTION_STATUS.CONNECTING:
-                    statusIndicator = '<span class="status-indicator connecting"></span>';
-                    break;
-                case MCP_CONNECTION_STATUS.ERROR:
-                    statusIndicator = '<span class="status-indicator error"></span>';
-                    break;
+                case MCP_CONNECTION_STATUS.CONNECTED: statusIndicator = '<span class="status-indicator connected"></span>'; break;
+                case MCP_CONNECTION_STATUS.DISCONNECTED: statusIndicator = '<span class="status-indicator disconnected"></span>'; break;
+                case MCP_CONNECTION_STATUS.CONNECTING: statusIndicator = '<span class="status-indicator connecting"></span>'; break;
+                case MCP_CONNECTION_STATUS.ERROR: statusIndicator = '<span class="status-indicator error"></span>'; break;
             }
 
             serverItem.innerHTML = `
-                <div class="mcp-server-details">
-                    <h3>${serverName}</h3>
-                    <p class="status">${statusIndicator} ${connectionState.status}</p>
-                    ${connectionState.error ? `<p class="error-message">${connectionState.error.message}</p>` : ''}
+                <div class="mcp-server-header">
+                    <div class="mcp-server-details">
+                        <h3>${serverName}</h3>
+                        <p class="status">${statusIndicator} ${connectionState.status}</p>
+                        ${connectionState.error ? `<p class="error-message">${connectionState.error.message}</p>` : ''}
+                    </div>
+                    <button class="button" data-server-name="${serverName}" ${connectionState.status === MCP_CONNECTION_STATUS.CONNECTING ? 'disabled' : ''}>
+                        ${connectionState.status === MCP_CONNECTION_STATUS.CONNECTED ? 'Disconnect' : 'Connect'}
+                    </button>
                 </div>
-                <button class="button" data-server-name="${serverName}" ${connectionState.status === MCP_CONNECTION_STATUS.CONNECTING ? 'disabled' : ''}>
-                    ${connectionState.status === MCP_CONNECTION_STATUS.CONNECTED ? 'Disconnect' : 'Connect'}
-                </button>
+                <div class="mcp-tool-list" data-server-name="${serverName}"></div>
             `;
             serverList.appendChild(serverItem);
 
@@ -1111,11 +1107,60 @@ async function renderMcpServers() {
                     await mcpManager.connect(serverName);
                 }
             });
+
+            if (connectionState.status === MCP_CONNECTION_STATUS.CONNECTED) {
+                const toolListContainer = serverItem.querySelector(`.mcp-tool-list[data-server-name="${serverName}"]`);
+                try {
+                    const serverState = await GetMcpServerState(serverName);
+                    if (serverState && serverState.tools) {
+                        renderToolList(toolListContainer, serverName, serverState.tools);
+                    }
+                } catch (error) {
+                    console.error(`Error getting tool state for ${serverName}:`, error);
+                    toolListContainer.innerHTML = `<p class="error-message">Could not load tools.</p>`;
+                }
+            }
         }
     } catch (error) {
         console.error("Error loading MCP servers:", error);
-        serverList.innerHTML = '<p>Error loading MCP servers.</p>';
+        serverList.innerHTML += '<p>Error loading MCP servers.</p>';
     }
+}
+
+function renderToolList(container, serverName, tools) {
+    if (tools.length === 0) {
+        container.innerHTML = '<p class="no-tools-message">No tools available for this server.</p>';
+        return;
+    }
+
+    tools.forEach(tool => {
+        const toolItem = document.createElement('div');
+        toolItem.classList.add('mcp-tool-item');
+
+        toolItem.innerHTML = `
+            <div class="tool-details">
+                <strong class="tool-name">${tool.name}</strong>
+                <p class="tool-description">${tool.description}</p>
+            </div>
+            <label class="switch">
+                <input type="checkbox" class="tool-toggle" data-tool-name="${tool.name}" ${tool.enabled ? 'checked' : ''}>
+                <span class="slider round"></span>
+            </label>
+        `;
+
+        container.appendChild(toolItem);
+
+        const toggle = toolItem.querySelector('.tool-toggle');
+        toggle.addEventListener('change', (event) => {
+            const toolName = event.target.dataset.toolName;
+            const isEnabled = event.target.checked;
+            SetMcpToolEnabled(serverName, toolName, isEnabled).catch(error => {
+                console.error(`Failed to set tool ${toolName} to ${isEnabled}:`, error);
+                // Optionally revert the toggle on error
+                event.target.checked = !isEnabled;
+            });
+        });
+    });
 }
 // --- END NEW: File Upload Handling Function ---
 

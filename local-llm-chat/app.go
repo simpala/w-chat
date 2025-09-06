@@ -567,15 +567,28 @@ func (a *App) shutdown(ctx context.Context) bool {
 // ConnectMcpClient connects to an MCP server.
 func (a *App) ConnectMcpClient(serverName string, command string, args []string) error {
 	a.mu.Lock()
-	defer a.mu.Unlock()
+	// Unlock before the potentially long-running PopulateTools
+	a.mu.Unlock()
 
-	if _, ok := a.mcpClients[serverName]; ok {
-		return fmt.Errorf("client for server %s is already connected", serverName)
-	}
-
+	// Use a temporary client to attempt connection and tool population
 	client := mcpclient.NewMcpClient()
 	if err := client.Connect(command, args); err != nil {
 		return err
+	}
+
+	// Populate tools after connection is established
+	if err := client.PopulateTools(context.Background()); err != nil {
+		client.Disconnect() // Clean up on failure
+		return fmt.Errorf("failed to list tools for server %s: %w", serverName, err)
+	}
+
+	// Lock again to safely modify the shared map
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if _, ok := a.mcpClients[serverName]; ok {
+		client.Disconnect() // A client was connected while we were working
+		return fmt.Errorf("client for server %s was connected by another process", serverName)
 	}
 
 	a.mcpClients[serverName] = client
@@ -591,6 +604,58 @@ func (a *App) DisconnectMcpClient(serverName string) {
 		client.Disconnect()
 		delete(a.mcpClients, serverName)
 	}
+}
+
+// ToolInfo struct for frontend display
+type ToolInfo struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Enabled     bool   `json:"enabled"`
+}
+
+// McpServerState struct for frontend display
+type McpServerState struct {
+	Name  string     `json:"name"`
+	Tools []ToolInfo `json:"tools"`
+}
+
+// GetMcpServerState returns the state of a specific MCP server, including its tools.
+func (a *App) GetMcpServerState(serverName string) (*McpServerState, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	client, ok := a.mcpClients[serverName]
+	if !ok {
+		return nil, fmt.Errorf("client for server %s is not connected", serverName)
+	}
+
+	toolInfos := make([]ToolInfo, len(client.Tools))
+	for i, tool := range client.Tools {
+		toolInfos[i] = ToolInfo{
+			Name:        tool.Name,
+			Description: tool.Description,
+			Enabled:     client.EnabledTools[tool.Name],
+		}
+	}
+
+	return &McpServerState{
+		Name:  serverName,
+		Tools: toolInfos,
+	}, nil
+}
+
+// SetMcpToolEnabled sets the enabled state for a specific tool on a specific server.
+func (a *App) SetMcpToolEnabled(serverName string, toolName string, enabled bool) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	client, ok := a.mcpClients[serverName]
+	if !ok {
+		return fmt.Errorf("client for server %s is not connected", serverName)
+	}
+
+	client.SetToolEnabled(toolName, enabled)
+	return nil
 }
 
 // ChatMessage struct for API communication.

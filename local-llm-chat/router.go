@@ -59,20 +59,17 @@ func (r *Router) NeedsTools(userQuery string) (bool, error) {
 	return decision == "yes", nil
 }
 
-// GetToolManifestSchema retrieves all available tools and formats them into a JSON Schema
+// GetToolManifestSchema retrieves all enabled tools and formats them into a JSON Schema
 // that allows the model to choose one of the available tools.
 func (r *Router) GetToolManifestSchema() (map[string]interface{}, error) {
 	var toolSchemas []map[string]interface{}
 
-	for serverName, client := range r.app.mcpClients {
+	for _, client := range r.app.mcpClients {
 		if client == nil {
 			continue
 		}
-		tools, err := client.ListTools(context.Background())
-		if err != nil {
-			wailsruntime.LogErrorf(r.app.ctx, "Error listing tools for server '%s': %v", serverName, err)
-			continue
-		}
+		// Use the new method to get only enabled tools
+		tools := client.GetEnabledTools()
 
 		for _, tool := range tools {
 			// For each tool, create a specific schema object
@@ -103,25 +100,21 @@ func (r *Router) GetToolManifestSchema() (map[string]interface{}, error) {
 		wailsruntime.LogInfof(r.app.ctx, "Generated Harmony Tool Schema:\n%s", string(schemaBytes))
 	}
 
-
 	return finalSchema, nil
 }
 
-// GetToolManifestText retrieves all available tools and formats them into a string for the system prompt.
+// GetToolManifestText retrieves all enabled tools and formats them into a string for the system prompt.
 func (r *Router) GetToolManifestText() (string, error) {
 	var manifestBuilder strings.Builder
 	manifestBuilder.WriteString("You have access to the following tools. To use a tool, you must respond with a JSON object with 'tool_name' and 'arguments' keys.\n\n")
 	manifestBuilder.WriteString("Available Tools:\n")
 
-	for serverName, client := range r.app.mcpClients {
+	for _, client := range r.app.mcpClients {
 		if client == nil {
 			continue
 		}
-		tools, err := client.ListTools(context.Background())
-		if err != nil {
-			wailsruntime.LogErrorf(r.app.ctx, "Error listing tools for server '%s': %v", serverName, err)
-			continue
-		}
+		// Use the new method to get only enabled tools
+		tools := client.GetEnabledTools()
 
 		for _, tool := range tools {
 			manifestBuilder.WriteString(fmt.Sprintf("- Tool: %s\n", tool.Name))
@@ -167,19 +160,19 @@ func (r *Router) ExecuteToolCall(toolCallJSON string) (*mcp.CallToolResult, erro
 	wailsruntime.LogInfof(r.app.ctx, "Executing tool call: %s with args: %+v", toolCall.ToolName, toolCall.Arguments)
 
 	// Find the client that has the tool and execute it
-	for serverName, mcpClient := range r.app.mcpClients {
+	for _, mcpClient := range r.app.mcpClients {
 		if mcpClient == nil {
 			continue
 		}
 
-		tools, err := mcpClient.ListTools(context.Background())
-		if err != nil {
-			wailsruntime.LogErrorf(r.app.ctx, "Failed to list tools for %s: %v", serverName, err)
-			continue
-		}
-
-		for _, tool := range tools {
+		// Check against the cached list of all tools for the client
+		for _, tool := range mcpClient.Tools {
 			if tool.Name == toolCall.ToolName {
+				// Important: Check if the tool is enabled *before* executing
+				if !mcpClient.EnabledTools[tool.Name] {
+					return nil, fmt.Errorf("tool '%s' is currently disabled by the user", tool.Name)
+				}
+
 				result, err := mcpClient.CallTool(context.Background(), tool.Name, toolCall.Arguments)
 				if err != nil {
 					return nil, fmt.Errorf("failed to call tool %s: %w", tool.Name, err)
