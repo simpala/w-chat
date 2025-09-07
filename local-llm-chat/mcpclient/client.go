@@ -12,13 +12,18 @@ import (
 )
 
 type McpClient struct {
-	client *client.Client
-	conn   *transport.Stdio
-	mu     sync.Mutex
+	client       *client.Client
+	conn         *transport.Stdio
+	mu           sync.Mutex
+	Tools        []mcp.Tool
+	EnabledTools map[string]bool
 }
 
 func NewMcpClient() *McpClient {
-	return &McpClient{}
+	return &McpClient{
+		Tools:        make([]mcp.Tool, 0),
+		EnabledTools: make(map[string]bool),
+	}
 }
 
 // commandFunc is a custom command factory that creates a command with a hidden window on Windows.
@@ -87,22 +92,51 @@ func (m *McpClient) Disconnect() {
 	}
 }
 
-// ListTools returns the list of available tools from the MCP server
-func (m *McpClient) ListTools(ctx context.Context) ([]mcp.Tool, error) {
+// PopulateTools fetches the tools from the server and populates the client's tool list.
+// This should be called once after a successful connection.
+func (m *McpClient) PopulateTools(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if m.client == nil {
-		return nil, fmt.Errorf("client is not connected")
+		return fmt.Errorf("client is not connected")
 	}
 
 	request := mcp.ListToolsRequest{}
 	result, err := m.client.ListTools(ctx, request)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list tools: %w", err)
+		return fmt.Errorf("failed to list tools: %w", err)
 	}
-	
-	return result.Tools, nil
+
+	m.Tools = result.Tools
+	// By default, all tools are enabled
+	for _, tool := range m.Tools {
+		m.EnabledTools[tool.Name] = true
+	}
+
+	return nil
+}
+
+// GetEnabledTools returns a list of tools that are currently enabled.
+func (m *McpClient) GetEnabledTools() []mcp.Tool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	enabledTools := make([]mcp.Tool, 0)
+	for _, tool := range m.Tools {
+		if m.EnabledTools[tool.Name] {
+			enabledTools = append(enabledTools, tool)
+		}
+	}
+	return enabledTools
+}
+
+// SetToolEnabled sets the enabled state for a specific tool.
+func (m *McpClient) SetToolEnabled(toolName string, enabled bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.EnabledTools[toolName] = enabled
 }
 
 // CallTool executes a tool with the given name and arguments
