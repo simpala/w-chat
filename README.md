@@ -57,7 +57,7 @@
 
 The application uses a two-agent system to handle user queries:
 
-1.  **Router Agent:** This agent first determines if a user's query requires the use of external tools.
+1.  **Router Agent:** This agent first helps determine if a user's query requires the use of external tools.
 2.  **Tool-Using Agent:** If tools are needed, this agent takes over. It discovers available tools, selects the appropriate one, and executes it.
 3.  **This is a rather simple Implementation and may not result in the best results, a better way would be to alias each tool in each mcp and keep the context of other tools out of the context of the Tool-Using Agent to keep it from being context overwhelmed.
 
