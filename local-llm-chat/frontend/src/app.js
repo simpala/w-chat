@@ -61,6 +61,7 @@ export const ArtifactType = {
     MCP_MANAGER: "MCP_MANAGER",
     LOG_VIEW: "LOG_VIEW",
     LLAMA_UPDATER: "LLAMA_UPDATER",
+    THREEJS: "THREEJS",
     // Add other types as you define them in Go
 };
 // --- END NEW: Artifact Type Constants ---
@@ -153,7 +154,15 @@ function renderArtifacts() {
             iframe.style.height = '300px';
             iframe.style.border = 'none';
             artifactItem.appendChild(iframe);
+        } else if (artifact.type === ArtifactType.THREEJS) {
+            const iframe = document.createElement('iframe');
+            iframe.src = "/threejs-template.html";
+            iframe.style.width = '100%';
+            iframe.style.height = '300px';
+            iframe.style.border = 'none';
+            artifactItem.appendChild(iframe);
         }
+
 
         artifactsListElement.appendChild(artifactItem);
     });
@@ -809,6 +818,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const settingsToggleButton = document.getElementById('settingsToggleButton');
     const mcpManagerButton = document.getElementById('mcpManagerButton');
+    const threejsTemplateButton = document.getElementById('threejs-template');
     const toggleDebugButton = document.getElementById('toggleDebugButton');
     const rightSidebar = document.querySelector('.sidebar-container.right');
     const artifactsPanel = document.getElementById('artifactsPanel');
@@ -839,6 +849,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (mcpManagerButton) {
         mcpManagerButton.addEventListener('click', createMcpManagerArtifact);
+    }
+
+    if (threejsTemplateButton) {
+        threejsTemplateButton.addEventListener('click', () => {
+            if (currentSessionId) {
+                AddArtifact(String(currentSessionId), ArtifactType.THREEJS, "Three.js Scene", "");
+            } else {
+                addMessageToChatWindow('system', 'Please select a session before rendering a Three.js scene.');
+            }
+        });
     }
 
     const llamaUpdaterButton = document.getElementById('llamaUpdaterButton');

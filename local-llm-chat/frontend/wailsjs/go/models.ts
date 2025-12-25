@@ -7,8 +7,7 @@ export namespace artifacts {
 	    content_path: string;
 	    url: string;
 	    metadata: Record<string, any>;
-	    // Go type: time
-	    timestamp: any;
+	    timestamp: string;
 	    is_persistent: boolean;
 	
 	    static createFrom(source: any = {}) {
@@ -23,33 +22,33 @@ export namespace artifacts {
 	        this.content_path = source["content_path"];
 	        this.url = source["url"];
 	        this.metadata = source["metadata"];
-	        this.timestamp = this.convertValues(source["timestamp"], null);
+	        this.timestamp = source["timestamp"];
 	        this.is_persistent = source["is_persistent"];
 	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
 	}
 
 }
 
 export namespace main {
 	
+	export class Asset {
+	    name: string;
+	    browser_download_url: string;
+	    size: number;
+	    human_size: string;
+
+	    static createFrom(source: any = {}) {
+	        return new Asset(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.browser_download_url = source["browser_download_url"];
+	        this.size = source["size"];
+	        this.human_size = source["human_size"];
+	    }
+	}
 	export class ChatMessage {
 	    role: string;
 	    content: string;
@@ -81,6 +80,88 @@ export namespace main {
 	        this.system_prompt = source["system_prompt"];
 	        this.created_at = source["created_at"];
 	    }
+	}
+	export class GitHubRelease {
+	    tag_name: string;
+	    name: string;
+	    assets: Asset[];
+
+	    static createFrom(source: any = {}) {
+	        return new GitHubRelease(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.tag_name = source["tag_name"];
+	        this.name = source["name"];
+	        this.assets = this.convertValues(source["assets"], Asset);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ToolInfo {
+	    name: string;
+	    description: string;
+	    enabled: boolean;
+
+	    static createFrom(source: any = {}) {
+	        return new ToolInfo(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.enabled = source["enabled"];
+	    }
+	}
+	export class McpServerState {
+	    name: string;
+	    tools: ToolInfo[];
+
+	    static createFrom(source: any = {}) {
+	        return new McpServerState(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.tools = this.convertValues(source["tools"], ToolInfo);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 
 }
