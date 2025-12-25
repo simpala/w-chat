@@ -71,8 +71,8 @@ func (s *ArtifactService) AddArtifact(sessionID string, artifactType ArtifactTyp
 	contentPath := "" // Initialize as empty, only set if it's a file type
 
 	var contentBytes []byte
-	// For IMAGE or VIDEO types, decode the base64 string and write to disk.
-	if artifactType == TypeImage || artifactType == TypeVideo {
+	// For IMAGE, VIDEO, or THREEJS types, decode the base64 string and write to disk.
+	if artifactType == TypeImage || artifactType == TypeVideo || artifactType == TypeThreejs {
 		decoded, decodeErr := base64.StdEncoding.DecodeString(contentBase64)
 		if decodeErr != nil {
 			log.Printf("ArtifactService: AddArtifact: Failed to decode artifact content (invalid base64 for type %s): %v", artifactType, decodeErr)
@@ -109,8 +109,13 @@ func (s *ArtifactService) AddArtifact(sessionID string, artifactType ArtifactTyp
 
 	// Populate metadata based on type
 	metadata := make(map[string]interface{})
-	metadata["file_name"] = name // Critical for frontend rendering (for file types)
-	if artifactType == TypeImage || artifactType == TypeVideo {
+	if artifactType == TypeThreejs {
+		// For Three.js, we use a fixed filename, as the content is ephemeral
+		metadata["file_name"] = "threejs_scene.html"
+	} else {
+		metadata["file_name"] = name // Critical for frontend rendering (for file types)
+	}
+	if artifactType == TypeImage || artifactType == TypeVideo || artifactType == TypeThreejs {
 		metadata["size_bytes"] = len(contentBytes)
 	} else if artifactType == TypeToolNotification {
 		metadata["message"] = contentBase64 // The 'contentBase64' param is the message for this type

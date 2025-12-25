@@ -156,7 +156,8 @@ function renderArtifacts() {
             artifactItem.appendChild(iframe);
         } else if (artifact.type === ArtifactType.THREEJS) {
             const iframe = document.createElement('iframe');
-            iframe.src = "/threejs-template.html";
+            // Use the artifact's URL if it exists, otherwise default to the template.
+            iframe.src = artifact.url ? artifact.url : "/threejs-template.html";
             iframe.style.width = '100%';
             iframe.style.height = '300px';
             iframe.style.border = 'none';
@@ -229,6 +230,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button class="copy-code-button">Copy</button>
                     </div>
                 `;
+            }
+            if (language === 'threejs-html') {
+                // Don't render this in the chat window.
+                return '';
             }
             return `<pre><code>${code}</code></pre>`;
         };
@@ -736,6 +741,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!lastMessageBubble.querySelector('.thought-block')) {
                  updateThinkingProcess(lastMessageBubble, thought);
             }
+        }
+
+        const threejsHtmlRegex = /```threejs-html\n([\s\S]*?)```/;
+        const threejsMatch = threejsHtmlRegex.exec(currentFullResponse);
+
+        if (threejsMatch && threejsMatch[1]) {
+            const htmlContent = threejsMatch[1].trim();
+            // The btoa function encodes a string in base-64. We also handle potential unicode characters.
+            const base64Content = btoa(unescape(encodeURIComponent(htmlContent)));
+            AddArtifact(String(currentSessionId), ArtifactType.THREEJS, "Generated Three.js Scene", base64Content);
+
+            // Replace the code block with a user-friendly message
+            currentFullResponse = currentFullResponse.replace(threejsHtmlRegex, "\n\n*A `three.js` scene was generated and has been added to the artifacts panel.*");
         }
 
         mainContentContainer.innerHTML = marked.parse(currentFullResponse);

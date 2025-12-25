@@ -1,0 +1,54 @@
+[0;92mWails CLI[0m [0;31mv2.11.0[0m
+
+[0;92mExecuting: go mod tidy[0m
+  [90m[90m•[0m[0m [39m[39mGenerating bindings: [0m[0mDone.
+  [90m[90m•[0m[0m [39m[39mInstalling frontend dependencies: [0m[0mDone.
+  [90m[90m•[0m[0m [39m[39mCompiling frontend: [0m[0mDone.
+
+> frontend@0.0.0 dev
+> vite
+
+Port 5173 is in use, trying another one...
+
+  VITE v3.2.11  ready in 276 ms
+
+[0;92mVite Server URL: http://localhost:5174/[0m
+  ➜  Local:   http://localhost:5174/
+  ➜  Network: use --host to expose
+[0;92mRunning frontend DevWatcher command: 'npm run dev'[0m
+Building application for development...
+  [90m[90m•[0m[0m [39m[39mGenerating bindings: [0m[0mDone.
+  [90m[90m•[0m[0m [39m[39mCompiling application: [0m[0mDone.
+  [90m[90m•[0m[0m [39m[39mPackaging application: [0m[0mDone.
+
+[0;92mUsing DevServer URL: http://localhost:34115[0m
+[0;92mUsing Frontend DevServer URL: http://localhost:5174/[0m
+[0;92mUsing reload debounce setting of 100 milliseconds[0m
+INF | Serving assets from frontend DevServer URL: http://localhost:5174/
+[0;92mWatching (sub)/directory: /app/local-llm-chat[0m
+[0;92m
+Caught quit[0m
+panic: failed to init GTK
+
+goroutine 1 [running, locked to thread]:
+github.com/wailsapp/wails/v2/internal/frontend/desktop/linux.NewFrontend.func1()
+	/home/jules/go/pkg/mod/github.com/wailsapp/wails/v2@v2.11.0/internal/frontend/desktop/linux/frontend.go:150 +0x307
+sync.(*Once).doSlow(0x1ce4fd0, 0x15eeec8)
+	/usr/local/go/src/sync/once.go:78 +0x168
+sync.(*Once).Do(0x1ce4fd0, 0x15eeec8)
+	/usr/local/go/src/sync/once.go:69 +0x3e
+github.com/wailsapp/wails/v2/internal/frontend/desktop/linux.NewFrontend({0x1643938, 0xc00021aab0}, 0xc00012e000, 0xc000130000, 0xc0001322a0, {0x163f940, 0xc000137180})
+	/home/jules/go/pkg/mod/github.com/wailsapp/wails/v2@v2.11.0/internal/frontend/desktop/linux/frontend.go:141 +0x71
+github.com/wailsapp/wails/v2/internal/frontend/desktop.NewFrontend({0x1643938, 0xc00021aab0}, 0xc00012e000, 0xc000130000, 0xc0001322a0, {0x163f940, 0xc000137180})
+	/home/jules/go/pkg/mod/github.com/wailsapp/wails/v2@v2.11.0/internal/frontend/desktop/desktop_linux.go:16 +0x7b
+github.com/wailsapp/wails/v2/internal/app.CreateApp(0xc00012e000)
+	/home/jules/go/pkg/mod/github.com/wailsapp/wails/v2@v2.11.0/internal/app/app_dev.go:229 +0x1a9f
+github.com/wailsapp/wails/v2/pkg/application.(*Application).Run(0xc0001240c0)
+	/home/jules/go/pkg/mod/github.com/wailsapp/wails/v2@v2.11.0/pkg/application/application.go:58 +0x72
+github.com/wailsapp/wails/v2.Run(0xc00012e000)
+	/home/jules/go/pkg/mod/github.com/wailsapp/wails/v2@v2.11.0/wails.go:14 +0x2f
+main.main()
+	/app/local-llm-chat/main.go:50 +0xade
+[0;92mDevelopment mode exited[0m
+[31;107m[31;107m ♥  [0m[0m [92m[92mIf Wails is useful to you or your company, please consider sponsoring the project:[0m[0m
+https://github.com/sponsors/leaanthony
