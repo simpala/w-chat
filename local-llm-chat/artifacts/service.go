@@ -66,8 +66,13 @@ func (s *ArtifactService) AddArtifact(sessionID string, artifactType ArtifactTyp
 	defer s.mu.Unlock()
 
 	id := uuid.New().String()
-	// Use a clean filename for the stored artifact. Append a UUID for uniqueness.
-	storedFileName := fmt.Sprintf("%s_%s_%s", sessionID, id, filepath.Base(name))
+	var storedFileName string
+	if artifactType == TypeThreejs {
+		storedFileName = fmt.Sprintf("%s.html", id)
+	} else {
+		// Use a clean filename for the stored artifact. Append a UUID for uniqueness.
+		storedFileName = fmt.Sprintf("%s_%s_%s", sessionID, id, filepath.Base(name))
+	}
 	contentPath := "" // Initialize as empty, only set if it's a file type
 
 	var contentBytes []byte
