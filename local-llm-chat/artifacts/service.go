@@ -77,7 +77,7 @@ func (s *ArtifactService) AddArtifact(sessionID string, artifactType ArtifactTyp
 
 	var contentBytes []byte
 	// For IMAGE, VIDEO, or THREEJS types, decode the base64 string and write to disk.
-	if artifactType == TypeImage || artifactType == TypeVideo || artifactType == TypeThreejs {
+	if artifactType == TypeImage || artifactType == TypeVideo || (artifactType == TypeThreejs && contentBase64 != "") {
 		decoded, decodeErr := base64.StdEncoding.DecodeString(contentBase64)
 		if decodeErr != nil {
 			log.Printf("ArtifactService: AddArtifact: Failed to decode artifact content (invalid base64 for type %s): %v", artifactType, decodeErr)
