@@ -640,7 +640,24 @@ document.addEventListener('DOMContentLoaded', () => {
     EventsOn("chat-stream", function(data) {
         if (data === null) {
             clearTimeout(debounceTimer);
-            updateAssistantMessageUI(messages[messages.length - 1].content);
+            let finalContent = messages[messages.length - 1].content;
+
+            // --- NEW: Handle three.js artifact creation on stream completion ---
+            const threejsHtmlRegex = /```threejs-html\n([\s\S]*?)```/;
+            const threejsMatch = threejsHtmlRegex.exec(finalContent);
+
+            if (threejsMatch && threejsMatch[1]) {
+                const htmlContent = threejsMatch[1].trim();
+                const base64Content = btoa(htmlContent); // Simplified Base64 encoding
+                AddArtifact(String(currentSessionId), ArtifactType.THREEJS, "Generated Three.js Scene", base64Content);
+
+                // Replace the code block with a user-friendly message
+                finalContent = finalContent.replace(threejsHtmlRegex, "\n\n*A `three.js` scene was generated and has been added to the artifacts panel.*");
+                messages[messages.length - 1].content = finalContent; // Update the message content
+            }
+            // --- END NEW ---
+
+            updateAssistantMessageUI(finalContent);
             isStreaming = false;
             sendButton.style.display = 'block';
             stopButton.style.display = 'none';
@@ -741,19 +758,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!lastMessageBubble.querySelector('.thought-block')) {
                  updateThinkingProcess(lastMessageBubble, thought);
             }
-        }
-
-        const threejsHtmlRegex = /```threejs-html\n([\s\S]*?)```/;
-        const threejsMatch = threejsHtmlRegex.exec(currentFullResponse);
-
-        if (threejsMatch && threejsMatch[1]) {
-            const htmlContent = threejsMatch[1].trim();
-            // The btoa function encodes a string in base-64. We also handle potential unicode characters.
-            const base64Content = btoa(unescape(encodeURIComponent(htmlContent)));
-            AddArtifact(String(currentSessionId), ArtifactType.THREEJS, "Generated Three.js Scene", base64Content);
-
-            // Replace the code block with a user-friendly message
-            currentFullResponse = currentFullResponse.replace(threejsHtmlRegex, "\n\n*A `three.js` scene was generated and has been added to the artifacts panel.*");
         }
 
         mainContentContainer.innerHTML = marked.parse(currentFullResponse);
