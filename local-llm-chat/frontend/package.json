@@ -15,6 +15,7 @@
     "vite": "^3.0.7"
   },
   "dependencies": {
-    "mermaid": "^10.9.1"
+    "mermaid": "^10.9.1",
+    "three": "^0.182.0"
   }
 }

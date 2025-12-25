@@ -1,0 +1,46 @@
+[0;92mWails CLI[0m [0;31mv2.11.0[0m
+
+
+# [1;33m[1;33mBuild Options[0m
+[1;33m[0m[0m
+Platform(s)       [90m[90m | [0m[0mlinux/amd64
+Compiler          [90m[90m | [0m[0m/usr/local/go/bin/go
+Skip Bindings     [90m[90m | [0m[0mfalse
+Build Mode        [90m[90m | [0m[0mproduction
+Devtools          [90m[90m | [0m[0mfalse
+Frontend Directory[90m[90m | [0m[0m/app/local-llm-chat/frontend
+Obfuscated        [90m[90m | [0m[0mfalse
+Skip Frontend     [90m[90m | [0m[0mfalse
+Compress          [90m[90m | [0m[0mfalse
+Package           [90m[90m | [0m[0mtrue
+Clean Bin Dir     [90m[90m | [0m[0mfalse
+LDFlags           [90m[90m | [0m[0m
+Tags              [90m[90m | [0m[0m[]
+Race Detector     [90m[90m | [0m[0mfalse
+
+Warning: go.mod is using Wails '2.10.2' but the CLI is 'v2.11.0'. Consider updating your project's `go.mod` file.
+
+
+# [1;33m[1;33mBuilding target: linux/amd64[0m
+[1;33m[0m[0m
+  [90m[90m•[0m[0m [39m[39mGenerating bindings: [0m[0mDone.
+  [90m[90m•[0m[0m [39m[39mInstalling frontend dependencies: [0m[0mDone.
+  [90m[90m•[0m[0m [39m[39mCompiling frontend: [0m[0mDone.
+  [90m[90m•[0m[0m [39m[39mCompiling application: [0m[0m# github.com/wailsapp/wails/v2/pkg/assetserver/webview
+# [pkg-config --cflags  -- gtk+-3.0 gio-unix-2.0 webkit2gtk-4.0 gtk+-3.0 gio-unix-2.0 webkit2gtk-4.0 gtk+-3.0 webkit2gtk-4.0]
+Package gtk+-3.0 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `gtk+-3.0.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'gtk+-3.0', required by 'virtual:world', not found
+Package 'gio-unix-2.0', required by 'virtual:world', not found
+Package 'webkit2gtk-4.0', required by 'virtual:world', not found
+Package 'gtk+-3.0', required by 'virtual:world', not found
+Package 'gio-unix-2.0', required by 'virtual:world', not found
+Package 'webkit2gtk-4.0', required by 'virtual:world', not found
+Package 'gtk+-3.0', required by 'virtual:world', not found
+Package 'webkit2gtk-4.0', required by 'virtual:world', not found
+[30;101m[30;101m  ERROR  [0m[0m [91m[91mexit status 1[0m[0m
+
+[30;101m[30;101m  ERROR  [0m[0m [91m[91mexit status 1[0m[0m
+[31;107m[31;107m ♥  [0m[0m [92m[92mIf Wails is useful to you or your company, please consider sponsoring the project:[0m[0m
+https://github.com/sponsors/leaanthony

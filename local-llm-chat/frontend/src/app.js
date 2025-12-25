@@ -61,6 +61,7 @@ export const ArtifactType = {
     MCP_MANAGER: "MCP_MANAGER",
     LOG_VIEW: "LOG_VIEW",
     LLAMA_UPDATER: "LLAMA_UPDATER",
+    THREEJS: "THREEJS",
     // Add other types as you define them in Go
 };
 // --- END NEW: Artifact Type Constants ---
@@ -153,7 +154,16 @@ function renderArtifacts() {
             iframe.style.height = '300px';
             iframe.style.border = 'none';
             artifactItem.appendChild(iframe);
+        } else if (artifact.type === ArtifactType.THREEJS) {
+            const iframe = document.createElement('iframe');
+            // Use the artifact's URL if it exists, otherwise default to the template.
+            iframe.src = artifact.url ? artifact.url : "/threejs-template.html";
+            iframe.style.width = '100%';
+            iframe.style.height = '300px';
+            iframe.style.border = 'none';
+            artifactItem.appendChild(iframe);
         }
+
 
         artifactsListElement.appendChild(artifactItem);
     });
@@ -220,6 +230,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button class="copy-code-button">Copy</button>
                     </div>
                 `;
+            }
+            if (language === 'threejs-html') {
+                // Don't render this in the chat window.
+                return '';
             }
             return `<pre><code>${code}</code></pre>`;
         };
@@ -626,7 +640,24 @@ document.addEventListener('DOMContentLoaded', () => {
     EventsOn("chat-stream", function(data) {
         if (data === null) {
             clearTimeout(debounceTimer);
-            updateAssistantMessageUI(messages[messages.length - 1].content);
+            let finalContent = messages[messages.length - 1].content;
+
+            // --- NEW: Handle three.js artifact creation on stream completion ---
+            const threejsHtmlRegex = /```threejs-html\n([\s\S]*?)```/;
+            const threejsMatch = threejsHtmlRegex.exec(finalContent);
+
+            if (threejsMatch && threejsMatch[1]) {
+                const htmlContent = threejsMatch[1].trim();
+                const base64Content = btoa(htmlContent); // Simplified Base64 encoding
+                AddArtifact(String(currentSessionId), ArtifactType.THREEJS, "Generated Three.js Scene", base64Content);
+
+                // Replace the code block with a user-friendly message
+                finalContent = finalContent.replace(threejsHtmlRegex, "\n\n*A `three.js` scene was generated and has been added to the artifacts panel.*");
+                messages[messages.length - 1].content = finalContent; // Update the message content
+            }
+            // --- END NEW ---
+
+            updateAssistantMessageUI(finalContent);
             isStreaming = false;
             sendButton.style.display = 'block';
             stopButton.style.display = 'none';
@@ -809,6 +840,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const settingsToggleButton = document.getElementById('settingsToggleButton');
     const mcpManagerButton = document.getElementById('mcpManagerButton');
+    const threejsTemplateButton = document.getElementById('threejs-template');
     const toggleDebugButton = document.getElementById('toggleDebugButton');
     const rightSidebar = document.querySelector('.sidebar-container.right');
     const artifactsPanel = document.getElementById('artifactsPanel');
@@ -839,6 +871,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (mcpManagerButton) {
         mcpManagerButton.addEventListener('click', createMcpManagerArtifact);
+    }
+
+    if (threejsTemplateButton) {
+        threejsTemplateButton.addEventListener('click', () => {
+            if (currentSessionId) {
+                AddArtifact(String(currentSessionId), ArtifactType.THREEJS, "Three.js Scene", "");
+            } else {
+                addMessageToChatWindow('system', 'Please select a session before rendering a Three.js scene.');
+            }
+        });
     }
 
     const llamaUpdaterButton = document.getElementById('llamaUpdaterButton');

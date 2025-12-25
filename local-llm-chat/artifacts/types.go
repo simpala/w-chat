@@ -21,4 +21,7 @@ const (
 	TypeVideo            ArtifactType = "VIDEO"
 	TypeToolNotification ArtifactType = "TOOL_NOTIFICATION"
 	TypeLogView          ArtifactType = "LOG_VIEW"
+	TypeMcpManager       ArtifactType = "MCP_MANAGER"
+	TypeLlamaUpdater     ArtifactType = "LLAMA_UPDATER"
+	TypeThreejs          ArtifactType = "THREEJS"
 )
