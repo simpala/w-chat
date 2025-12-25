@@ -64,24 +64,39 @@ func (r *Router) NeedsTools(userQuery string) (bool, error) {
 func (r *Router) GetToolManifestSchema() (map[string]interface{}, error) {
 	var toolSchemas []map[string]interface{}
 
+	// Add internal tools
+	for _, tool := range GetInternalTools() {
+		toolSchema := map[string]interface{}{
+			"type":        "object",
+			"description": tool.Description,
+			"properties": map[string]interface{}{
+				"tool_name": map[string]interface{}{
+					"type":  "string",
+					"const": tool.Name,
+				},
+				"arguments": tool.InputSchema,
+			},
+			"required": []string{"tool_name", "arguments"},
+		}
+		toolSchemas = append(toolSchemas, toolSchema)
+	}
+
 	for _, client := range r.app.mcpClients {
 		if client == nil {
 			continue
 		}
-		// Use the new method to get only enabled tools
 		tools := client.GetEnabledTools()
 
 		for _, tool := range tools {
-			// For each tool, create a specific schema object
 			toolSchema := map[string]interface{}{
 				"type":        "object",
-				"description": tool.Description, // Add the tool description here
+				"description": tool.Description,
 				"properties": map[string]interface{}{
 					"tool_name": map[string]interface{}{
 						"type":  "string",
-						"const": tool.Name, // Use const to enforce this exact tool name
+						"const": tool.Name,
 					},
-					"arguments": tool.InputSchema, // Use the schema provided by the tool
+					"arguments": tool.InputSchema,
 				},
 				"required": []string{"tool_name", "arguments"},
 			}
@@ -89,12 +104,10 @@ func (r *Router) GetToolManifestSchema() (map[string]interface{}, error) {
 		}
 	}
 
-	// The final schema uses "oneOf" to give the LLM a choice between the different tool schemas
 	finalSchema := map[string]interface{}{
 		"oneOf": toolSchemas,
 	}
 
-	// Log the generated schema for debugging
 	schemaBytes, err := json.MarshalIndent(finalSchema, "", "  ")
 	if err == nil {
 		wailsruntime.LogInfof(r.app.ctx, "Generated Harmony Tool Schema:\n%s", string(schemaBytes))
@@ -109,20 +122,29 @@ func (r *Router) GetToolManifestText() (string, error) {
 	manifestBuilder.WriteString("You have access to the following tools. To use a tool, you must respond with a JSON object with 'tool_name' and 'arguments' keys.\n\n")
 	manifestBuilder.WriteString("Available Tools:\n")
 
+	// Add internal tools
+	for _, tool := range GetInternalTools() {
+		manifestBuilder.WriteString(fmt.Sprintf("- Tool: %s\n", tool.Name))
+		manifestBuilder.WriteString(fmt.Sprintf("  Description: %s\n", tool.Description))
+		schemaBytes, err := json.MarshalIndent(tool.InputSchema, "  ", "  ")
+		if err == nil {
+			if string(schemaBytes) != "{}" {
+				manifestBuilder.WriteString(fmt.Sprintf("  Arguments Schema:\n  %s\n", string(schemaBytes)))
+			}
+		}
+	}
+
 	for _, client := range r.app.mcpClients {
 		if client == nil {
 			continue
 		}
-		// Use the new method to get only enabled tools
 		tools := client.GetEnabledTools()
 
 		for _, tool := range tools {
 			manifestBuilder.WriteString(fmt.Sprintf("- Tool: %s\n", tool.Name))
 			manifestBuilder.WriteString(fmt.Sprintf("  Description: %s\n", tool.Description))
-			// Attempt to add argument details from the InputSchema
 			schemaBytes, err := json.MarshalIndent(tool.InputSchema, "  ", "  ")
 			if err == nil {
-				// Add the schema to the prompt only if it's not an empty object
 				if string(schemaBytes) != "{}" {
 					manifestBuilder.WriteString(fmt.Sprintf("  Arguments Schema:\n  %s\n", string(schemaBytes)))
 				}
@@ -140,7 +162,7 @@ type ToolCall struct {
 }
 
 // ExecuteToolCall parses a tool call from the LLM, executes it, and returns the result.
-func (r *Router) ExecuteToolCall(toolCallJSON string) (*mcp.CallToolResult, error) {
+func (r *Router) ExecuteToolCall(sessionID int64, toolCallJSON string) (*mcp.CallToolResult, error) {
 	var toolCall ToolCall
 	err := json.Unmarshal([]byte(toolCallJSON), &toolCall)
 	if err != nil {
@@ -159,16 +181,37 @@ func (r *Router) ExecuteToolCall(toolCallJSON string) (*mcp.CallToolResult, erro
 
 	wailsruntime.LogInfof(r.app.ctx, "Executing tool call: %s with args: %+v", toolCall.ToolName, toolCall.Arguments)
 
+	// Check if it's an internal tool
+	for _, tool := range GetInternalTools() {
+		if tool.Name == toolCall.ToolName {
+			result, err := r.app.ExecuteInternalTool(sessionID, tool.Name, toolCall.Arguments)
+			if err != nil {
+				return nil, err
+			}
+			r.lastToolCallTime[tool.Name] = time.Now()
+			// Convert the result to a mcp.CallToolResult
+			resultBytes, err := json.Marshal(result)
+			if err != nil {
+				return nil, err
+			}
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					mcp.TextContent{
+						Text: string(resultBytes),
+					},
+				},
+			}, nil
+		}
+	}
+
 	// Find the client that has the tool and execute it
 	for _, mcpClient := range r.app.mcpClients {
 		if mcpClient == nil {
 			continue
 		}
 
-		// Check against the cached list of all tools for the client
 		for _, tool := range mcpClient.Tools {
 			if tool.Name == toolCall.ToolName {
-				// Important: Check if the tool is enabled *before* executing
 				if !mcpClient.EnabledTools[tool.Name] {
 					return nil, fmt.Errorf("tool '%s' is currently disabled by the user", tool.Name)
 				}
@@ -177,7 +220,7 @@ func (r *Router) ExecuteToolCall(toolCallJSON string) (*mcp.CallToolResult, erro
 				if err != nil {
 					return nil, fmt.Errorf("failed to call tool %s: %w", tool.Name, err)
 				}
-				r.lastToolCallTime[toolCall.ToolName] = time.Now() // Update last call time
+				r.lastToolCallTime[toolCall.ToolName] = time.Now()
 				return result, nil
 			}
 		}

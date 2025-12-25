@@ -26,7 +26,7 @@ export namespace artifacts {
 	        this.timestamp = this.convertValues(source["timestamp"], null);
 	        this.is_persistent = source["is_persistent"];
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;

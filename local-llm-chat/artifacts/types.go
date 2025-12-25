@@ -21,4 +21,5 @@ const (
 	TypeVideo            ArtifactType = "VIDEO"
 	TypeToolNotification ArtifactType = "TOOL_NOTIFICATION"
 	TypeLogView          ArtifactType = "LOG_VIEW"
+	TypeHTMLViewer       ArtifactType = "HTML_VIEWER"
 )

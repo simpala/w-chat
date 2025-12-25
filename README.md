@@ -78,4 +78,46 @@ This agent workflow allows the application to be extended with new tools without
     this check box experimental to allow gpt-oss models to call tools via connected mcp servers, So far not impressed even Qwen .6b makes better decisions than gpt-oss 20b, but its there if you dare try.
 
 
+## Internal System Tools
+
+The application includes a set of built-in tools that can be called by the LLM or other tools to control the UI.
+
+### `create_html_viewer`
+
+Creates a new HTML viewer artifact in the side panel.
+
+*   **Parameters:**
+    *   `name` (string): The title of the HTML viewer artifact.
+*   **Returns:**
+    *   `artifact_id` (string): The unique ID of the new artifact.
+
+*   **Example JSON Call:**
+    ```json
+    {
+      "tool_name": "create_html_viewer",
+      "arguments": {
+        "name": "My Web Page"
+      }
+    }
+    ```
+
+### `update_html_viewer`
+
+Updates the content of an existing HTML viewer artifact.
+
+*   **Parameters:**
+    *   `artifact_id` (string): The ID of the viewer to update.
+    *   `html_content` (string): A string of the new HTML to display.
+
+*   **Example JSON Call:**
+    ```json
+    {
+      "tool_name": "update_html_viewer",
+      "arguments": {
+        "artifact_id": "YOUR_ARTIFACT_ID",
+        "html_content": "<h1>Hello, World!</h1>"
+      }
+    }
+    ```
+
 ![App Screenshot](screen_shot.png)

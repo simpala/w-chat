@@ -893,7 +893,7 @@ func (a *App) toolAgentChat(sessionId int64) {
 
 			wailsruntime.LogInfof(a.ctx, "Tool Agent: Detected tool call: %s", toolCallJSON)
 
-			result, err := a.router.ExecuteToolCall(toolCallJSON)
+			result, err := a.router.ExecuteToolCall(sessionId, toolCallJSON)
 			var toolResultContent string
 			if err != nil {
 				wailsruntime.LogErrorf(a.ctx, "Tool Agent: Error executing tool call: %v", err)
@@ -1243,4 +1243,11 @@ func (a *App) DeleteArtifact(artifactID string) error {
 		return fmt.Errorf("artifact service not initialized")
 	}
 	return a.ArtifactService.DeleteArtifact(artifactID)
+}
+
+func (a *App) UpdateHTMLViewerArtifact(artifactID string, content string) error {
+	if a.ArtifactService == nil {
+		return fmt.Errorf("artifact service not initialized")
+	}
+	return a.ArtifactService.UpdateHTMLViewerArtifact(artifactID, content)
 }
