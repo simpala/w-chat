@@ -893,7 +893,7 @@ func (a *App) toolAgentChat(sessionId int64) {
 
 			wailsruntime.LogInfof(a.ctx, "Tool Agent: Detected tool call: %s", toolCallJSON)
 
-			result, err := a.router.ExecuteToolCall(toolCallJSON)
+			result, err := a.router.ExecuteToolCall(sessionId, toolCallJSON)
 			var toolResultContent string
 			if err != nil {
 				wailsruntime.LogErrorf(a.ctx, "Tool Agent: Error executing tool call: %v", err)

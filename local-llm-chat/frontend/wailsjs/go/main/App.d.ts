@@ -13,12 +13,6 @@ export function DeleteChatSession(arg1:number):Promise<void>;
 
 export function DisconnectMcpClient(arg1:string):Promise<void>;
 
-export function DownloadLlamaCppAsset(arg1:string,arg2:string,arg3:string):Promise<void>;
-
-export function FetchLlamaCppReleases():Promise<Array<main.GitHubRelease>>;
-
-export function GetMcpServerState(arg1:string):Promise<main.McpServerState>;
-
 export function GetMcpServers():Promise<string>;
 
 export function GetModels():Promise<Array<string>>;
@@ -33,7 +27,7 @@ export function HealthCheck():Promise<string>;
 
 export function IsLLMLoaded():Promise<boolean>;
 
-export function LaunchLLM(arg1:string,arg2:string):Promise<string>;
+export function LaunchLLM(arg1:string):Promise<string>;
 
 export function ListArtifacts(arg1:string):Promise<Array<artifacts.Artifact>>;
 
@@ -47,8 +41,6 @@ export function NewChat(arg1:string):Promise<number>;
 
 export function SaveSettings(arg1:string):Promise<void>;
 
-export function SetMcpToolEnabled(arg1:string,arg2:string,arg3:boolean):Promise<void>;
-
 export function ShutdownLLM():Promise<void>;
 
 export function SpawnMcpServer(arg1:string,arg2:string,arg3:Array<string>,arg4:Record<string, string>):Promise<string>;
@@ -56,5 +48,3 @@ export function SpawnMcpServer(arg1:string,arg2:string,arg3:Array<string>,arg4:R
 export function StopStream(arg1:number):Promise<void>;
 
 export function UpdateChatSystemPrompt(arg1:number,arg2:string):Promise<void>;
-
-export function UpdateHTMLViewerArtifact(arg1:string,arg2:string):Promise<void>;

@@ -22,18 +22,6 @@ export function DisconnectMcpClient(arg1) {
   return window['go']['main']['App']['DisconnectMcpClient'](arg1);
 }
 
-export function DownloadLlamaCppAsset(arg1, arg2, arg3) {
-  return window['go']['main']['App']['DownloadLlamaCppAsset'](arg1, arg2, arg3);
-}
-
-export function FetchLlamaCppReleases() {
-  return window['go']['main']['App']['FetchLlamaCppReleases']();
-}
-
-export function GetMcpServerState(arg1) {
-  return window['go']['main']['App']['GetMcpServerState'](arg1);
-}
-
 export function GetMcpServers() {
   return window['go']['main']['App']['GetMcpServers']();
 }
@@ -62,8 +50,8 @@ export function IsLLMLoaded() {
   return window['go']['main']['App']['IsLLMLoaded']();
 }
 
-export function LaunchLLM(arg1, arg2) {
-  return window['go']['main']['App']['LaunchLLM'](arg1, arg2);
+export function LaunchLLM(arg1) {
+  return window['go']['main']['App']['LaunchLLM'](arg1);
 }
 
 export function ListArtifacts(arg1) {
@@ -90,10 +78,6 @@ export function SaveSettings(arg1) {
   return window['go']['main']['App']['SaveSettings'](arg1);
 }
 
-export function SetMcpToolEnabled(arg1, arg2, arg3) {
-  return window['go']['main']['App']['SetMcpToolEnabled'](arg1, arg2, arg3);
-}
-
 export function ShutdownLLM() {
   return window['go']['main']['App']['ShutdownLLM']();
 }
@@ -108,8 +92,4 @@ export function StopStream(arg1) {
 
 export function UpdateChatSystemPrompt(arg1, arg2) {
   return window['go']['main']['App']['UpdateChatSystemPrompt'](arg1, arg2);
-}
-
-export function UpdateHTMLViewerArtifact(arg1, arg2) {
-  return window['go']['main']['App']['UpdateHTMLViewerArtifact'](arg1, arg2);
 }

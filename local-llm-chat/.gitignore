@@ -1,1 +1,7 @@
+build/bin
+node_modules
+frontend/dist
+local-llm-chat
 *.log
+chat.db
+config.json

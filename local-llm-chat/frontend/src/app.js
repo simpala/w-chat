@@ -160,7 +160,7 @@ function renderArtifacts() {
             artifactItem.appendChild(maximizeButton);
 
             const iframe = document.createElement('iframe');
-            iframe.setAttribute('srcdoc', (artifact.metadata && artifact.metadata.content) || '<html><body><p>No content loaded.</p></body></html>');
+            iframe.setAttribute('srcdoc', artifact.content || '<html><body><p>No content loaded.</p></body></html>');
             iframe.style.width = '100%';
             iframe.style.height = '100%';
             iframe.style.border = 'none';
