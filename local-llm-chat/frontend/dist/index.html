@@ -23,8 +23,8 @@
             }
         }
     </script>
-  <script type="module" crossorigin src="./assets/main.4edfcc20.js"></script>
-  <link rel="stylesheet" href="./assets/index.9714d948.css">
+  <script type="module" crossorigin src="./assets/main.3483be08.js"></script>
+  <link rel="stylesheet" href="./assets/index.442b278c.css">
 </head>
 <body>
     <div class="settings-toggle-container">
@@ -55,11 +55,16 @@
                 <button id="sendButton">Send</button>
                 <button id="stopButton" style="display: none;">Stop</button>
             </div>
+            <div class="footer">
+                <div id="token-counter" class="token-counter"></div>
+                <div id="session-token-total" class="token-counter"></div>
+            </div>
         </div>
         <div class="artifacts-panel" id="artifactsPanel">
             <div class="resize-handle"></div> <div class="artifacts-header">
                 <h3>Artifacts</h3>
                 <div class="artifact-actions">
+                    <button id="llamaUpdaterButton" title="Llama.cpp Updater"><img src="./assets/llama_logo.7e353caa.svg" alt="Llama.cpp Updater" class="icon" /></button>
                     <button id="mcpManagerButton" title="MCP Manager">🌐</button>
                     <button id="toggleLogViewButton" title="Toggle Log View">📜</button>
                 </div>
@@ -80,7 +85,18 @@
                 </div>
                 <textarea id="chatModelArgs" placeholder="Chat Model Arguments..."></textarea>
                 <button id="launchLLMButton">Launch LLM Model</button>
-
+                <div class="checkbox-container">
+                    <input type="checkbox" id="harmonyToolsCheckbox">
+                    <label for="harmonyToolsCheckbox">Use Harmony Format</label>
+                </div>
+                <div class="setting-item">
+                    <label for="toolCallIterationsSlider">Max Tool Iterations: <span id="toolCallIterationsValue">5</span></label>
+                    <input type="range" id="toolCallIterationsSlider" min="1" max="10" value="5">
+                </div>
+                <div class="setting-item">
+                    <label for="toolCallCooldownSlider">Tool Cooldown (s): <span id="toolCallCooldownValue">0</span></label>
+                    <input type="range" id="toolCallCooldownSlider" min="0" max="60" value="0">
+                </div>
                 <div class="speculative-element">
                     <div class="margin-bottom">
                         <label for="speculativeMainModelSelect">-m:</label>

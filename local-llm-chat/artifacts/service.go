@@ -114,6 +114,8 @@ func (s *ArtifactService) AddArtifact(sessionID string, artifactType ArtifactTyp
 		metadata["size_bytes"] = len(contentBytes)
 	} else if artifactType == TypeToolNotification {
 		metadata["message"] = contentBase64 // The 'contentBase64' param is the message for this type
+	} else if artifactType == TypeHTMLViewer {
+		metadata["content"] = contentBase64 // The 'contentBase64' param is the initial HTML content
 	}
 
 	artifact := &Artifact{
@@ -243,4 +245,36 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// UpdateHTMLViewerArtifact updates the content of an existing HTML viewer artifact.
+func (s *ArtifactService) UpdateHTMLViewerArtifact(id string, newContent string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	artifact, ok := s.artifacts[id]
+	if !ok {
+		return fmt.Errorf("artifact with ID %s not found", id)
+	}
+
+	if artifact.Type != TypeHTMLViewer {
+		return fmt.Errorf("artifact with ID %s is not an HTML_VIEWER type", id)
+	}
+
+	// For HTML viewers, the content is stored directly in the metadata.
+	if artifact.Metadata == nil {
+		artifact.Metadata = make(map[string]interface{})
+	}
+	artifact.Metadata["content"] = newContent
+	log.Printf("ArtifactService: Updated HTML viewer artifact: ID=%s", id)
+
+	// Notify the frontend of the update.
+	if s.ctx != nil {
+		runtime.EventsEmit(s.ctx, "html-viewer-update", map[string]interface{}{
+			"artifact_id": id,
+			"content":     newContent,
+		})
+	}
+
+	return nil
 }

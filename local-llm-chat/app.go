@@ -1244,3 +1244,10 @@ func (a *App) DeleteArtifact(artifactID string) error {
 	}
 	return a.ArtifactService.DeleteArtifact(artifactID)
 }
+
+func (a *App) UpdateHTMLViewerArtifact(artifactID string, content string) error {
+	if a.ArtifactService == nil {
+		return fmt.Errorf("artifact service not initialized")
+	}
+	return a.ArtifactService.UpdateHTMLViewerArtifact(artifactID, content)
+}

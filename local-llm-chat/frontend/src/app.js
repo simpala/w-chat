@@ -60,6 +60,7 @@ export const ArtifactType = {
     TOOL_NOTIFICATION: "TOOL_NOTIFICATION",
     MCP_MANAGER: "MCP_MANAGER",
     LOG_VIEW: "LOG_VIEW",
+    HTML_VIEWER: "HTML_VIEWER",
     LLAMA_UPDATER: "LLAMA_UPDATER",
     // Add other types as you define them in Go
 };
@@ -141,6 +142,30 @@ function renderArtifacts() {
             mcpManagerDiv.innerHTML = `<div class="mcp-server-list"></div>`;
             artifactItem.appendChild(mcpManagerDiv);
             setTimeout(renderMcpServers, 0);
+        } else if (artifact.type === ArtifactType.HTML_VIEWER) {
+            artifactItem.classList.add('html-viewer-artifact');
+
+            const maximizeButton = document.createElement('button');
+            maximizeButton.textContent = '⛶';
+            maximizeButton.title = 'Toggle Maximize';
+            maximizeButton.classList.add('maximize-artifact-button');
+            maximizeButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const panel = document.getElementById('artifactsPanel');
+                if (panel) {
+                    panel.classList.toggle('child-maximized');
+                }
+                artifactItem.classList.toggle('maximized');
+            });
+            artifactItem.appendChild(maximizeButton);
+
+            const iframe = document.createElement('iframe');
+            iframe.setAttribute('srcdoc', (artifact.metadata && artifact.metadata.content) || '<html><body><p>No content loaded.</p></body></html>');
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            iframe.sandbox = 'allow-scripts allow-same-origin';
+            artifactItem.appendChild(iframe);
         } else if (artifact.type === ArtifactType.LLAMA_UPDATER) {
             const llamaUpdaterDiv = document.createElement('div');
             llamaUpdaterDiv.id = 'llama-updater-content';
@@ -179,6 +204,15 @@ function handleArtifactDeleted(deletedArtifactID) {
 function setupArtifactEventListeners() {
     EventsOn("artifactAdded", handleArtifactAdded);
     EventsOn("artifactDeleted", handleArtifactDeleted);
+    EventsOn("html-viewer-update", (update) => {
+        const artifactElement = document.querySelector(`.artifact-item[data-id='${update.artifact_id}']`);
+        if (artifactElement) {
+            const iframe = artifactElement.querySelector('iframe');
+            if (iframe) {
+                iframe.setAttribute('srcdoc', update.content);
+            }
+        }
+    });
     console.log("DEBUG: Artifact event listeners setup.");
 }
 
